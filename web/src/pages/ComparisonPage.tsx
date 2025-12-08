@@ -11,6 +11,7 @@ interface PhotoPair {
     userId: string;
     userAge: number;
     userGender: string;
+    type: 'user' | 'sample';
   };
   rightPhoto: {
     id: string;
@@ -19,6 +20,7 @@ interface PhotoPair {
     userId: string;
     userAge: number;
     userGender: string;
+    type: 'user' | 'sample';
   };
 }
 
@@ -116,6 +118,10 @@ export const ComparisonPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       
+      // Determine winner and loser types
+      const winner = winnerId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
+      const loser = loserId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
+      
       const response = await fetch('/api/comparisons/submit', {
         method: 'POST',
         headers: {
@@ -123,8 +129,10 @@ export const ComparisonPage: React.FC = () => {
         },
         body: JSON.stringify({
           sessionId: currentPair.sessionId,
-          winnerPhotoId: winnerId,
-          loserPhotoId: loserId,
+          winnerId: winnerId,
+          loserId: loserId,
+          winnerType: winner.type,
+          loserType: loser.type,
           userId: user.id,
         }),
       });
@@ -143,12 +151,7 @@ export const ComparisonPage: React.FC = () => {
           fetchDailyProgress(),
         ]);
         
-        // Check if daily goal reached
-        if (dailyProgress && dailyProgress.comparisonsCompleted + 1 >= dailyProgress.dailyTarget) {
-          setTimeout(() => {
-            alert('🎉 Daily goal completed! Great job!');
-          }, 300);
-        }
+        // Daily goal completion handled by UI indicators (progress bar, etc.)
       } else {
         setError(data.error || 'Failed to submit comparison');
       }
@@ -286,21 +289,23 @@ export const ComparisonPage: React.FC = () => {
       {/* Main Comparison Area */}
       <main className="flex-1 flex items-center justify-center p-4">
         <PhotoComparisonCard
-          leftPhoto={{
+          topPhoto={{
             id: currentPair.leftPhoto.id,
             url: currentPair.leftPhoto.url.startsWith('http') 
               ? currentPair.leftPhoto.url 
               : `http://localhost:3001/api/user/photo/${currentPair.leftPhoto.url.split('/').pop()}`,
             userId: currentPair.leftPhoto.userId,
             age: currentPair.leftPhoto.userAge,
+            type: currentPair.leftPhoto.type,
           }}
-          rightPhoto={{
+          bottomPhoto={{
             id: currentPair.rightPhoto.id,
             url: currentPair.rightPhoto.url.startsWith('http') 
               ? currentPair.rightPhoto.url 
               : `http://localhost:3001/api/user/photo/${currentPair.rightPhoto.url.split('/').pop()}`,
             userId: currentPair.rightPhoto.userId,
             age: currentPair.rightPhoto.userAge,
+            type: currentPair.rightPhoto.type,
           }}
           onSelection={handleSelection}
           onSkip={handleSkip}
@@ -317,8 +322,8 @@ export const ComparisonPage: React.FC = () => {
           </p>
           <div className="flex justify-center space-x-6 text-xs text-gray-600">
             <span>👆 Tap to select</span>
-            <span>↔️ Swipe left/right</span>
-            <span>↑ Swipe up to skip</span>
+            <span>↕️ Swipe up/down</span>
+            <span>↔️ Swipe left/right to skip</span>
           </div>
         </div>
       </footer>

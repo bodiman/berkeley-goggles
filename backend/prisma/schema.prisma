@@ -121,8 +121,18 @@ model PercentileHistory {
 model Comparison {
   id               String   @id @default(cuid())
   raterId          String   @map("rater_id")
-  winnerPhotoId    String   @map("winner_photo_id")
-  loserPhotoId     String   @map("loser_photo_id")
+  
+  // For user photos (nullable when comparing sample images)
+  winnerPhotoId    String?  @map("winner_photo_id")
+  loserPhotoId     String?  @map("loser_photo_id")
+  
+  // For sample images (nullable when comparing user photos)
+  winnerSampleImageId String? @map("winner_sample_image_id")
+  loserSampleImageId  String? @map("loser_sample_image_id")
+  
+  // Comparison type to track what's being compared
+  comparisonType   String   @default("user_photos") @map("comparison_type") // "user_photos", "sample_images", "mixed"
+  
   sessionId        String   @map("session_id")
   reliabilityWeight Float   @default(1.0) @map("reliability_weight")
   timestamp        DateTime @default(now())
@@ -134,8 +144,10 @@ model Comparison {
   
   // Relations
   rater            User     @relation("RaterComparisons", fields: [raterId], references: [id])
-  winnerPhoto      Photo    @relation("WinnerComparisons", fields: [winnerPhotoId], references: [id])
-  loserPhoto       Photo    @relation("LoserComparisons", fields: [loserPhotoId], references: [id])
+  winnerPhoto      Photo?   @relation("WinnerComparisons", fields: [winnerPhotoId], references: [id])
+  loserPhoto       Photo?   @relation("LoserComparisons", fields: [loserPhotoId], references: [id])
+  winnerSampleImage SampleImage? @relation("WinnerSampleComparisons", fields: [winnerSampleImageId], references: [id])
+  loserSampleImage  SampleImage? @relation("LoserSampleComparisons", fields: [loserSampleImageId], references: [id])
   session          ComparisonSession @relation(fields: [sessionId], references: [id])
   
   @@map("comparisons")
@@ -185,4 +197,41 @@ model ModerationFlag {
   reviewedBy  String?   @map("reviewed_by")
   
   @@map("moderation_flags")
+}
+
+model SampleImage {
+  id              String      @id @default(cuid())
+  url             String
+  thumbnailUrl    String?     @map("thumbnail_url")
+  gender          String      // "male", "female", "other"
+  estimatedAge    Int         @map("estimated_age")
+  source          String      // "unsplash", "generated", "curated", etc.
+  description     String?     // Optional description of the image
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  lastUsed        DateTime?   @map("last_used")
+  
+  // Relations
+  ranking         SampleImageRanking?
+  winnerComparisons Comparison[] @relation("WinnerSampleComparisons")
+  loserComparisons  Comparison[] @relation("LoserSampleComparisons")
+  
+  @@map("sample_images")
+}
+
+model SampleImageRanking {
+  id                 String      @id @default(cuid())
+  sampleImageId      String      @unique @map("sample_image_id")
+  currentPercentile  Float       @default(50.0) @map("current_percentile")
+  totalComparisons   Int         @default(0) @map("total_comparisons")
+  wins               Int         @default(0)
+  losses             Int         @default(0)
+  bradleyTerryScore  Float       @default(0.5) @map("bradley_terry_score")
+  confidence         Float       @default(0.0)
+  lastUpdated        DateTime    @default(now()) @map("last_updated")
+  
+  // Relations
+  sampleImage        SampleImage @relation(fields: [sampleImageId], references: [id], onDelete: Cascade)
+  
+  @@map("sample_image_rankings")
 }

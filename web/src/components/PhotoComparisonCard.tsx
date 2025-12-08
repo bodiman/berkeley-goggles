@@ -7,11 +7,12 @@ interface Photo {
   url: string;
   userId: string;
   age?: number;
+  type?: 'user' | 'sample';
 }
 
 interface PhotoComparisonCardProps {
-  leftPhoto: Photo;
-  rightPhoto: Photo;
+  topPhoto: Photo;
+  bottomPhoto: Photo;
   onSelection: (winnerId: string, loserId: string) => void;
   onSkip: () => void;
   className?: string;
@@ -19,15 +20,16 @@ interface PhotoComparisonCardProps {
 }
 
 export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
-  leftPhoto,
-  rightPhoto,
+  topPhoto,
+  bottomPhoto,
   onSelection,
   onSkip,
   className = '',
   disabled = false,
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | 'up' | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
+  const [showInstructions, setShowInstructions] = useState(true);
 
   // Spring animation for the card
   const [{ x, y, rotateZ, opacity }, api] = useSpring(() => ({
@@ -67,18 +69,20 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
 
   // Drag gesture handler
   const bind = useDrag(
-    ({ active, movement: [mx, my], direction: [xDir], velocity: [vx, vy] }) => {
+    ({ active, movement: [mx, my], direction: [xDir, yDir], velocity: [vx, vy] }) => {
       if (disabled) return;
       
       // Determine swipe direction
       const isSwipeLeft = mx < -50;
       const isSwipeRight = mx > 50;
       const isSwipeUp = my < -50;
+      const isSwipeDown = my > 50;
       
       if (active) {
         // Update visual feedback during drag
         setSwipeDirection(
           isSwipeUp ? 'up' : 
+          isSwipeDown ? 'down' :
           isSwipeLeft ? 'left' : 
           isSwipeRight ? 'right' : 
           null
@@ -88,8 +92,8 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
         api.start({
           x: mx,
           y: my,
-          rotateZ: mx / 10, // Slight rotation based on horizontal movement
-          opacity: 1 - Math.abs(mx) / 200,
+          rotateZ: my / 10, // Slight rotation based on vertical movement
+          opacity: 1 - Math.abs(my) / 200,
           immediate: true,
         });
       } else {
@@ -99,32 +103,42 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
         const threshold = 80;
         const velocityThreshold = 0.5;
         
-        if (my < -threshold && vy < -velocityThreshold) {
-          // Swipe up to skip
+        if (my < -threshold || (vy < -velocityThreshold && my < -30)) {
+          // Swipe up - top photo wins
           api.start({ 
             y: -window.innerHeight, 
+            rotateZ: -15,
             opacity: 0,
             config: { tension: 200, friction: 20 }
           });
-          handleSkip();
+          handleSelection(topPhoto, bottomPhoto);
+        } else if (my > threshold || (vy > velocityThreshold && my > 30)) {
+          // Swipe down - bottom photo wins
+          api.start({ 
+            y: window.innerHeight, 
+            rotateZ: 15,
+            opacity: 0,
+            config: { tension: 200, friction: 20 }
+          });
+          handleSelection(bottomPhoto, topPhoto);
         } else if (mx < -threshold || (vx < -velocityThreshold && mx < -30)) {
-          // Swipe left - left photo wins
+          // Swipe left - skip
           api.start({ 
             x: -window.innerWidth, 
             rotateZ: -30, 
             opacity: 0,
             config: { tension: 200, friction: 20 }
           });
-          handleSelection(leftPhoto, rightPhoto);
+          handleSkip();
         } else if (mx > threshold || (vx > velocityThreshold && mx > 30)) {
-          // Swipe right - right photo wins
+          // Swipe right - skip
           api.start({ 
             x: window.innerWidth, 
             rotateZ: 30, 
             opacity: 0,
             config: { tension: 200, friction: 20 }
           });
-          handleSelection(rightPhoto, leftPhoto);
+          handleSkip();
         } else {
           // Snap back to center
           api.start({ x: 0, y: 0, rotateZ: 0, opacity: 1 });
@@ -158,15 +172,15 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
         }}
         className="photo-card w-full h-[70vh] cursor-grab active:cursor-grabbing gpu-accelerated"
       >
-        <div className="flex h-full gap-2 p-4">
-          {/* Left Photo */}
+        <div className="flex flex-col h-full gap-2 p-4">
+          {/* Top Photo */}
           <button
-            onClick={() => handleDirectSelection(leftPhoto, rightPhoto)}
+            onClick={() => handleDirectSelection(topPhoto, bottomPhoto)}
             className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
             disabled={isAnimating || disabled}
           >
             <img 
-              src={leftPhoto.url} 
+              src={topPhoto.url} 
               alt="Comparison option A"
               className="w-full h-full object-cover"
               loading="eager"
@@ -178,27 +192,34 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
               A
             </div>
             
+            {/* Sample Photo Indicator */}
+            {topPhoto.type === 'sample' && (
+              <div className="absolute top-3 left-12 bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium">
+                Sample
+              </div>
+            )}
+            
             {/* Swipe Direction Overlay */}
-            {swipeDirection === 'left' && (
+            {swipeDirection === 'up' && (
               <div className="swipe-overlay active">
                 <div className="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-                  ← WINNER
+                  ↑ WINNER
                 </div>
               </div>
             )}
           </button>
 
           {/* Divider */}
-          <div className="w-0.5 bg-gray-700 mx-1" />
+          <div className="h-0.5 bg-gray-700 my-1" />
 
-          {/* Right Photo */}
+          {/* Bottom Photo */}
           <button
-            onClick={() => handleDirectSelection(rightPhoto, leftPhoto)}
+            onClick={() => handleDirectSelection(bottomPhoto, topPhoto)}
             className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
             disabled={isAnimating || disabled}
           >
             <img 
-              src={rightPhoto.url} 
+              src={bottomPhoto.url} 
               alt="Comparison option B"
               className="w-full h-full object-cover"
               loading="eager"
@@ -206,15 +227,22 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
             />
             
             {/* Photo Label */}
-            <div className="absolute top-3 right-3 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+            <div className="absolute top-3 left-3 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
               B
             </div>
             
+            {/* Sample Photo Indicator */}
+            {bottomPhoto.type === 'sample' && (
+              <div className="absolute top-3 left-12 bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium">
+                Sample
+              </div>
+            )}
+            
             {/* Swipe Direction Overlay */}
-            {swipeDirection === 'right' && (
+            {swipeDirection === 'down' && (
               <div className="swipe-overlay active">
                 <div className="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-                  WINNER →
+                  ↓ WINNER
                 </div>
               </div>
             )}
@@ -222,25 +250,36 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
         </div>
 
         {/* Skip Overlay */}
-        {swipeDirection === 'up' && (
+        {(swipeDirection === 'left' || swipeDirection === 'right') && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <div className="bg-yellow-500 text-black px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-              ↑ SKIP
+              ← SKIP →
             </div>
           </div>
         )}
 
         {/* Instructions */}
-        <div className="absolute bottom-4 left-4 right-4">
-          <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 text-center">
-            <p className="text-white font-semibold mb-1">
-              Tap or swipe to choose who is more attractive
-            </p>
-            <p className="text-gray-400 text-sm">
-              Swipe up to skip • Be honest or you gonna get matched with some chuzz
-            </p>
+        {showInstructions && (
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 text-center relative">
+              {/* Close button */}
+              <button
+                onClick={() => setShowInstructions(false)}
+                className="absolute top-2 right-2 w-6 h-6 bg-gray-600/80 hover:bg-gray-500/80 rounded-full flex items-center justify-center text-white text-sm transition-colors"
+                aria-label="Close instructions"
+              >
+                ×
+              </button>
+              
+              <p className="text-white font-semibold mb-1">
+                Tap or swipe to choose who is more attractive
+              </p>
+              <p className="text-gray-400 text-sm">
+                Swipe up/down to choose • Swipe left/right to skip
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </animated.div>
     </div>
   );
