@@ -1,0 +1,108 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.sqlite
+*.db
+.DS_Store
+
+# Build outputs
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# React Native
+# Expo
+.expo/
+dist/
+web-build/
+.expo-shared/
+
+# Metro
+.metro-health-check*
+
+# Flipper
+android/app/src/debug/
+ios/Pods/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+android/gradle/
+android/gradlew
+android/gradlew.bat
+
+# iOS
+ios/build/
+ios/DerivedData/
+ios/.xcode.proj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcworkspace
+
+# Logs
+logs
+*.log
+
+# Runtime configuration
+config/local.json
+
+# Temporary folders
+tmp/
+temp/
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Serverless
+.serverless/
+
+# Docker
+.dockerignore
+
+# Backend specific
+/backend/uploads/
+/backend/dist/
+/backend/.env*
+
+# Mobile specific
+/mobile/.expo/
+/mobile/web-build/
+
+sample_images/

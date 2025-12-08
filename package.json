@@ -1,0 +1,68 @@
+{
+  "name": "elo-check",
+  "version": "1.0.0",
+  "description": "Mobile beauty ranking app using Bradley-Terry statistical model",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "web",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:web\"",
+    "dev:backend": "npm run dev --workspace=@elo-check/backend",
+    "dev:web": "npm run dev --workspace=@elo-check/web",
+    "build": "npm run build:backend && npm run build:web",
+    "build:backend": "npm run build --workspace=@elo-check/backend",
+    "build:web": "npm run build --workspace=@elo-check/web",
+    "test": "npm run test:backend",
+    "test:backend": "npm run test --workspace=@elo-check/backend",
+    "lint": "npm run lint:backend && npm run lint:web",
+    "lint:backend": "npm run lint --workspace=@elo-check/backend",
+    "lint:web": "npm run lint --workspace=@elo-check/web",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:web",
+    "typecheck:backend": "npm run typecheck --workspace=@elo-check/backend",
+    "typecheck:web": "npm run typecheck --workspace=@elo-check/web",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "author": "Elo Check Team",
+  "license": "MIT",
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run typecheck && npm test"
+    }
+  },
+  "overrides": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}

@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles for mobile-first design */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #000;
+    color: #fff;
+    overscroll-behavior: none;
+    touch-action: pan-x pan-y;
+    user-select: none;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+/* Custom components */
+@layer components {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .photo-card {
+    @apply relative overflow-hidden rounded-2xl bg-gray-900 shadow-2xl;
+    @apply select-none touch-none;
+  }
+
+  .swipe-overlay {
+    @apply absolute inset-0 flex items-center justify-center;
+    @apply bg-gradient-to-t from-black/80 via-transparent to-transparent;
+    @apply opacity-0 transition-opacity duration-200;
+  }
+
+  .swipe-overlay.active {
+    @apply opacity-100;
+  }
+
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700;
+    @apply text-black font-semibold py-3 px-6 rounded-xl;
+    @apply transition-all duration-150 ease-out;
+    @apply touch-target;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-800 hover:bg-gray-700 active:bg-gray-600;
+    @apply text-white font-semibold py-3 px-6 rounded-xl;
+    @apply transition-all duration-150 ease-out;
+    @apply touch-target;
+  }
+}
+
+/* Utility classes for mobile gestures */
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .prevent-zoom {
+    touch-action: manipulation;
+  }
+
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
