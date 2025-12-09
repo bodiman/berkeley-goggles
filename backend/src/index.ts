@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
 import { logger } from './utils/logger';
 import { connectDatabase } from './services/database';
 import { errorHandler } from './middleware/errorHandler';
@@ -52,7 +53,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static file serving for sample images
-app.use('/sample-images', express.static('../sample_images'));
+// In production (Railway), serve from local sample_images directory
+// In development, serve from parent directory
+const sampleImagesPath = process.env.NODE_ENV === 'production' 
+  ? path.join(__dirname, '../sample_images')
+  : path.join(__dirname, '../../sample_images');
+  
+app.use('/sample-images', express.static(sampleImagesPath));
 
 // User uploads disabled - using API endpoints for images instead
 // app.use('/uploads', express.static('uploads'));
