@@ -170,12 +170,13 @@ class SampleImagePopulator {
     
     continuationToken = undefined;
     let totalImages = 0;
+    let foundCount = 0;
 
     do {
       const imageCommand = new ListObjectsV2Command({
         Bucket: this.config.bucketName,
         Prefix: 'samples/',
-        MaxKeys: 1000,
+        MaxKeys: debugLimit ? Math.min(500, debugLimit * 3) : 1000,
         ContinuationToken: continuationToken,
       });
 
@@ -221,6 +222,7 @@ class SampleImagePopulator {
                 // Count as found when we have main image
                 if (imageInfo.mainUrl && !imageInfo.thumbnailUrl) {
                   this.stats.imagesFound++;
+                  foundCount++;
                 }
               }
             } catch (error) {
@@ -236,10 +238,15 @@ class SampleImagePopulator {
           // Small delay
           await new Promise(resolve => setTimeout(resolve, 100));
         }
+        
+        // Break if we have enough images for debug mode
+        if (debugLimit && foundCount >= debugLimit) {
+          break;
+        }
       }
 
       continuationToken = imageResponse.NextContinuationToken;
-    } while (continuationToken);
+    } while (continuationToken && (!debugLimit || foundCount < debugLimit));
 
     // Filter to only complete records with main URLs
     const completeImages = Array.from(imageMap.values())
@@ -443,6 +450,10 @@ async function main() {
   // Check for debug limit
   const debugFlag = args.find(arg => arg.startsWith('--debug='));
   const debugLimit = debugFlag ? parseInt(debugFlag.split('=')[1]) : undefined;
+
+  if (debugLimit) {
+    console.log(`🐛 Debug mode: Processing ${debugLimit} images`);
+  }
 
   const populator = new SampleImagePopulator();
   await populator.run(dryRun, debugLimit);
