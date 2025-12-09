@@ -293,14 +293,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       formData.append('userId', user.id);
       formData.append('photo', photoBlob, 'profile-photo.jpg');
 
-      // const response = await fetch('/api/user/photo', {
-      //   method: 'POST',
-      //   body: formData,
-      // });
+      const response = await fetch('/api/user/photo', {
+        method: 'POST',
+        body: formData,
+      });
 
-      // if (!response.ok) {
-      //   return false;
-      // }
+      if (!response.ok) {
+        return false;
+      }
 
       // console.log('formData', formData);
       // console.log(response);
