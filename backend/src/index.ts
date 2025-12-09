@@ -35,7 +35,8 @@ app.use(cors({
     ? [
         process.env.FRONTEND_URL, 
         'https://elocheck.vercel.app',
-        'https://berkeley-goggles-git-main-bodimans-projects.vercel.app'
+        'https://berkeley-goggles-git-main-bodimans-projects.vercel.app',
+        'https://www.berkeleygoggles.net'
       ].filter(Boolean) as string[]
     : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:19006'],
   credentials: true
