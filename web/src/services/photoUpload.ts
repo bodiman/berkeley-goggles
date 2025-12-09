@@ -1,4 +1,4 @@
-import { apiRequest } from '../config/api';
+import { apiRequest, API_CONFIG } from '../config/api';
 
 export interface PhotoUploadResult {
   id: string;
@@ -120,7 +120,7 @@ class PhotoUploadService {
         reject(new Error('Network error during upload'));
       });
 
-      xhr.open('POST', `/api/photos/webcam`);
+      xhr.open('POST', `${API_CONFIG.baseURL}/api/photos/webcam`);
       xhr.send(formData);
     });
   }

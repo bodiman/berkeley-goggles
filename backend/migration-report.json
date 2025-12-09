@@ -1,0 +1,10 @@
+{
+  "total": 5500,
+  "successful": 5500,
+  "failed": 0,
+  "errors": [],
+  "startTime": "2025-12-09T04:40:11.520Z",
+  "endTime": "2025-12-09T04:57:03.572Z",
+  "migrationDate": "2025-12-09T04:57:03.573Z",
+  "sampleImagesPath": "/Users/bodi/elo_check/backend/sample_images"
+}
