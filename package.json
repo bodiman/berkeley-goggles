@@ -25,7 +25,7 @@
     "typecheck": "npm run typecheck:backend && npm run typecheck:web",
     "typecheck:backend": "npm run typecheck --workspace=@berkeley-goggles/backend",
     "typecheck:web": "npm run typecheck --workspace=@berkeley-goggles/web",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
