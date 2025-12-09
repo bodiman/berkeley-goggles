@@ -76,8 +76,8 @@ class SampleImagePopulator {
     return Math.floor(Math.random() * 12) + 18;
   }
 
-  async gatherR2ImageInfo(): Promise<R2ImageInfo[]> {
-    console.log('🔍 Gathering image information from R2...\n');
+  async gatherR2ImageInfo(debugLimit?: number): Promise<R2ImageInfo[]> {
+    console.log(`🔍 Gathering image information from R2${debugLimit ? ` (DEBUG: first ${debugLimit} images)` : ''}...\n`);
 
     const imageMap = new Map<string, R2ImageInfo>();
 
@@ -407,12 +407,12 @@ class SampleImagePopulator {
     console.log('='.repeat(60));
   }
 
-  async run(dryRun: boolean = false): Promise<void> {
+  async run(dryRun: boolean = false, debugLimit?: number): Promise<void> {
     try {
-      console.log(`🚀 Starting sample image population ${dryRun ? '(DRY RUN)' : ''}...\n`);
+      console.log(`🚀 Starting sample image population ${dryRun ? '(DRY RUN)' : ''}${debugLimit ? ` (DEBUG: ${debugLimit} images)` : ''}...\n`);
       
       // Gather all image information from R2
-      const imageInfos = await this.gatherR2ImageInfo();
+      const imageInfos = await this.gatherR2ImageInfo(debugLimit);
       
       if (imageInfos.length === 0) {
         throw new Error('No complete image records found in R2');
