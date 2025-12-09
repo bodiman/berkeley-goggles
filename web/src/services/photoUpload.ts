@@ -131,8 +131,11 @@ class PhotoUploadService {
         'Hostname': window.location.hostname
       });
 
+      console.log('🚀 About to open XHR with URL:', fullUrl);
       xhr.open('POST', fullUrl);
+      console.log('📤 XHR opened, about to send formData');
       xhr.send(formData);
+      console.log('✉️ XHR sent');
     });
   }
 
