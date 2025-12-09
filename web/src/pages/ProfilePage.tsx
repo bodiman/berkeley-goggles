@@ -33,6 +33,10 @@ interface UserStats {
 
 export const ProfilePage: React.FC = () => {
   const { user, logout, updateUserName, updateUserPhoto } = useAuth();
+  
+  // Debug: Log user profilePhoto value
+  console.log('ProfilePage - user.profilePhoto:', user?.profilePhoto);
+  console.log('ProfilePage - full user object:', user);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isUpdatingName, setIsUpdatingName] = useState(false);

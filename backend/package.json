@@ -29,6 +29,10 @@
     "migrate:samples:dry": "tsx scripts/migrate-samples-to-r2.ts --dry-run",
     "fix:r2:prod": "tsx scripts/complete-r2-update.ts",
     "fix:r2:dry": "tsx scripts/complete-r2-update.ts --dry-run",
+    "map:r2:robust": "tsx scripts/robust-r2-mapping.ts",
+    "map:r2:dry": "tsx scripts/robust-r2-mapping.ts --dry-run",
+    "map:r2:clean": "tsx scripts/robust-r2-mapping.ts --clean",
+    "verify:r2": "tsx scripts/verify-r2-mapping.ts",
     "diagnose:prod": "tsx scripts/production-diagnostic.ts"
   },
   "dependencies": {
