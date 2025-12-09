@@ -20,7 +20,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
     
     try {
       // Demo login for testing
-      const success = await login('demo@elocheck.app', 'demo123');
+      const success = await login('demo@berkeleygoggles.app', 'demo123');
       
       if (!success) {
         throw new Error('Demo login failed');
@@ -38,32 +38,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
       {/* Hero Section */}
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="max-w-md mx-auto text-center">
+          <h3 className="text-4xl font-bold text-white mb-8">Berkeley Goggles</h3>
           {/* Logo/Icon */}
           <div className="mb-8">
             <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
-              <span className="text-3xl font-bold text-white">EC</span>
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-2">Elo Check</h1>
-            <p className="text-xl text-gray-400">
-              Scientific Beauty Ranking
-            </p>
-          </div>
-
-          {/* Description */}
-          <div className="mb-12 space-y-4">
-            <p className="text-gray-300 leading-relaxed">
-              Get your scientifically-calculated attractiveness percentile through peer comparisons.
-            </p>
-            
-            <div className="flex items-center justify-center space-x-6 text-sm text-gray-400">
-              <div className="flex items-center space-x-2">
-                <span>📊</span>
-                <span>Bradley-Terry Model</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span>🔬</span>
-                <span>Peer Rated</span>
-              </div>
+              <span className="text-7xl font-bold text-white">🥽</span>
             </div>
           </div>
 
@@ -110,8 +89,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
             )}
             
             <p className="text-xs text-gray-500 leading-relaxed text-center">
-              By continuing, you agree to our Terms of Service and Privacy Policy.
-              This app is for entertainment purposes only.
+              Entertainment purposes only. Must be 18+.
             </p>
           </div>
         </div>
@@ -120,7 +98,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
       {/* Footer */}
       <footer className="px-6 py-4 text-center">
         <p className="text-xs text-gray-600">
-          Built with privacy in mind • No data selling • Open source
+          Berkeley Goggles • Privacy First
         </p>
       </footer>
     </div>

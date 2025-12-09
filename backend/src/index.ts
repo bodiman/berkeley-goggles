@@ -12,6 +12,7 @@ import { userRoutes } from './routes/user';
 import { photoRoutes } from './routes/photo';
 import { comparisonRoutes } from './routes/comparison';
 import { rankingRoutes } from './routes/ranking';
+import { matchesRoutes } from './routes/matches';
 
 // Load environment variables
 dotenv.config();
@@ -25,7 +26,7 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.com'] 
+    ? [process.env.FRONTEND_URL, 'https://your-app.vercel.app'] 
     : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:19006'],
   credentials: true
 }));
@@ -67,6 +68,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/comparisons', comparisonRoutes);
 app.use('/api/rankings', rankingRoutes);
+app.use('/api/matches', matchesRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);
@@ -80,7 +82,7 @@ const startServer = async () => {
     
     // Start server
     app.listen(PORT, () => {
-      logger.info(`🚀 Elo Check API server running on port ${PORT}`);
+      logger.info(`🚀 Berkeley Goggles API server running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
       logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
       logger.info(`💾 Database: SQLite (dev.db)`);

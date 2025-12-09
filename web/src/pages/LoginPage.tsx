@@ -204,7 +204,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <button
               onClick={() => {
                 setFormData({
-                  email: 'demo@elocheck.app',
+                  email: 'demo@berkeleygoggles.app',
                   password: 'demo123',
                   rememberMe: false,
                 });

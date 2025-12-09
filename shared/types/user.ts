@@ -141,7 +141,7 @@ export interface AuthUser {
 }
 
 export interface AppNavigationState {
-  currentTab: 'profile' | 'play';
+  currentTab: 'profile' | 'play' | 'matched';
   profileSetupComplete: boolean;
   isAuthenticated: boolean;
 }

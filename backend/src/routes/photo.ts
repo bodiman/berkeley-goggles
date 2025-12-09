@@ -53,8 +53,8 @@ photoRoutes.post('/', upload.single('photo'), asyncHandler(async (req, res) => {
 
     // TODO: Save to file storage and database
     const mockPhotoId = 'photo_' + Date.now();
-    const mockUrl = `https://api.elocheck.app/photos/${mockPhotoId}.jpg`;
-    const mockThumbnailUrl = `https://api.elocheck.app/photos/thumbnails/${mockPhotoId}.jpg`;
+    const mockUrl = `https://api.berkeleygoggles.app/photos/${mockPhotoId}.jpg`;
+    const mockThumbnailUrl = `https://api.berkeleygoggles.app/photos/thumbnails/${mockPhotoId}.jpg`;
 
     res.json({ 
       success: true, 
@@ -163,7 +163,7 @@ photoRoutes.get('/:id', asyncHandler(async (req, res) => {
   // TODO: Get photo from database with permission checks
   const mockPhoto = {
     id,
-    url: `https://api.elocheck.app/photos/${id}.jpg`,
+    url: `https://api.berkeleygoggles.app/photos/${id}.jpg`,
     status: 'approved',
     ranking: {
       currentPercentile: 65.5,

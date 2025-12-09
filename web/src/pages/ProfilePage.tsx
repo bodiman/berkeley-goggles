@@ -42,11 +42,14 @@ export const ProfilePage: React.FC = () => {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [matchingPercentile, setMatchingPercentile] = useState(20);
+  const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
 
-  // Fetch user stats on component mount
+  // Fetch user stats and preferences on component mount
   useEffect(() => {
     if (user?.id) {
       fetchUserStats();
+      fetchUserPreferences();
     }
   }, [user?.id]);
 
@@ -70,6 +73,19 @@ export const ProfilePage: React.FC = () => {
       setStatsError('Failed to load stats');
     } finally {
       setIsLoadingStats(false);
+    }
+  };
+
+  const fetchUserPreferences = async () => {
+    if (!user?.id) return;
+
+    try {
+      // For now, we'll use a simple approach and assume the default is 20
+      // In a real implementation, you might want a separate API endpoint
+      // or include this in the user profile data
+      setMatchingPercentile(20); // Default value
+    } catch (error) {
+      console.error('Failed to fetch user preferences:', error);
     }
   };
 
@@ -151,6 +167,39 @@ export const ProfilePage: React.FC = () => {
     setPhotoError(error);
   };
 
+  const handleMatchingPreferenceChange = async (newPercentile: number) => {
+    try {
+      setIsUpdatingPreference(true);
+
+      const response = await fetch('/api/matches/update-preference', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          matchingPercentile: newPercentile,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update matching preference');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setMatchingPercentile(newPercentile);
+      } else {
+        throw new Error(data.error || 'Failed to update preference');
+      }
+    } catch (error) {
+      console.error('Failed to update matching preference:', error);
+    } finally {
+      setIsUpdatingPreference(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -160,14 +209,17 @@ export const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black safe-area-inset pb-20">
+    <div className="min-h-screen bg-black safe-area-inset flex flex-col">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <h1 className="text-2xl font-bold text-white">Profile</h1>
       </header>
 
       {/* Main Content */}
-      <main className="px-6 py-4">
+      <main className="flex-1 px-6 py-4 overflow-y-auto pb-20" style={{
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y'
+      }}>
         <div className="max-w-md mx-auto space-y-6">
           {/* Profile Photo */}
           <div className="flex justify-center">
@@ -353,6 +405,38 @@ export const ProfilePage: React.FC = () => {
             )}
           </div>
 
+          {/* Matching Settings */}
+          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Matching Preferences</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Match me with people in my top {matchingPercentile}%
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={matchingPercentile}
+                  onChange={(e) => {
+                    const newValue = parseInt(e.target.value);
+                    setMatchingPercentile(newValue);
+                    handleMatchingPreferenceChange(newValue);
+                  }}
+                  disabled={isUpdatingPreference}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed slider"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Top 5%</span>
+                  <span>Top 50%</span>
+                  <span>Top 100%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Actions */}
           <div className="space-y-3">
             <button
@@ -367,7 +451,15 @@ export const ProfilePage: React.FC = () => {
 
       {/* Photo Capture Modal */}
       {showPhotoCapture && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 bg-black/90 backdrop-blur z-50 flex items-center justify-center p-4"
+          style={{ touchAction: 'none' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPhotoCapture(false);
+            }
+          }}
+        >
           <div className="w-full max-w-md">
             <div className="bg-gray-900 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">

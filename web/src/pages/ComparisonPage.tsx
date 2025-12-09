@@ -265,7 +265,7 @@ export const ComparisonPage: React.FC = () => {
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Elo Check</h1>
+          <h1 className="text-2xl font-bold text-white">Berkeley Goggles</h1>
           <div className="text-sm text-gray-400">
             {dailyProgress?.comparisonsCompleted || 0}/{dailyProgress?.dailyTarget || 20} today
           </div>

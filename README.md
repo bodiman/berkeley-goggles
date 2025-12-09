@@ -1,11 +1,11 @@
-# Elo Check
+# Berkeley Goggles
 
-A mobile beauty ranking application using the Bradley-Terry statistical model for scientifically accurate attractiveness percentiles.
+Berkeley Goggles - A social beauty ranking application where you rate others and discover your ranking in the community.
 
 ## Project Structure
 
 ```
-elo_check/
+berkeley_goggles/
 ├── backend/          # Node.js/Express API server
 ├── mobile/           # React Native mobile app
 ├── shared/           # Shared TypeScript types and utilities
@@ -16,11 +16,11 @@ elo_check/
 
 ## Features
 
-- **Scientific Accuracy**: Bradley-Terry model for statistically valid percentiles
+- **Community-Driven**: Rate others and get rated by the community
 - **Quality Control**: AI-powered content moderation
 - **Gender Balance**: Separate male/female comparison pools
 - **Privacy-First**: Comprehensive privacy controls and ethical considerations
-- **Real-time Rankings**: Live percentile updates based on peer comparisons
+- **Real-time Rankings**: Live ranking updates based on peer ratings
 
 ## Development
 
@@ -34,14 +34,45 @@ elo_check/
 
 ### Getting Started
 
+#### Quick Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/berkeley-goggles.git
+cd berkeley-goggles
+
+# Run the setup script
+./scripts/setup-dev.sh
+
+# Start development servers
+npm run dev
+```
+
+#### Manual Setup
+
 1. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Set up environment variables (see `.env.example` files)
+2. Set up environment variables:
+```bash
+# Backend
+cp backend/.env.development backend/.env
 
-3. Start development servers:
+# Frontend
+cp web/.env.example web/.env.local
+```
+
+3. Setup database:
+```bash
+cd backend
+npm run db:generate
+npm run db:push
+cd ..
+```
+
+4. Start development servers:
 ```bash
 npm run dev
 ```

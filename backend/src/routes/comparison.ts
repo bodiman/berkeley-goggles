@@ -38,16 +38,36 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       });
     }
 
-    // Priority system for photo selection:
-    // 1. Try user photos first (current behavior)
-    // 2. If <2 user photos, try mixed (1 user + 1 sample)
-    // 3. If <1 user photo, use 2 sample images
+    // Get rater's gender for filtering
+    const rater = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { gender: true },
+    });
 
-    // Get available user photos
+    if (!rater?.gender) {
+      return res.status(400).json({
+        success: false,
+        error: 'User gender not found. Please complete profile setup.',
+      });
+    }
+
+    // Determine opposite gender for filtering
+    const oppositeGender = rater.gender === 'male' ? 'female' : 'male';
+
+    // Priority system for photo selection:
+    // 1. Prioritize user photos over sample images
+    // 2. Require full ordering of real users before expanding to samples
+    // 3. 10% chance to include samples even with incomplete user ordering
+    // 4. Gender filtering: show only opposite gender
+
+    // Get available user photos (opposite gender only)
     const userPhotos = await prisma.photo.findMany({
       where: {
         status: 'approved',
         userId: { not: userId }, // Don't show user their own photos
+        user: {
+          gender: oppositeGender, // Only opposite gender
+        },
       },
       include: {
         user: {
@@ -65,10 +85,11 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       take: 50,
     });
 
-    // Get available sample images
+    // Get available sample images (opposite gender only)
     const sampleImages = await prisma.sampleImage.findMany({
       where: {
         isActive: true,
+        gender: oppositeGender, // Only opposite gender
       },
       include: {
         ranking: true,
@@ -79,142 +100,132 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       take: 50,
     });
 
+    // Get user's previous comparisons to avoid duplicates
+    const previousComparisons = await getPreviousComparisons(userId);
+    const comparedPairs = extractComparedPairs(previousComparisons);
+
+    // Add type information to photos for easier processing
+    const typedUserPhotos = userPhotos.map(photo => ({ ...photo, type: 'user' }));
+    const typedSampleImages = sampleImages.map(sample => ({ ...sample, type: 'sample' }));
+
     let pair = null;
     let comparisonType = 'user_photos';
 
-    if (userPhotos.length >= 2) {
-      // Use two user photos
-      const shuffled = userPhotos.sort(() => 0.5 - Math.random());
-      const leftPhoto = shuffled[0];
-      const rightPhoto = shuffled[1];
+    // Phase 1: Try user-only comparisons first
+    let availablePairs = [];
+    let phase = 'user_only';
+    let message = '';
 
-      pair = {
-        sessionId: session.id,
-        leftPhoto: {
-          id: leftPhoto.id,
-          url: leftPhoto.url,
-          thumbnailUrl: leftPhoto.thumbnailUrl,
-          userId: leftPhoto.userId,
-          userAge: leftPhoto.user.age,
-          userGender: leftPhoto.user.gender,
-          type: 'user',
-        },
-        rightPhoto: {
-          id: rightPhoto.id,
-          url: rightPhoto.url,
-          thumbnailUrl: rightPhoto.thumbnailUrl,
-          userId: rightPhoto.userId,
-          userAge: rightPhoto.user.age,
-          userGender: rightPhoto.user.gender,
-          type: 'user',
-        },
-      };
-      comparisonType = 'user_photos';
-    } else if (userPhotos.length === 1 && sampleImages.length >= 1) {
-      // Use 1 user photo + 1 sample image
-      const userPhoto = userPhotos[0];
-      const samplePhoto = sampleImages[Math.floor(Math.random() * sampleImages.length)];
+    if (typedUserPhotos.length >= 2) {
+      // Generate all possible user photo pairs
+      const userPairs = generateUserPhotoPairs(typedUserPhotos);
+      // Filter out already compared pairs
+      availablePairs = filterUncomparedPairs(userPairs, comparedPairs);
+      
+      if (availablePairs.length > 0) {
+        phase = 'user_only';
+      }
+    }
 
-      // Randomly assign which side gets which type
-      const leftIsUser = Math.random() < 0.5;
+    // Phase 2: If no user pairs left, move to combined phase
+    if (availablePairs.length === 0 && (typedUserPhotos.length > 0 || typedSampleImages.length > 0)) {
+      // Generate mixed pairs (user + sample images)
+      const mixedPairs = generateMixedPairs(typedUserPhotos, typedSampleImages);
+      availablePairs = filterUncomparedPairs(mixedPairs, comparedPairs);
+      
+      if (availablePairs.length > 0) {
+        phase = 'combined';
+        if (typedUserPhotos.length >= 2) {
+          message = 'You\'ve compared all user photos! Now comparing with sample images.';
+        }
+      }
+    }
 
-      pair = {
-        sessionId: session.id,
-        leftPhoto: leftIsUser ? {
-          id: userPhoto.id,
-          url: userPhoto.url,
-          thumbnailUrl: userPhoto.thumbnailUrl,
-          userId: userPhoto.userId,
-          userAge: userPhoto.user.age,
-          userGender: userPhoto.user.gender,
-          type: 'user',
-        } : {
-          id: samplePhoto.id,
-          url: `http://localhost:3001${samplePhoto.url}`,
-          thumbnailUrl: `http://localhost:3001${samplePhoto.thumbnailUrl}`,
-          userId: 'sample',
-          userAge: samplePhoto.estimatedAge,
-          userGender: samplePhoto.gender,
-          type: 'sample',
-        },
-        rightPhoto: leftIsUser ? {
-          id: samplePhoto.id,
-          url: `http://localhost:3001${samplePhoto.url}`,
-          thumbnailUrl: `http://localhost:3001${samplePhoto.thumbnailUrl}`,
-          userId: 'sample',
-          userAge: samplePhoto.estimatedAge,
-          userGender: samplePhoto.gender,
-          type: 'sample',
-        } : {
-          id: userPhoto.id,
-          url: userPhoto.url,
-          thumbnailUrl: userPhoto.thumbnailUrl,
-          userId: userPhoto.userId,
-          userAge: userPhoto.user.age,
-          userGender: userPhoto.user.gender,
-          type: 'user',
-        },
-      };
-      comparisonType = 'mixed';
-
-      // Update sample image last used timestamp
-      await prisma.sampleImage.update({
-        where: { id: samplePhoto.id },
-        data: { lastUsed: new Date() },
-      });
-    } else if (sampleImages.length >= 2) {
-      // Use two sample images
-      const shuffled = sampleImages.sort(() => 0.5 - Math.random());
-      const leftPhoto = shuffled[0];
-      const rightPhoto = shuffled[1];
-
-      pair = {
-        sessionId: session.id,
-        leftPhoto: {
-          id: leftPhoto.id,
-          url: `http://localhost:3001${leftPhoto.url}`,
-          thumbnailUrl: `http://localhost:3001${leftPhoto.thumbnailUrl}`,
-          userId: 'sample',
-          userAge: leftPhoto.estimatedAge,
-          userGender: leftPhoto.gender,
-          type: 'sample',
-        },
-        rightPhoto: {
-          id: rightPhoto.id,
-          url: `http://localhost:3001${rightPhoto.url}`,
-          thumbnailUrl: `http://localhost:3001${rightPhoto.thumbnailUrl}`,
-          userId: 'sample',
-          userAge: rightPhoto.estimatedAge,
-          userGender: rightPhoto.gender,
-          type: 'sample',
-        },
-      };
-      comparisonType = 'sample_images';
-
-      // Update sample images last used timestamps
-      await Promise.all([
-        prisma.sampleImage.update({
-          where: { id: leftPhoto.id },
-          data: { lastUsed: new Date() },
-        }),
-        prisma.sampleImage.update({
-          where: { id: rightPhoto.id },
-          data: { lastUsed: new Date() },
-        }),
-      ]);
-    } else {
-      // No photos available at all
+    // Select random pair from available options
+    if (availablePairs.length === 0) {
       return res.json({
         success: true,
         pair: null,
-        message: 'No photos available for comparison',
+        message: typedUserPhotos.length === 0 && typedSampleImages.length === 0
+          ? `No ${oppositeGender} photos available for comparison`
+          : 'You\'ve compared all available photo combinations!',
       });
+    }
+
+    // Select a random pair
+    const selectedPair = availablePairs[Math.floor(Math.random() * availablePairs.length)];
+    const leftPhoto = selectedPair.left;
+    const rightPhoto = selectedPair.right;
+
+    // Determine comparison type
+    if (leftPhoto.type === 'user' && rightPhoto.type === 'user') {
+      comparisonType = 'user_photos';
+    } else if (leftPhoto.type === 'sample' && rightPhoto.type === 'sample') {
+      comparisonType = 'sample_images';
+    } else {
+      comparisonType = 'mixed';
+    }
+
+    // Build the response pair object
+    const buildPhotoObject = (photo: any) => {
+      if (photo.type === 'user') {
+        return {
+          id: photo.id,
+          url: photo.url,
+          thumbnailUrl: photo.thumbnailUrl,
+          userId: photo.userId,
+          userAge: photo.user.age,
+          userGender: photo.user.gender,
+          type: 'user',
+        };
+      } else {
+        return {
+          id: photo.id,
+          url: `http://localhost:3001${photo.url}`,
+          thumbnailUrl: `http://localhost:3001${photo.thumbnailUrl}`,
+          userId: 'sample',
+          userAge: photo.estimatedAge,
+          userGender: photo.gender,
+          type: 'sample',
+        };
+      }
+    };
+
+    pair = {
+      sessionId: session.id,
+      leftPhoto: buildPhotoObject(leftPhoto),
+      rightPhoto: buildPhotoObject(rightPhoto),
+    };
+
+    // Update sample image timestamps if used
+    const sampleUpdatePromises = [];
+    if (leftPhoto.type === 'sample') {
+      sampleUpdatePromises.push(
+        prisma.sampleImage.update({
+          where: { id: leftPhoto.id },
+          data: { lastUsed: new Date() },
+        })
+      );
+    }
+    if (rightPhoto.type === 'sample') {
+      sampleUpdatePromises.push(
+        prisma.sampleImage.update({
+          where: { id: rightPhoto.id },
+          data: { lastUsed: new Date() },
+        })
+      );
+    }
+    
+    if (sampleUpdatePromises.length > 0) {
+      await Promise.all(sampleUpdatePromises);
     }
 
     res.json({
       success: true,
       pair,
       comparisonType,
+      phase,
+      message: message || undefined,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -410,12 +421,17 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
     if (finalComparisonType === 'user_photos') {
       // Both are user photos - use existing rating update function
       await updatePhotoRatings(winnerId, loserId);
+      // Also update combined rankings for cross-comparisons
+      await updateCombinedRankings(winnerId, loserId, 'user', 'user');
     } else if (finalComparisonType === 'sample_images') {
       // Both are sample images - use sample image rating update
       await updateSampleImageRatings(winnerId, loserId);
+      // Also update combined rankings
+      await updateCombinedRankings(winnerId, loserId, 'sample', 'sample');
+    } else if (finalComparisonType === 'mixed') {
+      // Mixed comparison - only update combined rankings
+      await updateCombinedRankings(winnerId, loserId, winnerType, loserType);
     }
-    // For mixed comparisons, we might skip cross-pool rating updates
-    // to keep user and sample rankings separate
 
     res.json({
       success: true,
@@ -740,4 +756,300 @@ async function updateSampleImagePercentiles() {
   } catch (error) {
     console.error('Error updating sample image percentiles:', error);
   }
+}
+
+// Helper function to update combined rankings for mixed comparisons
+async function updateCombinedRankings(
+  winnerId: string, 
+  loserId: string, 
+  winnerType: 'user' | 'sample', 
+  loserType: 'user' | 'sample'
+) {
+  try {
+    // Get or create combined rankings for both photos
+    const winnerCombinedRanking = await getOrCreateCombinedRanking(winnerId, winnerType);
+    const loserCombinedRanking = await getOrCreateCombinedRanking(loserId, loserType);
+
+    if (!winnerCombinedRanking || !loserCombinedRanking) {
+      console.error('Failed to get combined rankings for rating update');
+      return;
+    }
+
+    // Update comparison counts
+    await Promise.all([
+      prisma.combinedRanking.update({
+        where: { id: winnerCombinedRanking.id },
+        data: {
+          totalComparisons: { increment: 1 },
+          wins: { increment: 1 },
+          lastUpdated: new Date(),
+        },
+      }),
+      prisma.combinedRanking.update({
+        where: { id: loserCombinedRanking.id },
+        data: {
+          totalComparisons: { increment: 1 },
+          losses: { increment: 1 },
+          lastUpdated: new Date(),
+        },
+      }),
+    ]);
+
+    // Simple Bradley-Terry model update for combined rankings
+    const K = 32; // Rating change factor
+    const winnerScore = winnerCombinedRanking.bradleyTerryScore;
+    const loserScore = loserCombinedRanking.bradleyTerryScore;
+    
+    // Expected scores
+    const expectedWinnerScore = winnerScore / (winnerScore + loserScore);
+    const expectedLoserScore = loserScore / (winnerScore + loserScore);
+    
+    // Update scores (winner gets 1, loser gets 0)
+    const newWinnerScore = winnerScore + K * (1 - expectedWinnerScore);
+    const newLoserScore = loserScore + K * (0 - expectedLoserScore);
+    
+    // Update Bradley-Terry scores
+    await Promise.all([
+      prisma.combinedRanking.update({
+        where: { id: winnerCombinedRanking.id },
+        data: {
+          bradleyTerryScore: Math.max(0.1, newWinnerScore), // Minimum score
+        },
+      }),
+      prisma.combinedRanking.update({
+        where: { id: loserCombinedRanking.id },
+        data: {
+          bradleyTerryScore: Math.max(0.1, newLoserScore), // Minimum score
+        },
+      }),
+    ]);
+
+    // Update combined percentiles
+    await updateCombinedPercentiles();
+  } catch (error) {
+    console.error('Error updating combined rankings:', error);
+  }
+}
+
+// Helper function to get or create combined ranking
+async function getOrCreateCombinedRanking(photoId: string, photoType: 'user' | 'sample') {
+  try {
+    // First try to find existing combined ranking
+    const existingRanking = await prisma.combinedRanking.findFirst({
+      where: photoType === 'user' 
+        ? { photoId: photoId }
+        : { sampleImageId: photoId }
+    });
+
+    if (existingRanking) {
+      return existingRanking;
+    }
+
+    // Get gender info for new ranking
+    let gender: string;
+    let userId: string | null = null;
+
+    if (photoType === 'user') {
+      const photo = await prisma.photo.findUnique({
+        where: { id: photoId },
+        include: { user: { select: { gender: true, id: true } } },
+      });
+      if (!photo?.user.gender) return null;
+      gender = photo.user.gender;
+      userId = photo.user.id;
+    } else {
+      const sampleImage = await prisma.sampleImage.findUnique({
+        where: { id: photoId },
+        select: { gender: true },
+      });
+      if (!sampleImage?.gender) return null;
+      gender = sampleImage.gender;
+    }
+
+    // Create new combined ranking
+    return await prisma.combinedRanking.create({
+      data: {
+        photoId: photoType === 'user' ? photoId : null,
+        sampleImageId: photoType === 'sample' ? photoId : null,
+        userId: userId,
+        gender: gender,
+        currentPercentile: 50.0,
+        totalComparisons: 0,
+        wins: 0,
+        losses: 0,
+        bradleyTerryScore: 0.5,
+        confidence: 0.0,
+      },
+    });
+  } catch (error) {
+    console.error('Error getting/creating combined ranking:', error);
+    return null;
+  }
+}
+
+// Helper function to recalculate percentiles for all combined rankings
+async function updateCombinedPercentiles() {
+  try {
+    // Update percentiles by gender separately
+    const genders = ['male', 'female'];
+    
+    for (const gender of genders) {
+      // Get all combined rankings for this gender ordered by Bradley-Terry score
+      const rankings = await prisma.combinedRanking.findMany({
+        where: {
+          gender: gender,
+          totalComparisons: { gt: 0 }, // Only items that have been compared
+        },
+        orderBy: {
+          bradleyTerryScore: 'desc',
+        },
+      });
+
+      const totalItems = rankings.length;
+      
+      if (totalItems === 0) continue;
+
+      // Update percentiles
+      for (let i = 0; i < rankings.length; i++) {
+        const percentile = ((totalItems - i) / totalItems) * 100;
+        
+        await prisma.combinedRanking.update({
+          where: { id: rankings[i].id },
+          data: {
+            currentPercentile: Math.round(percentile * 10) / 10, // Round to 1 decimal
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error updating combined percentiles:', error);
+  }
+}
+
+// Helper function to get all previous comparisons for a user
+async function getPreviousComparisons(userId: string) {
+  const comparisons = await prisma.comparison.findMany({
+    where: {
+      raterId: userId,
+    },
+    select: {
+      winnerPhotoId: true,
+      loserPhotoId: true,
+      winnerSampleImageId: true,
+      loserSampleImageId: true,
+      comparisonType: true,
+    },
+  });
+
+  return comparisons;
+}
+
+// Helper function to normalize photo pair (order doesn't matter: A vs B = B vs A)
+function normalizePair(id1: string, id2: string): string {
+  return [id1, id2].sort().join('_');
+}
+
+// Helper function to extract compared pairs from comparison history
+function extractComparedPairs(comparisons: any[]): Set<string> {
+  const comparedPairs = new Set<string>();
+
+  for (const comp of comparisons) {
+    if (comp.winnerPhotoId && comp.loserPhotoId) {
+      // User photo comparison
+      comparedPairs.add(normalizePair(comp.winnerPhotoId, comp.loserPhotoId));
+    } else if (comp.winnerSampleImageId && comp.loserSampleImageId) {
+      // Sample image comparison
+      comparedPairs.add(normalizePair(comp.winnerSampleImageId, comp.loserSampleImageId));
+    } else if (
+      (comp.winnerPhotoId && comp.loserSampleImageId) ||
+      (comp.winnerSampleImageId && comp.loserPhotoId)
+    ) {
+      // Mixed comparison (user photo vs sample image)
+      const photoId = comp.winnerPhotoId || comp.loserPhotoId;
+      const sampleId = comp.winnerSampleImageId || comp.loserSampleImageId;
+      comparedPairs.add(normalizePair(`photo_${photoId}`, `sample_${sampleId}`));
+    }
+  }
+
+  return comparedPairs;
+}
+
+// Helper function to generate all possible user photo pairs
+function generateUserPhotoPairs(photos: any[]): Array<{left: any, right: any}> {
+  const pairs = [];
+  for (let i = 0; i < photos.length - 1; i++) {
+    for (let j = i + 1; j < photos.length; j++) {
+      pairs.push({ left: photos[i], right: photos[j] });
+    }
+  }
+  return pairs;
+}
+
+// Helper function to generate mixed pairs (user photos + sample images)
+function generateMixedPairs(userPhotos: any[], sampleImages: any[]): Array<{left: any, right: any, type: string}> {
+  const pairs = [];
+
+  // User photo vs user photo
+  for (let i = 0; i < userPhotos.length - 1; i++) {
+    for (let j = i + 1; j < userPhotos.length; j++) {
+      pairs.push({ 
+        left: userPhotos[i], 
+        right: userPhotos[j], 
+        type: 'user_photos' 
+      });
+    }
+  }
+
+  // Sample image vs sample image  
+  for (let i = 0; i < sampleImages.length - 1; i++) {
+    for (let j = i + 1; j < sampleImages.length; j++) {
+      pairs.push({ 
+        left: sampleImages[i], 
+        right: sampleImages[j], 
+        type: 'sample_images' 
+      });
+    }
+  }
+
+  // User photo vs sample image
+  for (const userPhoto of userPhotos) {
+    for (const sampleImage of sampleImages) {
+      pairs.push({ 
+        left: userPhoto, 
+        right: sampleImage, 
+        type: 'mixed' 
+      });
+      pairs.push({ 
+        left: sampleImage, 
+        right: userPhoto, 
+        type: 'mixed' 
+      });
+    }
+  }
+
+  return pairs;
+}
+
+// Helper function to filter out already compared pairs
+function filterUncomparedPairs(pairs: Array<{left: any, right: any, type?: string}>, comparedPairs: Set<string>): Array<{left: any, right: any, type?: string}> {
+  return pairs.filter(pair => {
+    const leftId = pair.left.id;
+    const rightId = pair.right.id;
+    
+    let pairKey: string;
+    
+    // Determine the pair key based on photo types
+    if (pair.left.type === 'user' && pair.right.type === 'user') {
+      pairKey = normalizePair(leftId, rightId);
+    } else if (pair.left.type === 'sample' && pair.right.type === 'sample') {
+      pairKey = normalizePair(leftId, rightId);
+    } else {
+      // Mixed comparison
+      const photoId = pair.left.type === 'user' ? leftId : rightId;
+      const sampleId = pair.left.type === 'sample' ? leftId : rightId;
+      pairKey = normalizePair(`photo_${photoId}`, `sample_${sampleId}`);
+    }
+    
+    return !comparedPairs.has(pairKey);
+  });
 }

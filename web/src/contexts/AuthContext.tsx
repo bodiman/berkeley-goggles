@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiRequest, API_ENDPOINTS } from '../config/api';
 // TODO: Import from shared package once workspace is properly configured
 interface AuthUser {
   id: string;
@@ -11,7 +12,7 @@ interface AuthUser {
 }
 
 interface AppNavigationState {
-  currentTab: 'profile' | 'play';
+  currentTab: 'profile' | 'play' | 'matched';
   profileSetupComplete: boolean;
   isAuthenticated: boolean;
 }
@@ -35,17 +36,14 @@ interface AuthContextType {
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
   updateUserName: (name: string) => Promise<boolean>;
   updateUserPhoto: (photoBlob: Blob) => Promise<boolean>;
-  updateNavigationTab: (tab: 'profile' | 'play') => void;
+  updateNavigationTab: (tab: 'profile' | 'play' | 'matched') => void;
 }
 
 interface UserRegistrationData {
   name: string;
   email: string;
   password: string;
-  age: number;
-  gender: 'male' | 'female';
   agreedToTerms: boolean;
-  agreedToPrivacy: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,7 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedUser = localStorage.getItem('elo-check-user');
+        const storedUser = localStorage.getItem('berkeley-goggles-user');
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           // Convert date strings back to Date objects
@@ -86,7 +84,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
-        localStorage.removeItem('elo-check-user');
+        localStorage.removeItem('berkeley-goggles-user');
       } finally {
         setIsLoading(false);
       }
@@ -97,12 +95,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // TODO: Replace with actual API call to /api/auth/login
-      const response = await fetch('/api/auth/login', {
+      // Use the API helper for proper configuration
+      const response = await apiRequest(API_ENDPOINTS.auth.login, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -121,7 +116,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         
         setUser(user);
-        localStorage.setItem('elo-check-user', JSON.stringify(user));
+        localStorage.setItem('berkeley-goggles-user', JSON.stringify(user));
         
         setNavigationState(prev => ({
           ...prev,
@@ -142,12 +137,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (registrationData: UserRegistrationData): Promise<boolean> => {
     try {
-      // TODO: Replace with actual API call to /api/auth/register
-      const response = await fetch('/api/auth/register', {
+      // Use the API helper for proper configuration
+      const response = await apiRequest(API_ENDPOINTS.auth.register, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(registrationData),
       });
 
@@ -166,7 +158,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         
         setUser(user);
-        localStorage.setItem('elo-check-user', JSON.stringify(user));
+        localStorage.setItem('berkeley-goggles-user', JSON.stringify(user));
         
         setNavigationState(prev => ({
           ...prev,
@@ -215,9 +207,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Upload to backend
-      const response = await fetch('/api/user/setup', {
+      const response = await apiRequest('/api/user/setup', {
         method: 'POST',
         body: formData, // Don't set Content-Type, let browser set it for multipart/form-data
+        headers: {}, // Clear headers to let browser set Content-Type for FormData
       });
 
       if (!response.ok) {
@@ -335,7 +328,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const updateNavigationTab = (tab: 'profile' | 'play') => {
+  const updateNavigationTab = (tab: 'profile' | 'play' | 'matched') => {
     setNavigationState(prev => ({
       ...prev,
       currentTab: tab,

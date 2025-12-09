@@ -13,7 +13,7 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'elo-check-api' },
+  defaultMeta: { service: 'berkeley-goggles-api' },
   transports: [
     // Write all logs with importance level of 'error' or less to error.log
     new winston.transports.File({ 

@@ -4,6 +4,11 @@ import { logger } from '../utils/logger';
 // Create Prisma client instance
 export const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
 });
 
 // Connect to database
@@ -11,8 +16,15 @@ export const connectDatabase = async () => {
   try {
     await prisma.$connect();
     logger.info('✅ Database connected successfully');
+    
+    // Test the database connection
+    await prisma.$queryRaw`SELECT 1`;
+    logger.info(`📊 Database type: ${process.env.NODE_ENV === 'development' ? 'SQLite (dev)' : 'PostgreSQL (prod)'}`);
   } catch (error) {
     logger.error('❌ Database connection failed:', error);
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('💡 Make sure to run database migrations: npm run db:migrate:prod');
+    }
     process.exit(1);
   }
 };

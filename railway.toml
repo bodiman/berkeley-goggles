@@ -1,0 +1,35 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npm run build:backend"
+
+[deploy]
+startCommand = "npm run start:backend"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "berkeley-goggles-api"
+
+[services.source]
+repo = "your-repo"
+rootDirectory = "/backend"
+
+[services.variables]
+NODE_ENV = "production"
+PORT = { default = "3001" }
+
+[[services]]
+name = "postgres"
+source = { image = "postgres:15" }
+
+[services.variables]
+POSTGRES_DB = "berkeley_goggles"
+POSTGRES_USER = "postgres"
+POSTGRES_PASSWORD = { generate = true }
+
+[[services]]
+name = "redis" 
+source = { image = "redis:7-alpine" }
+
+[services.variables]
+REDIS_URL = { reference = "redis://redis:6379" }

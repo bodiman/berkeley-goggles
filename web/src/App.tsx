@@ -7,6 +7,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ProfileSetupPage } from './pages/ProfileSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ComparisonPage } from './pages/ComparisonPage';
+import { MatchedPage } from './pages/MatchedPage';
 import { BottomNavigation } from './components/BottomNavigation';
 import './index.css';
 
@@ -77,6 +78,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-black">
       {navigationState.currentTab === 'profile' && <ProfilePage />}
       {navigationState.currentTab === 'play' && <ComparisonPage />}
+      {navigationState.currentTab === 'matched' && <MatchedPage />}
       <BottomNavigation />
     </div>
   );

@@ -11,10 +11,7 @@ interface RegisterFormData {
   email: string;
   password: string;
   confirmPassword: string;
-  age: number;
-  gender: 'male' | 'female';
   agreedToTerms: boolean;
-  agreedToPrivacy: boolean;
 }
 
 export const RegisterPage: React.FC<RegisterPageProps> = ({
@@ -27,10 +24,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     email: '',
     password: '',
     confirmPassword: '',
-    age: 18,
-    gender: 'male',
     agreedToTerms: false,
-    agreedToPrivacy: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,13 +60,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
       return;
     }
 
-    if (formData.age < 18) {
-      setError('You must be at least 18 years old');
-      return;
-    }
-
-    if (!formData.agreedToTerms || !formData.agreedToPrivacy) {
-      setError('Please accept the terms of service and privacy policy');
+    if (!formData.agreedToTerms) {
+      setError('Please accept the terms of service');
       return;
     }
 
@@ -102,11 +91,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   const handleInputChange = (field: keyof RegisterFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const value = field === 'agreedToTerms' || field === 'agreedToPrivacy' 
+    const value = field === 'agreedToTerms'
       ? e.target.checked 
-      : field === 'age' 
-        ? parseInt(e.target.value) 
-        : e.target.value;
+      : e.target.value;
     
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -116,10 +103,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     }
   };
 
-  const handleGenderChange = (gender: 'male' | 'female') => {
-    setFormData(prev => ({ ...prev, gender }));
-    if (error) setError(null);
-  };
 
   return (
     <div className="min-h-screen bg-black flex flex-col safe-area-inset">
@@ -142,7 +125,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         <div className="w-full max-w-md mx-auto">
           {/* Welcome Message */}
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-white mb-2">Join Elo Check</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">Join Berkeley Goggles</h2>
             <p className="text-gray-400">Create your account to get started</p>
           </div>
 
@@ -231,55 +214,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               </div>
             </div>
 
-            {/* Age Input */}
-            <div>
-              <label htmlFor="age" className="block text-sm font-medium text-white mb-2">
-                Age
-              </label>
-              <input
-                type="number"
-                id="age"
-                min="18"
-                max="99"
-                value={formData.age}
-                onChange={handleInputChange('age')}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
 
-            {/* Gender Selection */}
+            {/* Terms */}
             <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Gender
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleGenderChange('male')}
-                  className={`py-3 px-4 rounded-lg font-medium transition-colors ${
-                    formData.gender === 'male'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  Male
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleGenderChange('female')}
-                  className={`py-3 px-4 rounded-lg font-medium transition-colors ${
-                    formData.gender === 'female'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                >
-                  Female
-                </button>
-              </div>
-            </div>
-
-            {/* Terms and Privacy */}
-            <div className="space-y-4">
               <label className="flex items-start space-x-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -290,19 +227,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 <span className="text-sm text-gray-300 leading-relaxed">
                   I agree to the{' '}
                   <span className="text-blue-400 underline">Terms of Service</span>
-                </span>
-              </label>
-
-              <label className="flex items-start space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.agreedToPrivacy}
-                  onChange={handleInputChange('agreedToPrivacy')}
-                  className="w-5 h-5 bg-gray-800 border border-gray-600 rounded focus:ring-2 focus:ring-blue-500 mt-0.5"
-                />
-                <span className="text-sm text-gray-300 leading-relaxed">
-                  I agree to the{' '}
-                  <span className="text-blue-400 underline">Privacy Policy</span>
                 </span>
               </label>
             </div>

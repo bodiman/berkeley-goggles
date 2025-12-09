@@ -4,10 +4,22 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          utils: ['@use-gesture/react', 'react-spring']
+        }
+      }
+    }
+  },
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
       }
@@ -19,9 +31,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Elo Check - Scientific Beauty Ranking',
-        short_name: 'Elo Check',
-        description: 'Get your scientifically-calculated attractiveness percentile through peer comparisons',
+        name: 'Berkeley Goggles - Social Beauty Ranking',
+        short_name: 'Berkeley Goggles',
+        description: 'Get your beauty ranking through peer comparisons in our social rating community',
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',

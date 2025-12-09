@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -15,8 +15,8 @@ model User {
   name        String
   email       String   @unique
   password    String   // Store hashed password directly
-  age         Int
-  gender      String   // "male" or "female"
+  age         Int?
+  gender      String?   // "male" or "female"
   city        String?
   state       String?
   country     String?
@@ -51,12 +51,16 @@ model User {
   skipPenalty     Boolean @default(false) @map("skip_penalty")
   qualityFilter   Boolean @default(true) @map("quality_filter")
   
+  // Matching settings
+  matchingPercentile Int @default(20) @map("matching_percentile") // Match with people in top n%
+  
   // Relations
   photos        Photo[]
   comparisons   Comparison[] @relation("RaterComparisons")
   sessions      ComparisonSession[]
   achievements  Achievement[]
   rankings      PhotoRanking[]
+  combinedRankings CombinedRanking[]
   
   @@map("users")
 }
@@ -79,6 +83,7 @@ model Photo {
   // Relations
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   ranking         PhotoRanking?
+  combinedRanking CombinedRanking?
   winnerComparisons Comparison[] @relation("WinnerComparisons")
   loserComparisons  Comparison[] @relation("LoserComparisons")
   
@@ -213,6 +218,7 @@ model SampleImage {
   
   // Relations
   ranking         SampleImageRanking?
+  combinedRanking CombinedRanking?
   winnerComparisons Comparison[] @relation("WinnerSampleComparisons")
   loserComparisons  Comparison[] @relation("LoserSampleComparisons")
   
@@ -234,4 +240,44 @@ model SampleImageRanking {
   sampleImage        SampleImage @relation(fields: [sampleImageId], references: [id], onDelete: Cascade)
   
   @@map("sample_image_rankings")
+}
+
+model CombinedRanking {
+  id                    String   @id @default(cuid())
+  // Either photoId OR sampleImageId will be set, not both
+  photoId               String?  @map("photo_id")
+  sampleImageId         String?  @map("sample_image_id")
+  userId                String?  @map("user_id") // Null for sample images
+  gender                String   // "male" or "female"
+  currentPercentile     Float    @default(50.0) @map("current_percentile")
+  totalComparisons      Int      @default(0) @map("total_comparisons")
+  wins                  Int      @default(0)
+  losses                Int      @default(0)
+  bradleyTerryScore     Float    @default(0.5) @map("bradley_terry_score")
+  confidence            Float    @default(0.0)
+  lastUpdated           DateTime @default(now()) @map("last_updated")
+  
+  // Relations (optional, since either photo OR sample image)
+  photo                 Photo?        @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  sampleImage           SampleImage?  @relation(fields: [sampleImageId], references: [id], onDelete: Cascade)
+  user                  User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  history               CombinedRankingHistory[]
+  
+  // Ensure exactly one of photoId or sampleImageId is set
+  @@unique([photoId]) // Each photo can only have one combined ranking
+  @@unique([sampleImageId]) // Each sample image can only have one combined ranking
+  @@map("combined_rankings")
+}
+
+model CombinedRankingHistory {
+  id                String          @id @default(cuid())
+  combinedRankingId String          @map("combined_ranking_id")
+  percentile        Float
+  comparisons       Int
+  recordedAt        DateTime        @default(now()) @map("recorded_at")
+  
+  // Relations
+  combinedRanking   CombinedRanking @relation(fields: [combinedRankingId], references: [id], onDelete: Cascade)
+  
+  @@map("combined_ranking_history")
 }

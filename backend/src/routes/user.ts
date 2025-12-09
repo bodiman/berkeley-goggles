@@ -186,7 +186,7 @@ userRoutes.get('/profile', asyncHandler(async (req, res) => {
     user: {
       id: mockUserId,
       name: 'Demo User',
-      email: 'demo@elocheck.app',
+      email: 'demo@berkeleygoggles.app',
       profileComplete: true,
       createdAt: new Date('2024-01-01'),
       lastActive: new Date(),
