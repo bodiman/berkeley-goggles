@@ -32,8 +32,8 @@ export const ComparisonPage: React.FC = () => {
     isCurrentPairReady,
     bufferStats
   } = useImageBuffer({
-    bufferSize: 5,
-    refillThreshold: 2,
+    bufferSize: 10,
+    refillThreshold: 3,
     userId: user?.id || '',
     onError: setError
   });
