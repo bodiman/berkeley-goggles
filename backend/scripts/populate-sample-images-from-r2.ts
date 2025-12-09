@@ -86,12 +86,13 @@ class SampleImagePopulator {
     
     let continuationToken: string | undefined;
     let totalMetadata = 0;
+    let processedCount = 0;
 
     do {
       const metadataCommand = new ListObjectsV2Command({
         Bucket: this.config.bucketName,
         Prefix: 'samples/metadata/',
-        MaxKeys: 1000,
+        MaxKeys: debugLimit ? Math.min(200, debugLimit * 2) : 1000,
         ContinuationToken: continuationToken,
       });
 
