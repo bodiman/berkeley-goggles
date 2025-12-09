@@ -59,8 +59,8 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
       });
     }
     
-    let profilePhotoUrl = null;
-    let photoId = null;
+    let profilePhotoUrl: string | null = null;
+    let photoId: string | null = null;
     
     // Process photo if provided
     if (req.file) {

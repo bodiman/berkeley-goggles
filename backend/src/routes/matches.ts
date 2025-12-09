@@ -121,7 +121,14 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
     });
 
     // Filter for mutual matches - users whose preferences would also include current user
-    const mutualMatches = [];
+    const mutualMatches: Array<{
+      id: string;
+      name: string;
+      profilePhotoUrl: string | null;
+      currentPercentile: number;
+      totalComparisons: number;
+      confidence: string;
+    }> = [];
     
     for (const potentialMatch of potentialMatches) {
       if (potentialMatch.photos.length === 0 || !potentialMatch.photos[0].combinedRanking) {

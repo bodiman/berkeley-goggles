@@ -112,7 +112,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     let comparisonType = 'user_photos';
 
     // Phase 1: Try user-only comparisons first
-    let availablePairs = [];
+    let availablePairs: Array<{left: any, right: any, type?: string}> = [];
     let phase = 'user_only';
     let message = '';
 
