@@ -74,8 +74,10 @@ class PhotoUploadService {
   async uploadWebcamPhoto(
     blob: Blob, 
     userId?: string,
-    onProgress?: (progress: UploadProgress) => void
+    _onProgress?: (progress: UploadProgress) => void
   ): Promise<PhotoUploadResult> {
+    console.log('🔍 DEBUGGING: Using fetch instead of XHR to test');
+    
     const formData = new FormData();
     formData.append('photo', blob, 'webcam-capture.jpg');
     
@@ -83,60 +85,49 @@ class PhotoUploadService {
       formData.append('userId', userId);
     }
 
-    // Track upload progress if supported
-    const xhr = new XMLHttpRequest();
-    
-    return new Promise((resolve, reject) => {
-      if (onProgress) {
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            onProgress({
-              loaded: event.loaded,
-              total: event.total,
-              percentage: Math.round((event.loaded / event.total) * 100),
-            });
-          }
-        });
+    const fullUrl = `${API_CONFIG.baseURL}/api/photos/webcam`;
+    console.log('📡 PhotoUpload Debug (FETCH):', {
+      'API_CONFIG.baseURL': API_CONFIG.baseURL,
+      'Full URL': fullUrl,
+      'Current location': window.location.href,
+      'Env MODE': import.meta.env.MODE,
+      'Env PROD': import.meta.env.PROD,
+      'Env VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
+      'Hostname': window.location.hostname
+    });
+
+    try {
+      console.log('🚀 About to fetch with URL:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type for FormData - browser will set it with boundary
+      });
+
+      console.log('📡 Fetch Response:', {
+        url: response.url,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status: ${response.status} ${response.statusText}`);
       }
 
-      xhr.addEventListener('load', async () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const result = JSON.parse(xhr.responseText);
-            if (result.success) {
-              resolve(result.photo);
-            } else {
-              reject(new Error(result.error || 'Upload failed'));
-            }
-          } catch (error) {
-            reject(new Error('Failed to parse response'));
-          }
-        } else {
-          reject(new Error(`Upload failed with status: ${xhr.status}`));
-        }
-      });
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
 
-      xhr.addEventListener('error', () => {
-        reject(new Error('Network error during upload'));
-      });
-
-      const fullUrl = `${API_CONFIG.baseURL}/api/photos/webcam`;
-      console.log('📡 PhotoUpload Debug:', {
-        'API_CONFIG.baseURL': API_CONFIG.baseURL,
-        'Full URL': fullUrl,
-        'Current location': window.location.href,
-        'Env MODE': import.meta.env.MODE,
-        'Env PROD': import.meta.env.PROD,
-        'Env VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
-        'Hostname': window.location.hostname
-      });
-
-      console.log('🚀 About to open XHR with URL:', fullUrl);
-      xhr.open('POST', fullUrl);
-      console.log('📤 XHR opened, about to send formData');
-      xhr.send(formData);
-      console.log('✉️ XHR sent');
-    });
+      return result.photo;
+      
+    } catch (error) {
+      console.error('💥 Fetch upload error:', error);
+      throw error;
+    }
   }
 
   /**
