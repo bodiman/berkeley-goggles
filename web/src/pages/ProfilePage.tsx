@@ -151,7 +151,15 @@ export const ProfilePage: React.FC = () => {
     setPhotoError(null);
 
     try {
-      const success = await updateUserPhoto(capture.blob);
+      // Use R2 URL if available, otherwise fall back to blob
+      const photoData = capture.uploadResult ? {
+        r2Url: capture.uploadResult.url,
+        r2ThumbnailUrl: capture.uploadResult.thumbnailUrl,
+      } : {
+        blob: capture.blob,
+      };
+
+      const success = await updateUserPhoto(photoData);
       console.log('success', success);
       
       if (success) {
@@ -234,7 +242,7 @@ export const ProfilePage: React.FC = () => {
               >
                 {user.profilePhoto ? (
                   <img
-                    src="https://pub-348e171b4d40413abdb8c2b075b6de0d.r2.dev/samples/1765255211564-d0dbe6fa-a815-49c9-bc01-8dc9bdbefcfe.jpg"
+                    src={user.profilePhoto}
                     alt="Profile"
                     className="w-32 h-32 rounded-full object-cover border-4 border-gray-600 group-hover:border-blue-500 transition-colors"
                   />

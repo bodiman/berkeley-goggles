@@ -285,10 +285,71 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
       });
     }
     
+    // Check if R2 URL is provided (new flow) or file upload (legacy flow)
+    const r2PhotoUrl = req.body.r2PhotoUrl;
+    const r2ThumbnailUrl = req.body.r2ThumbnailUrl;
+    
+    if (r2PhotoUrl) {
+      // New flow: Use R2 URLs directly
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          profilePhotoUrl: r2PhotoUrl,
+          lastActive: new Date(),
+        },
+      });
+      
+      // Create Photo record in database for algorithm training
+      const photo = await prisma.photo.create({
+        data: {
+          userId,
+          url: r2PhotoUrl,
+          thumbnailUrl: r2ThumbnailUrl || r2PhotoUrl,
+          status: 'approved',
+          originalFilename: 'r2-upload.jpg',
+          fileSize: 0, // Unknown for R2 uploads
+          width: 400, // Assumed
+          height: 400, // Assumed
+          format: 'jpeg',
+        },
+      });
+
+      // Create initial PhotoRanking record
+      await prisma.photoRanking.create({
+        data: {
+          photoId: photo.id,
+          userId,
+          currentPercentile: 50.0,
+          totalComparisons: 0,
+          wins: 0,
+          losses: 0,
+          bradleyTerryScore: 0.5,
+          confidence: 0.0,
+        },
+      });
+      
+      // Return user data with R2 URL
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      
+      return res.json({ 
+        success: true, 
+        message: 'Profile photo updated successfully',
+        user: userWithoutPassword,
+        photo: {
+          id: photo.id,
+          url: r2PhotoUrl,
+          thumbnailUrl: r2ThumbnailUrl || r2PhotoUrl,
+          status: photo.status,
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Legacy flow: File upload
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        error: 'No photo file provided',
+        error: 'No photo file or R2 URL provided',
       });
     }
     

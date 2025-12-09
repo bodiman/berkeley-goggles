@@ -33,7 +33,7 @@ interface AuthContextType {
   logout: () => void;
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
   updateUserName: (name: string) => Promise<boolean>;
-  updateUserPhoto: (photoBlob: Blob) => Promise<boolean>;
+  updateUserPhoto: (photoData: { blob?: Blob; r2Url?: string; r2ThumbnailUrl?: string }) => Promise<boolean>;
   updateNavigationTab: (tab: 'profile' | 'play' | 'matched') => void;
 }
 
@@ -289,51 +289,87 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const updateUserPhoto = async (photoBlob: Blob): Promise<boolean> => {
+  const updateUserPhoto = async (photoData: { blob?: Blob; r2Url?: string; r2ThumbnailUrl?: string }): Promise<boolean> => {
     try {
       if (!user) return false;
 
-      const formData = new FormData();
-      formData.append('userId', user.id);
-      formData.append('photo', photoBlob, 'profile-photo.jpg');
+      if (photoData.r2Url) {
+        // New flow: Use R2 URL
+        const response = await apiRequest('/api/user/photo', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: user.id,
+            r2PhotoUrl: photoData.r2Url,
+            r2ThumbnailUrl: photoData.r2ThumbnailUrl,
+          }),
+        });
 
-      const response = await apiRequest('/api/user/photo', {
-        method: 'POST', //
-        body: formData,
-        headers: {}, // Clear headers to let browser set Content-Type for FormData
-      });
+        if (!response.ok) {
+          return false;
+        }
 
-      console.log('response is okay?', response);
-      console.log(response.ok);
+        const data = await response.json();
+        
+        console.log('Photo update response:', data);
+        
+        if (data.success && data.user) {
+          const updatedUser: AuthUser = {
+            ...data.user,
+            profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
+            createdAt: new Date(data.user.createdAt),
+            lastActive: new Date(data.user.lastActive),
+          };
+          
+          console.log('Updated user with photo:', updatedUser);
 
-      if (!response.ok) {
+          setUser(updatedUser);
+          localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
+
+          return true;
+        }
+
+        return false;
+      } else if (photoData.blob) {
+        // Legacy flow: File upload
+        const formData = new FormData();
+        formData.append('userId', user.id);
+        formData.append('photo', photoData.blob, 'profile-photo.jpg');
+
+        const response = await apiRequest('/api/user/photo', {
+          method: 'POST',
+          body: formData,
+          headers: {}, // Clear headers to let browser set Content-Type for FormData
+        });
+
+        if (!response.ok) {
+          return false;
+        }
+
+        const data = await response.json();
+        
+        console.log('Photo update response:', data);
+        
+        if (data.success && data.user) {
+          const updatedUser: AuthUser = {
+            ...data.user,
+            profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
+            createdAt: new Date(data.user.createdAt),
+            lastActive: new Date(data.user.lastActive),
+          };
+          
+          console.log('Updated user with photo:', updatedUser);
+
+          setUser(updatedUser);
+          localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
+
+          return true;
+        }
+
+        return false;
+      } else {
+        console.error('No photo blob or R2 URL provided');
         return false;
       }
-
-      // console.log('formData', formData);
-      // console.log(response);
-
-      const data = await response.json();
-      
-      console.log('Photo update response:', data);
-      
-      if (data.success && data.user) {
-        const updatedUser: AuthUser = {
-          ...data.user,
-          profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
-          createdAt: new Date(data.user.createdAt),
-          lastActive: new Date(data.user.lastActive),
-        };
-        
-        console.log('Updated user with photo:', updatedUser);
-
-        setUser(updatedUser);
-        localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
-
-        return true;
-      }
-
-      return false;
     } catch (error) {
       console.error('Photo update failed:', error);
       return false;
