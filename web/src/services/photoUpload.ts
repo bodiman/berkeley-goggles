@@ -120,7 +120,18 @@ class PhotoUploadService {
         reject(new Error('Network error during upload'));
       });
 
-      xhr.open('POST', `${API_CONFIG.baseURL}/api/photos/webcam`);
+      const fullUrl = `${API_CONFIG.baseURL}/api/photos/webcam`;
+      console.log('📡 PhotoUpload Debug:', {
+        'API_CONFIG.baseURL': API_CONFIG.baseURL,
+        'Full URL': fullUrl,
+        'Current location': window.location.href,
+        'Env MODE': import.meta.env.MODE,
+        'Env PROD': import.meta.env.PROD,
+        'Env VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
+        'Hostname': window.location.hostname
+      });
+
+      xhr.open('POST', fullUrl);
       xhr.send(formData);
     });
   }
