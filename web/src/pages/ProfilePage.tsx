@@ -230,7 +230,7 @@ export const ProfilePage: React.FC = () => {
               >
                 {user.profilePhoto ? (
                   <img
-                    src={user.profilePhoto}
+                    src="https://pub-348e171b4d40413abdb8c2b075b6de0d.r2.dev/photos/webcam/cmiy7x3gl0008cb2ioe6uv091/1733720663864244-43ba0020-91d4-4013-a49b-27215691b713.jpg"
                     alt="Profile"
                     className="w-32 h-32 rounded-full object-cover border-4 border-gray-600 group-hover:border-blue-500 transition-colors"
                   />
