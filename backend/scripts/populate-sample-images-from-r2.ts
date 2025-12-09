@@ -207,6 +207,11 @@ class SampleImagePopulator {
               const imgObjResponse = await this.s3Client.send(getImgCommand);
               const imageId = imgObjResponse.Metadata?.imageid; // lowercase from R2
               
+              // Debug logging for first few images
+              if (debugLimit && totalImages <= 10) {
+                console.log(`    🔍 Image ${obj.Key}: imageId=${imageId}, hasMetadata=${imageId ? imageMap.has(imageId) : false}`);
+              }
+              
               if (imageId && imageMap.has(imageId)) {
                 const imageInfo = imageMap.get(imageId)!;
                 const publicUrl = `https://${this.config.publicDomain}/${obj.Key}`;
@@ -239,8 +244,11 @@ class SampleImagePopulator {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
         
-        // Break if we have enough images for debug mode
-        if (debugLimit && foundCount >= debugLimit) {
+        // Break if we have enough images for debug mode OR processed too many files
+        if (debugLimit && (foundCount >= debugLimit || totalImages >= debugLimit * 50)) {
+          if (totalImages >= debugLimit * 50) {
+            console.log(`    ⚠️  Stopping after ${totalImages} files to prevent infinite loop`);
+          }
           break;
         }
       }

@@ -37,7 +37,11 @@
     "populate:samples": "tsx scripts/populate-sample-images-from-r2.ts",
     "populate:samples:dry": "tsx scripts/populate-sample-images-from-r2.ts --dry-run",
     "populate:samples:debug": "tsx scripts/populate-sample-images-from-r2.ts --debug=100",
-    "populate:samples:debug:dry": "tsx scripts/populate-sample-images-from-r2.ts --dry-run --debug=100"
+    "populate:samples:debug:dry": "tsx scripts/populate-sample-images-from-r2.ts --dry-run --debug=100",
+    "populate:simple": "tsx scripts/simple-populate-samples.ts",
+    "populate:simple:dry": "tsx scripts/simple-populate-samples.ts --dry-run",
+    "populate:simple:debug": "tsx scripts/simple-populate-samples.ts --debug=100",
+    "populate:simple:debug:dry": "tsx scripts/simple-populate-samples.ts --dry-run --debug=100"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.947.0",
