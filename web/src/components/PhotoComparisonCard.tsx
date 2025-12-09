@@ -69,7 +69,7 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
 
   // Drag gesture handler
   const bind = useDrag(
-    ({ active, movement: [mx, my], direction: [xDir, yDir], velocity: [vx, vy] }) => {
+    ({ active, movement: [mx, my], velocity: [vx, vy] }) => {
       if (disabled) return;
       
       // Determine swipe direction

@@ -18,7 +18,7 @@ interface CameraCapture {
 }
 
 export const ProfileSetupPage: React.FC = () => {
-  const { setupProfile, user, logout } = useAuth();
+  const { setupProfile, logout } = useAuth();
   
   const [currentStep, setCurrentStep] = useState<'name' | 'photo' | 'terms'>('name');
   const [isLoading, setIsLoading] = useState(false);

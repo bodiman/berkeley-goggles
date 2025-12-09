@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { apiRequest, API_ENDPOINTS } from '../config/api';
 // TODO: Import from shared package once workspace is properly configured
 interface AuthUser {
