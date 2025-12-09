@@ -76,7 +76,6 @@ class PhotoUploadService {
     userId?: string,
     _onProgress?: (progress: UploadProgress) => void
   ): Promise<PhotoUploadResult> {
-    console.log('🔍 DEBUGGING: Using fetch instead of XHR to test');
     
     const formData = new FormData();
     formData.append('photo', blob, 'webcam-capture.jpg');
@@ -113,15 +112,33 @@ class PhotoUploadService {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Response not OK:', { status: response.status, statusText: response.statusText, body: errorText });
         throw new Error(`Upload failed with status: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('📦 Parsed Response JSON:', {
+        fullResponse: result,
+        hasSuccess: 'success' in result,
+        successValue: result.success,
+        hasPhoto: 'photo' in result,
+        photoValue: result.photo,
+        hasError: 'error' in result,
+        errorValue: result.error
+      });
       
       if (!result.success) {
+        console.error('❌ Backend reported failure:', result.error || 'Upload failed');
         throw new Error(result.error || 'Upload failed');
       }
 
+      if (!result.photo) {
+        console.error('❌ No photo data in successful response:', result);
+        throw new Error('No photo data returned from server');
+      }
+
+      console.log('✅ Returning photo result:', result.photo);
       return result.photo;
       
     } catch (error) {

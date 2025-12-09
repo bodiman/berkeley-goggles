@@ -8,12 +8,18 @@ interface UserProfileSetup {
   age: number;
   gender: 'male' | 'female';
   photo?: File | Blob;
+  photoUrl?: string; // R2 CDN URL if already uploaded
 }
 
 interface CameraCapture {
   blob: Blob;
   dataUrl: string;
   timestamp: number;
+  uploadResult?: {
+    id: string;
+    url: string;
+    thumbnailUrl?: string;
+  };
 }
 
 export const ProfileSetupPage: React.FC = () => {
@@ -47,11 +53,19 @@ export const ProfileSetupPage: React.FC = () => {
   };
 
   const handlePhotoCapture = (capture: CameraCapture) => {
+    console.log('📷 ProfileSetup: Photo captured:', {
+      hasBlob: !!capture.blob,
+      hasDataUrl: !!capture.dataUrl,
+      hasUploadResult: !!capture.uploadResult,
+      uploadResult: capture.uploadResult,
+      timestamp: capture.timestamp
+    });
     setCapturedPhoto(capture);
     setCurrentStep('terms');
   };
 
   const handlePhotoCaptureError = (errorMessage: string) => {
+    console.error('📷 ProfileSetup: Photo capture error:', errorMessage);
     setError(errorMessage);
   };
 
@@ -67,16 +81,32 @@ export const ProfileSetupPage: React.FC = () => {
     setError(null);
 
     try {
+      console.log('👤 ProfileSetup: Starting profile setup with data:', {
+        formData,
+        capturedPhoto: {
+          hasBlob: !!capturedPhoto.blob,
+          hasUploadResult: !!capturedPhoto.uploadResult,
+          uploadResultUrl: capturedPhoto.uploadResult?.url
+        }
+      });
+
       const profileData: UserProfileSetup = {
         ...formData,
-        photo: capturedPhoto.blob,
+        // If photo was uploaded to R2, use the URL, otherwise use the blob for upload
+        ...(capturedPhoto.uploadResult?.url 
+          ? { photoUrl: capturedPhoto.uploadResult.url }
+          : { photo: capturedPhoto.blob }
+        ),
       };
 
+      console.log('👤 ProfileSetup: Calling setupProfile with:', profileData);
       const success = await setupProfile(profileData);
       
       if (!success) {
         throw new Error('Failed to setup profile');
       }
+
+      console.log('✅ ProfileSetup: Profile setup completed successfully');
       
       // Success handled by AuthContext navigation update
     } catch (err) {

@@ -133,6 +133,7 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
       // Upload if autoUpload is enabled
       if (autoUpload) {
         try {
+          console.log('🚀 Starting auto-upload...', { userId, blobSize: blob.size });
           setIsUploading(true);
           setUploadProgress({ loaded: 0, total: blob.size, percentage: 0 });
 
@@ -145,11 +146,16 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
             }
           );
 
+          console.log('✅ Upload completed successfully:', uploadResult);
           capture.uploadResult = uploadResult;
           setUploadProgress({ loaded: blob.size, total: blob.size, percentage: 100 });
           
         } catch (uploadError) {
-          console.error('Photo upload failed:', uploadError);
+          console.error('❌ Photo upload failed in camera component:', {
+            error: uploadError,
+            message: uploadError instanceof Error ? uploadError.message : String(uploadError),
+            stack: uploadError instanceof Error ? uploadError.stack : undefined
+          });
           onError('Photo captured but upload failed. You can retry later.');
           // Continue with local capture even if upload fails
         } finally {
@@ -157,6 +163,13 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
           setUploadProgress(null);
         }
       }
+
+      console.log('📸 Calling onCapture with capture data:', {
+        hasBlob: !!capture.blob,
+        hasDataUrl: !!capture.dataUrl,
+        hasUploadResult: !!capture.uploadResult,
+        uploadResult: capture.uploadResult
+      });
 
       onCapture(capture);
       
