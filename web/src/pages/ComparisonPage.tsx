@@ -2,28 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { PhotoComparisonCard } from '../components/PhotoComparisonCard';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
+import { useImageBuffer } from '../hooks/useImageBuffer';
 
-interface PhotoPair {
-  sessionId: string;
-  leftPhoto: {
-    id: string;
-    url: string;
-    thumbnailUrl: string;
-    userId: string;
-    userAge: number;
-    userGender: string;
-    type: 'user' | 'sample';
-  };
-  rightPhoto: {
-    id: string;
-    url: string;
-    thumbnailUrl: string;
-    userId: string;
-    userAge: number;
-    userGender: string;
-    type: 'user' | 'sample';
-  };
-}
+// PhotoPair interface now imported from useImageBuffer hook
 
 interface DailyProgress {
   comparisonsCompleted: number;
@@ -36,11 +17,27 @@ interface DailyProgress {
 
 export const ComparisonPage: React.FC = () => {
   const { user } = useAuth();
-  const [currentPair, setCurrentPair] = useState<PhotoPair | null>(null);
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Initialize image buffer hook
+  const {
+    getCurrentPair,
+    advanceToNext,
+    initializeBuffer,
+    isLoading,
+    isBuffering,
+    isCurrentPairReady,
+    bufferStats
+  } = useImageBuffer({
+    bufferSize: 5,
+    refillThreshold: 2,
+    userId: user?.id || '',
+    onError: setError
+  });
+  
+  const currentPair = getCurrentPair();
 
   // Fetch initial data on component mount
   useEffect(() => {
@@ -64,37 +61,18 @@ export const ComparisonPage: React.FC = () => {
 
   const loadInitialData = async () => {
     try {
-      setIsLoading(true);
       setError(null);
       await Promise.all([
-        fetchNextPair(),
+        initializeBuffer(),
         fetchDailyProgress(),
       ]);
     } catch (error) {
       console.error('Failed to load initial data:', error);
       setError('Failed to load comparison data');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const fetchNextPair = async () => {
-    if (!user?.id) return;
-
-    try {
-      const response = await apiRequest(`/api/comparisons/next-pair?userId=${user.id}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setCurrentPair(data.pair);
-      } else {
-        setError(data.error || 'Failed to get photo pair');
-      }
-    } catch (error) {
-      console.error('Failed to fetch next pair:', error);
-      setError('Failed to fetch photo pair');
-    }
-  };
+  // fetchNextPair is now handled by the buffer hook
 
   const fetchDailyProgress = async () => {
     if (!user?.id) return;
@@ -143,9 +121,9 @@ export const ComparisonPage: React.FC = () => {
           navigator.vibrate([50, 50, 50]);
         }
         
-        // Fetch next pair and update progress
+        // Advance to next pair and update progress
         await Promise.all([
-          fetchNextPair(),
+          advanceToNext(),
           fetchDailyProgress(),
         ]);
         
@@ -183,9 +161,9 @@ export const ComparisonPage: React.FC = () => {
           navigator.vibrate(30);
         }
         
-        // Fetch next pair and update progress
+        // Advance to next pair and update progress
         await Promise.all([
-          fetchNextPair(),
+          advanceToNext(),
           fetchDailyProgress(),
         ]);
       } else {
@@ -206,6 +184,7 @@ export const ComparisonPage: React.FC = () => {
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Loading photos...</p>
+          <p className="text-gray-400 text-sm mt-2">Preparing buffer...</p>
         </div>
       </div>
     );
@@ -274,10 +253,21 @@ export const ComparisonPage: React.FC = () => {
           />
         </div>
         
-        {/* Streak */}
-        <div className="flex items-center justify-center mt-3 text-sm">
-          <span className="text-orange-500 mr-2">🔥</span>
-          <span className="text-white font-medium">{dailyProgress?.streak || 0} day streak</span>
+        {/* Streak & Buffer Status */}
+        <div className="flex items-center justify-between mt-3 text-sm">
+          <div className="flex items-center">
+            <span className="text-orange-500 mr-2">🔥</span>
+            <span className="text-white font-medium">{dailyProgress?.streak || 0} day streak</span>
+          </div>
+          
+          {/* Buffer Status */}
+          <div className="flex items-center text-xs text-gray-500">
+            {isBuffering && <span className="mr-2">⏳ Loading...</span>}
+            <span>{bufferStats.remaining} pairs ready</span>
+            {!isCurrentPairReady() && (
+              <span className="ml-2 text-yellow-500">📷</span>
+            )}
+          </div>
         </div>
       </header>
 
