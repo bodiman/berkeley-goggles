@@ -83,7 +83,6 @@ export const ComparisonPage: React.FC = () => {
     try {
       const response = await fetch(`/api/comparisons/next-pair?userId=${user.id}`);
       console.log('response', response);
-      console.log('response body', response.body);
       const data = await response.json();
       console.log('data', data);
       

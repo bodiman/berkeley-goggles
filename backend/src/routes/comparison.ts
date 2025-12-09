@@ -179,10 +179,15 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           type: 'user',
         };
       } else {
+        // Get the base URL for the current environment
+        const baseUrl = process.env.NODE_ENV === 'production' 
+          ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
+          : 'http://localhost:3001';
+          
         return {
           id: photo.id,
-          url: `http://localhost:3001${photo.url}`,
-          thumbnailUrl: `http://localhost:3001${photo.thumbnailUrl}`,
+          url: `${baseUrl}${photo.url}`,
+          thumbnailUrl: `${baseUrl}${photo.thumbnailUrl}`,
           userId: 'sample',
           userAge: photo.estimatedAge,
           userGender: photo.gender,
