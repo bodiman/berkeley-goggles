@@ -79,11 +79,37 @@ npm run dev
 
 ### Available Scripts
 
-- `npm run dev` - Start both backend and mobile development servers
-- `npm run build` - Build both backend and mobile for production
+- `npm run dev` - Start both backend and frontend development servers
+- `npm run build` - Build both backend and frontend for production
+- `npm run start:prod` - Start production backend with migrations
 - `npm run test` - Run all tests
 - `npm run lint` - Lint all code
 - `npm run typecheck` - Type check all TypeScript code
+
+## 🚀 Deployment
+
+Berkeley Goggles is designed to deploy on:
+- **Frontend**: Vercel (React/Vite)
+- **Backend**: Railway (Node.js/Express)
+- **Database**: Railway PostgreSQL
+- **Cache**: Railway Redis
+- **Storage**: AWS S3
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete deployment instructions.
+
+### Quick Deploy
+
+1. **Backend (Railway)**:
+   - Connect GitHub repo to Railway
+   - Add PostgreSQL and Redis services
+   - Configure environment variables
+   - Deploy automatically
+
+2. **Frontend (Vercel)**:
+   - Connect GitHub repo to Vercel
+   - Set root directory to `web`
+   - Configure environment variables
+   - Deploy automatically
 
 ## Architecture
 

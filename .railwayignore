@@ -1,0 +1,44 @@
+# Railway Ignore - Only deploy backend
+# Frontend should be deployed to Vercel
+
+# Ignore frontend
+web/
+vercel.json
+
+# Ignore other non-backend files
+*.md
+scripts/
+sample_images/
+.claude/
+
+# Development files
+.env.development
+.env.example
+.env.local
+
+# Git and editor files
+.git/
+.github/
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies (will be installed during build)
+node_modules/
+*/node_modules/
+
+# Build outputs (will be built during deployment)
+dist/
+*/dist/
+build/
+*/build/
+
+# Temporary files
+.tmp/
+.cache/

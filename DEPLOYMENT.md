@@ -39,7 +39,10 @@ This guide walks you through deploying Berkeley Goggles to production using Verc
 1. Go to [Railway.app](https://railway.app) and sign in
 2. Click "New Project" → "Deploy from GitHub repo"
 3. Select your Berkeley Goggles repository
-4. Choose "Deploy Now"
+4. **Important**: Railway will only deploy the backend API
+   - The `.railwayignore` file excludes the frontend (`web/` folder)
+   - Frontend should be deployed separately to Vercel
+5. Choose "Deploy Now"
 
 ### Step 2: Add Services
 
