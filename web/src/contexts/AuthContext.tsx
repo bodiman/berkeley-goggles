@@ -65,11 +65,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedUser = localStorage.getItem('berkeley-goggles-user');
         if (storedUser) {
           const userData = JSON.parse(storedUser);
-          // Convert date strings back to Date objects
+          // Convert date strings back to Date objects and fix relative photo URLs
           const userWithDates: AuthUser = {
             ...userData,
             createdAt: new Date(userData.createdAt),
             lastActive: new Date(userData.lastActive),
+            // Fix relative photo URLs from localStorage by converting to absolute URLs
+            profilePhoto: userData.profilePhoto && !userData.profilePhoto.startsWith('http') 
+              ? `https://berkeley-goggles-production.up.railway.app${userData.profilePhoto}`
+              : userData.profilePhoto,
           };
           setUser(userWithDates);
           setNavigationState(prev => ({

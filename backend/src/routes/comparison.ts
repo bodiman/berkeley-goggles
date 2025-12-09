@@ -143,12 +143,30 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
 
     // Select random pair from available options
     if (availablePairs.length === 0) {
+      // Provide more detailed error messages to help with debugging
+      let message = '';
+      
+      if (typedUserPhotos.length === 0 && typedSampleImages.length === 0) {
+        message = `No ${oppositeGender} photos available for comparison. Please check sample image configuration.`;
+      } else if (typedSampleImages.length === 0) {
+        message = `No sample images available for ${oppositeGender} gender. Please check sample image database.`;
+      } else if (typedUserPhotos.length === 0) {
+        message = `No user photos available. You've compared all available sample combinations!`;
+      } else {
+        message = `You've compared all available photo combinations! (${typedUserPhotos.length} user photos, ${typedSampleImages.length} sample images)`;
+      }
+
       return res.json({
         success: true,
         pair: null,
-        message: typedUserPhotos.length === 0 && typedSampleImages.length === 0
-          ? `No ${oppositeGender} photos available for comparison`
-          : 'You\'ve compared all available photo combinations!',
+        message,
+        debug: process.env.NODE_ENV === 'development' ? {
+          userPhotosCount: typedUserPhotos.length,
+          sampleImagesCount: typedSampleImages.length,
+          phase,
+          userGender: rater?.gender,
+          oppositeGender,
+        } : undefined,
       });
     }
 
