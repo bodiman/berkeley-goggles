@@ -284,8 +284,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUserPhoto = async (photoBlob: Blob): Promise<boolean> => {
-
-    console.log('this is being called')
     try {
       if (!user) return false;
 
@@ -299,12 +297,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: {}, // Clear headers to let browser set Content-Type for FormData
       });
 
+      console.log('response is okay?', response);
+      console.log(response.ok);
+
       if (!response.ok) {
         return false;
       }
 
-      console.log('formData', formData);
-      console.log(response);
+      // console.log('formData', formData);
+      // console.log(response);
 
       const data = await response.json();
       

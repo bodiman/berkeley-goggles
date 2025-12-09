@@ -148,6 +148,7 @@ export const ProfilePage: React.FC = () => {
 
     try {
       const success = await updateUserPhoto(capture.blob);
+      console.log('success', success);
       
       if (success) {
         setShowPhotoCapture(false);
