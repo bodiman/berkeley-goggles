@@ -1,9 +1,21 @@
 // API Configuration
+const baseURL = import.meta.env.VITE_API_BASE_URL || 
+                (import.meta.env.MODE === 'production' 
+                  ? 'https://berkeley-goggles-production.up.railway.app' 
+                  : 'http://localhost:3001');
+
+// Debug logging to help troubleshoot API connection issues
+console.log('🔧 API Configuration Debug:', {
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  MODE: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+  PROD: import.meta.env.PROD,
+  baseURL: baseURL,
+  allEnvVars: import.meta.env
+});
+
 export const API_CONFIG = {
-  baseURL: import.meta.env.VITE_API_BASE_URL || 
-           (import.meta.env.MODE === 'production' 
-             ? 'https://berkeley-goggles-production.up.railway.app' 
-             : 'http://localhost:3001'),
+  baseURL,
   timeout: 10000,
 } as const;
 
