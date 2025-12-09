@@ -228,7 +228,7 @@ export const ProfilePage: React.FC = () => {
                 className="relative group focus:outline-none"
                 disabled={isUpdatingPhoto}
               >
-                {user.profilePhoto ? (
+                {true ? (
                   <img
                     src="https://pub-348e171b4d40413abdb8c2b075b6de0d.r2.dev/samples/1765255211564-d0dbe6fa-a815-49c9-bc01-8dc9bdbefcfe.jpg"
                     alt="Profile"
