@@ -119,20 +119,8 @@ class SimplePopulator {
   async populateDatabase(images: SimpleImageInfo[], dryRun: boolean = false): Promise<void> {
     console.log(`💾 Populating database ${dryRun ? '(DRY RUN)' : ''}...`);
 
-    // Check if table already has records
-    const existingCount = await prisma.sampleImage.count();
-    if (existingCount > 0) {
-      console.log(`⚠️  Database already has ${existingCount} sample images`);
-      if (!dryRun) {
-        console.log('Skipping population - table not empty. Use --force to clear first.');
-        return;
-      }
-    }
-
-    console.log(`Creating ${images.length} sample image records...`);
-
     if (dryRun) {
-      // Show first few records
+      // Show first few records without database access
       console.log('Sample records that would be created:');
       images.slice(0, 3).forEach((img, i) => {
         console.log(`  ${i + 1}. ${img.url} (${img.gender}, age ${img.estimatedAge})`);
@@ -140,6 +128,16 @@ class SimplePopulator {
       console.log(`... and ${images.length - 3} more`);
       return;
     }
+
+    // Check if table already has records
+    const existingCount = await prisma.sampleImage.count();
+    if (existingCount > 0) {
+      console.log(`⚠️  Database already has ${existingCount} sample images`);
+      console.log('Skipping population - table not empty. Use --force to clear first.');
+      return;
+    }
+
+    console.log(`Creating ${images.length} sample image records...`);
 
     // Create records in batches
     const batchSize = 100;
