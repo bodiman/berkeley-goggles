@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useSpring, animated } from 'react-spring';
-import { useDrag } from '@use-gesture/react';
+import { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import TinderCard from 'react-tinder-card';
 
 interface Photo {
   id: string;
@@ -21,7 +20,11 @@ interface PhotoComparisonCardProps {
   onAnimationComplete?: () => void;
 }
 
-export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
+export interface PhotoComparisonCardRef {
+  swipe: (direction: 'left' | 'right' | 'up' | 'down') => void;
+}
+
+export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoComparisonCardProps>(({
   topPhoto,
   bottomPhoto,
   onSelection,
@@ -30,176 +33,119 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
   disabled = false,
   shouldShowCard = true,
   onAnimationComplete,
-}) => {
-  const [isAnimating, setIsAnimating] = useState(false);
+}, ref) => {
   const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [isVisible, setIsVisible] = useState(true);
+  
+  // Ref for programmatic swiping
+  const cardRef = useRef<any>();
 
-  // Spring animation for the card
-  const [{ x, y, rotateZ, opacity }, api] = useSpring(() => ({
-    x: 0,
-    y: 0,
-    rotateZ: 0,
-    opacity: 1,
-    config: { tension: 200, friction: 20 },
+  // Expose swipe method to parent
+  useImperativeHandle(ref, () => ({
+    swipe: (direction: 'left' | 'right' | 'up' | 'down') => {
+      if (cardRef.current) {
+        cardRef.current.swipe(direction);
+      }
+    }
   }));
 
-  // Reset card position when shouldShowCard becomes true
+  // Handle swipe completion
+  const handleSwipe = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
+    if (disabled) return;
+
+    console.log('Swiped:', direction);
+
+    switch (direction) {
+      case 'up':
+        // Top photo wins
+        onSelection(topPhoto.id, bottomPhoto.id);
+        break;
+      case 'down':
+        // Bottom photo wins
+        onSelection(bottomPhoto.id, topPhoto.id);
+        break;
+      case 'left':
+      case 'right':
+        // Skip
+        onSkip();
+        break;
+    }
+  }, [disabled, onSelection, onSkip, topPhoto.id, bottomPhoto.id]);
+
+  // Handle card leaving screen
+  const handleCardLeftScreen = useCallback(() => {
+    console.log('Card left screen');
+    setIsVisible(false);
+    
+    // Notify parent that animation completed
+    if (onAnimationComplete) {
+      onAnimationComplete();
+    }
+  }, [onAnimationComplete]);
+
+  // Handle swipe requirement changes for visual feedback
+  const handleSwipeRequirementFulfilled = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
+    setSwipeDirection(direction);
+  }, []);
+
+  const handleSwipeRequirementUnfulfilled = useCallback(() => {
+    setSwipeDirection(null);
+  }, []);
+
+  // Reset visibility when shouldShowCard becomes true
   useEffect(() => {
-    if (shouldShowCard && !isAnimating) {
-      api.start({ 
-        x: 0, 
-        y: 0, 
-        rotateZ: 0, 
-        opacity: 1,
-        config: { tension: 250, friction: 25 } 
-      });
-      setIsAnimating(false);
+    if (shouldShowCard) {
+      setIsVisible(true);
       setSwipeDirection(null);
     }
-  }, [shouldShowCard, isAnimating, api]);
+  }, [shouldShowCard]);
 
-  const handleSelection = useCallback((winner: Photo, loser: Photo) => {
-    if (isAnimating || disabled) return;
-    
-    setIsAnimating(true);
-    onSelection(winner.id, loser.id);
-    
-    // Notify parent that animation will complete
-    // Parent controls when card should return
-    if (onAnimationComplete) {
-      setTimeout(() => {
-        onAnimationComplete();
-      }, 300); // Wait for swipe animation to complete
-    }
-  }, [isAnimating, disabled, onSelection, onAnimationComplete]);
+  // Handle direct tap selection
+  const handleDirectSelection = useCallback((winner: Photo, loser: Photo) => {
+    if (disabled) return;
 
-  const handleSkip = useCallback(() => {
-    if (isAnimating || disabled) return;
-    
-    setIsAnimating(true);
-    onSkip();
-    
-    // Notify parent that animation will complete
-    // Parent controls when card should return
-    if (onAnimationComplete) {
-      setTimeout(() => {
-        onAnimationComplete();
-      }, 300); // Wait for swipe animation to complete
-    }
-  }, [isAnimating, disabled, onSkip, onAnimationComplete]);
-
-  // Drag gesture handler
-  const bind = useDrag(
-    ({ active, movement: [mx, my], velocity: [vx, vy] }) => {
-      if (disabled) return;
-      
-      // Determine swipe direction
-      const isSwipeLeft = mx < -50;
-      const isSwipeRight = mx > 50;
-      const isSwipeUp = my < -50;
-      const isSwipeDown = my > 50;
-      
-      if (active) {
-        // Update visual feedback during drag
-        setSwipeDirection(
-          isSwipeUp ? 'up' : 
-          isSwipeDown ? 'down' :
-          isSwipeLeft ? 'left' : 
-          isSwipeRight ? 'right' : 
-          null
-        );
-        
-        // Apply drag transformation
-        api.start({
-          x: mx,
-          y: my,
-          rotateZ: my / 10, // Slight rotation based on vertical movement
-          opacity: 1 - Math.abs(my) / 200,
-          immediate: true,
-        });
-      } else {
-        setSwipeDirection(null);
-        
-        // Check if swipe threshold is met
-        const threshold = 80;
-        const velocityThreshold = 0.5;
-        
-        if (my < -threshold || (vy < -velocityThreshold && my < -30)) {
-          // Swipe up - top photo wins
-          api.start({ 
-            y: -window.innerHeight, 
-            rotateZ: -15,
-            opacity: 0,
-            config: { tension: 200, friction: 20 }
-          });
-          handleSelection(topPhoto, bottomPhoto);
-        } else if (my > threshold || (vy > velocityThreshold && my > 30)) {
-          // Swipe down - bottom photo wins
-          api.start({ 
-            y: window.innerHeight, 
-            rotateZ: 15,
-            opacity: 0,
-            config: { tension: 200, friction: 20 }
-          });
-          handleSelection(bottomPhoto, topPhoto);
-        } else if (mx < -threshold || (vx < -velocityThreshold && mx < -30)) {
-          // Swipe left - skip
-          api.start({ 
-            x: -window.innerWidth, 
-            rotateZ: -30, 
-            opacity: 0,
-            config: { tension: 200, friction: 20 }
-          });
-          handleSkip();
-        } else if (mx > threshold || (vx > velocityThreshold && mx > 30)) {
-          // Swipe right - skip
-          api.start({ 
-            x: window.innerWidth, 
-            rotateZ: 30, 
-            opacity: 0,
-            config: { tension: 200, friction: 20 }
-          });
-          handleSkip();
-        } else {
-          // Snap back to center
-          api.start({ x: 0, y: 0, rotateZ: 0, opacity: 1 });
-        }
-      }
-    },
-    {
-      filterTaps: true,
-      preventDefaultCondition: () => true,
-    }
-  );
-
-  const handleDirectSelection = (winner: Photo, loser: Photo) => {
     // Add haptic feedback if available
     if (navigator.vibrate) {
       navigator.vibrate(50);
     }
-    
-    handleSelection(winner, loser);
-  };
+
+    onSelection(winner.id, loser.id);
+  }, [disabled, onSelection]);
+
+  // Control card visibility - hide if shouldShowCard is false
+  if (!shouldShowCard || !isVisible) {
+    return (
+      <div className={`relative w-full max-w-md mx-auto ${className}`}>
+        <div className="w-full h-[70vh] flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-white text-sm">Loading next pair...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`relative w-full max-w-md mx-auto ${className}`}>
-      <animated.div
-        {...bind()}
-        style={{
-          x,
-          y,
-          rotateZ: rotateZ.to(r => `${r}deg`),
-          opacity,
-        }}
-        className="photo-card w-full h-[70vh] cursor-grab active:cursor-grabbing gpu-accelerated"
+      <TinderCard
+        ref={cardRef}
+        onSwipe={handleSwipe}
+        onCardLeftScreen={handleCardLeftScreen}
+        onSwipeRequirementFulfilled={handleSwipeRequirementFulfilled}
+        onSwipeRequirementUnfulfilled={handleSwipeRequirementUnfulfilled}
+        preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : []}
+        swipeRequirementType="position"
+        swipeThreshold={80}
+        className="w-full h-[70vh] cursor-grab active:cursor-grabbing"
       >
-        <div className="flex flex-col h-full gap-2 p-4">
+        <div className="flex flex-col h-full gap-2 p-4 bg-gray-900 rounded-xl shadow-2xl">
           {/* Top Photo */}
           <button
             onClick={() => handleDirectSelection(topPhoto, bottomPhoto)}
             className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
-            disabled={isAnimating || disabled}
+            disabled={disabled}
           >
             <img 
               src={topPhoto.url} 
@@ -223,7 +169,7 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
             
             {/* Swipe Direction Overlay */}
             {swipeDirection === 'up' && (
-              <div className="swipe-overlay active">
+              <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
                 <div className="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
                   ↑ WINNER
                 </div>
@@ -238,7 +184,7 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
           <button
             onClick={() => handleDirectSelection(bottomPhoto, topPhoto)}
             className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
-            disabled={isAnimating || disabled}
+            disabled={disabled}
           >
             <img 
               src={bottomPhoto.url} 
@@ -262,7 +208,7 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
             
             {/* Swipe Direction Overlay */}
             {swipeDirection === 'down' && (
-              <div className="swipe-overlay active">
+              <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
                 <div className="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
                   ↓ WINNER
                 </div>
@@ -273,7 +219,7 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
 
         {/* Skip Overlay */}
         {(swipeDirection === 'left' || swipeDirection === 'right') && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
             <div className="bg-yellow-500 text-black px-6 py-3 rounded-full font-bold text-lg shadow-lg">
               ← SKIP →
             </div>
@@ -302,7 +248,7 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
             </div>
           </div>
         )}
-      </animated.div>
+      </TinderCard>
     </div>
   );
-};
+});

@@ -11,7 +11,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          utils: ['@use-gesture/react', 'react-spring']
+          tinder: ['react-tinder-card']
         }
       }
     }
