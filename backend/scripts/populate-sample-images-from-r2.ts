@@ -138,11 +138,6 @@ class SampleImagePopulator {
                   
                   this.stats.metadataProcessed++;
                   processedCount++;
-                  
-                  // Break if we hit debug limit
-                  if (debugLimit && processedCount >= debugLimit) {
-                    break;
-                  }
                 }
               }
             } catch (error) {
