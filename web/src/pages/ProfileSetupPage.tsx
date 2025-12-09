@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
 import { useAuth } from '../contexts/AuthContext';
+import type { UploadProgress } from '../services/photoUpload';
 // TODO: Import from shared package once workspace is properly configured
 interface UserProfileSetup {
   name: string;
@@ -16,7 +17,7 @@ interface CameraCapture {
 }
 
 export const ProfileSetupPage: React.FC = () => {
-  const { setupProfile, logout } = useAuth();
+  const { setupProfile, logout, user } = useAuth();
   
   const [currentStep, setCurrentStep] = useState<'name' | 'photo' | 'terms'>('name');
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +30,7 @@ export const ProfileSetupPage: React.FC = () => {
   });
   
   const [capturedPhoto, setCapturedPhoto] = useState<CameraCapture | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,7 +238,26 @@ export const ProfileSetupPage: React.FC = () => {
               onCapture={handlePhotoCapture}
               onError={handlePhotoCaptureError}
               className="mb-6"
+              userId={user?.id}
+              autoUpload={true}
+              onUploadProgress={setUploadProgress}
             />
+
+            {/* Upload Progress Display */}
+            {uploadProgress && (
+              <div className="mt-4 p-4 bg-gray-800/80 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white text-sm">Uploading to cloud storage...</span>
+                  <span className="text-white text-sm">{uploadProgress.percentage}%</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress.percentage}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 

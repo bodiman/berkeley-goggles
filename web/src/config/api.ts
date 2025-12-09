@@ -94,8 +94,11 @@ export const API_ENDPOINTS = {
     update: '/api/user/profile',
   },
   photos: {
-    upload: '/api/photos/upload',
+    upload: '/api/photos',
+    webcam: '/api/photos/webcam',
+    presigned: '/api/photos/presigned',
     get: (id: string) => `/api/photos/${id}`,
+    delete: (id: string) => `/api/photos/${id}`,
   },
   comparisons: {
     pair: '/api/comparisons/pair',

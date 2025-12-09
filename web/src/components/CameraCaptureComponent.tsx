@@ -1,21 +1,33 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { photoUploadService, type UploadProgress } from '../services/photoUpload';
 // TODO: Import from shared package once workspace is properly configured
 interface CameraCapture {
   blob: Blob;
   dataUrl: string;
   timestamp: number;
+  uploadResult?: {
+    id: string;
+    url: string;
+    thumbnailUrl?: string;
+  };
 }
 
 interface CameraCaptureProps {
   onCapture: (capture: CameraCapture) => void;
   onError: (error: string) => void;
   className?: string;
+  userId?: string;
+  autoUpload?: boolean;
+  onUploadProgress?: (progress: UploadProgress) => void;
 }
 
 export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
   onCapture,
   onError,
   className = '',
+  userId,
+  autoUpload = true,
+  onUploadProgress,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,6 +37,8 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
   const [isCapturing, setIsCapturing] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
   const startCamera = useCallback(async () => {
     try {
@@ -109,12 +123,40 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       setCapturedImage(dataUrl);
 
-      // Create capture object
-      const capture: CameraCapture = {
+      // Create initial capture object
+      let capture: CameraCapture = {
         blob,
         dataUrl,
         timestamp: Date.now(),
       };
+
+      // Upload if autoUpload is enabled
+      if (autoUpload) {
+        try {
+          setIsUploading(true);
+          setUploadProgress({ loaded: 0, total: blob.size, percentage: 0 });
+
+          const uploadResult = await photoUploadService.uploadWebcamPhoto(
+            blob,
+            userId,
+            (progress) => {
+              setUploadProgress(progress);
+              onUploadProgress?.(progress);
+            }
+          );
+
+          capture.uploadResult = uploadResult;
+          setUploadProgress({ loaded: blob.size, total: blob.size, percentage: 100 });
+          
+        } catch (uploadError) {
+          console.error('Photo upload failed:', uploadError);
+          onError('Photo captured but upload failed. You can retry later.');
+          // Continue with local capture even if upload fails
+        } finally {
+          setIsUploading(false);
+          setUploadProgress(null);
+        }
+      }
 
       onCapture(capture);
       
@@ -127,7 +169,7 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [isStreamActive, onCapture, onError, stopCamera]);
+  }, [isStreamActive, onCapture, onError, stopCamera, autoUpload, userId, onUploadProgress]);
 
   const retakePhoto = useCallback(() => {
     setCapturedImage(null);
@@ -224,14 +266,30 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
         </div>
       )}
 
+      {/* Upload Progress */}
+      {isUploading && uploadProgress && (
+        <div className="mt-4 p-4 bg-gray-800/80 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white text-sm">Uploading photo...</span>
+            <span className="text-white text-sm">{uploadProgress.percentage}%</span>
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress.percentage}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Capture Button */}
       {isStreamActive && !capturedImage && (
         <div className="mt-6 flex justify-center">
           <button
             onClick={capturePhoto}
-            disabled={isCapturing || !isStreamActive}
+            disabled={isCapturing || !isStreamActive || isUploading}
             className={`w-20 h-20 rounded-full border-4 border-white bg-transparent transition-all duration-200 ${
-              isCapturing || !isStreamActive
+              isCapturing || !isStreamActive || isUploading
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:bg-white/20 active:scale-95'
             }`}
