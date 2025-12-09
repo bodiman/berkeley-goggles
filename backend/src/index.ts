@@ -42,14 +42,36 @@ app.use(cors({
   credentials: true
 }));
 
+// Request logging middleware to monitor usage patterns
+app.use((req, res, next) => {
+  const start = Date.now();
+  const ip = req.ip || req.connection.remoteAddress;
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (req.path.startsWith('/api/')) {
+      console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - ${res.statusCode} - ${duration}ms - IP: ${ip}`);
+    }
+  });
+  
+  next();
+});
+
 // Rate limiting - disabled in development
 if (process.env.NODE_ENV === 'production') {
   const limiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '1000'), // Increased from 100 to 1000
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000'), // Dramatically increased from 1000 to 10000
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (req, res) => {
+      console.warn(`⚠️ Rate limit reached for IP: ${req.ip} at ${new Date().toISOString()}`);
+      res.status(429).json({
+        error: 'Too many requests from this IP, please try again later.',
+        retryAfter: Math.round(parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000') / 1000)
+      });
+    },
   });
   app.use(limiter);
 }
