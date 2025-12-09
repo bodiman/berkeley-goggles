@@ -228,7 +228,7 @@ class PhotoUploadService {
     file: File | Blob, 
     options: PhotoUploadOptions = {}
   ): Promise<PhotoUploadResult> {
-    const { method = 'direct', onProgress } = options;
+    const { method = 'direct' } = options;
 
     try {
       if (method === 'presigned') {
