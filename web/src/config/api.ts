@@ -73,8 +73,8 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
   } catch (error) {
     console.log('💥 API Request Failed:', {
       url,
-      error: error.message,
-      stack: error.stack
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
     });
     clearTimeout(timeoutId);
     throw error;
