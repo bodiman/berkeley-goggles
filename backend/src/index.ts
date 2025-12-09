@@ -57,7 +57,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting - disabled in development
+// Rate limiting - temporarily disabled
+// TODO: Re-enable with proper configuration once usage patterns are understood
+/*
 if (process.env.NODE_ENV === 'production') {
   const limiter = rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
@@ -75,6 +77,7 @@ if (process.env.NODE_ENV === 'production') {
   });
   app.use(limiter);
 }
+*/
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
