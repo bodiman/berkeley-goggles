@@ -104,8 +104,13 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
       fs.writeFileSync(thumbnailPath, thumbnail);
       
       // Get the base URL for the current environment
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
+      // Use Railway URL if available, otherwise fall back to production URL, then localhost
+      const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : process.env.API_BASE_URL
+        ? `https://${process.env.API_BASE_URL}`
+        : process.env.NODE_ENV === 'production'
+        ? 'https://berkeley-goggles-production.up.railway.app'
         : 'http://localhost:3001';
 
       // Store relative path in database, but prepare full URL for response
@@ -326,8 +331,13 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
     fs.writeFileSync(thumbnailPath, thumbnail);
     
     // Get the base URL for the current environment
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
+    // Use Railway URL if available, otherwise fall back to production URL, then localhost
+    const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : process.env.API_BASE_URL
+      ? `https://${process.env.API_BASE_URL}`
+      : process.env.NODE_ENV === 'production'
+      ? 'https://berkeley-goggles-production.up.railway.app'
       : 'http://localhost:3001';
 
     const profilePhotoUrl = `${baseUrl}/uploads/profile-photos/${filename}`;
