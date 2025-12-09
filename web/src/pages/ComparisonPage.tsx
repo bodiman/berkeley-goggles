@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PhotoComparisonCard } from '../components/PhotoComparisonCard';
 import { useAuth } from '../contexts/AuthContext';
+import { apiRequest } from '../config/api';
 
 interface PhotoPair {
   sessionId: string;
@@ -81,10 +82,8 @@ export const ComparisonPage: React.FC = () => {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(`/api/comparisons/next-pair?userId=${user.id}`);
-      console.log('response', response);
+      const response = await apiRequest(`/api/comparisons/next-pair?userId=${user.id}`);
       const data = await response.json();
-      console.log('data', data);
       
       if (data.success) {
         setCurrentPair(data.pair);
@@ -101,7 +100,7 @@ export const ComparisonPage: React.FC = () => {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(`/api/comparisons/daily-progress?userId=${user.id}`);
+      const response = await apiRequest(`/api/comparisons/daily-progress?userId=${user.id}`);
       const data = await response.json();
       
       if (data.success) {
@@ -124,11 +123,8 @@ export const ComparisonPage: React.FC = () => {
       const winner = winnerId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
       const loser = loserId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
       
-      const response = await fetch('/api/comparisons/submit', {
+      const response = await apiRequest('/api/comparisons/submit', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           sessionId: currentPair.sessionId,
           winnerId: winnerId,
