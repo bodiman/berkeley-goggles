@@ -32,6 +32,15 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
     ...options,
   };
 
+  // Debug logging for API requests
+  console.log('🌐 API Request:', {
+    endpoint,
+    fullURL: url,
+    method: config.method || 'GET',
+    headers: config.headers,
+    body: config.body
+  });
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
 
@@ -41,9 +50,32 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
       signal: controller.signal,
     });
     
+    console.log('📡 API Response:', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      contentType: response.headers.get('content-type')
+    });
+
+    // Log response body for failed requests
+    if (!response.ok) {
+      try {
+        const responseText = await response.clone().text();
+        console.log('❌ API Error Response Body:', responseText.substring(0, 500));
+      } catch (e) {
+        console.log('❌ Could not read error response body');
+      }
+    }
+    
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
+    console.log('💥 API Request Failed:', {
+      url,
+      error: error.message,
+      stack: error.stack
+    });
     clearTimeout(timeoutId);
     throw error;
   }
