@@ -2,7 +2,7 @@
 export const API_CONFIG = {
   baseURL: import.meta.env.VITE_API_BASE_URL || 
            (import.meta.env.MODE === 'production' 
-             ? 'https://your-backend-url.railway.app' 
+             ? 'https://berkeley-goggles-production.up.railway.app' 
              : 'http://localhost:3001'),
   timeout: 10000,
 } as const;
