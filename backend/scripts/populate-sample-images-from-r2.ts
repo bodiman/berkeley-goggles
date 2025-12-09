@@ -136,12 +136,23 @@ class SampleImagePopulator {
                   });
                   
                   this.stats.metadataProcessed++;
+                  processedCount++;
+                  
+                  // Break if we hit debug limit
+                  if (debugLimit && processedCount >= debugLimit) {
+                    break;
+                  }
                 }
               }
             } catch (error) {
               this.stats.errors.push(`Failed to read metadata ${obj.Key}: ${error}`);
             }
           }));
+          
+          // Break outer loop if we hit debug limit
+          if (debugLimit && processedCount >= debugLimit) {
+            break;
+          }
 
           // Progress update
           if (this.stats.metadataProcessed % 500 === 0) {
@@ -154,7 +165,7 @@ class SampleImagePopulator {
       }
 
       continuationToken = metadataResponse.NextContinuationToken;
-    } while (continuationToken);
+    } while (continuationToken && (!debugLimit || processedCount < debugLimit));
 
     console.log(`✅ Metadata processing complete: ${this.stats.metadataProcessed} records found`);
 
@@ -432,9 +443,13 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const force = args.includes('--force');
+  
+  // Check for debug limit
+  const debugFlag = args.find(arg => arg.startsWith('--debug='));
+  const debugLimit = debugFlag ? parseInt(debugFlag.split('=')[1]) : undefined;
 
   const populator = new SampleImagePopulator();
-  await populator.run(dryRun);
+  await populator.run(dryRun, debugLimit);
 }
 
 if (require.main === module) {
