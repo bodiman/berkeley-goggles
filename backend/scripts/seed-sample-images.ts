@@ -65,9 +65,17 @@ async function seedSampleImages() {
         const gender = parseGenderFromFilename(filename);
         if (!gender) continue;
 
+        // Check if R2 is configured and prioritize R2 URLs for new samples
+        const useR2 = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN && 
+                      process.env.CLOUDFLARE_R2_BUCKET_NAME;
+        
         const imageData = {
-          url: `/sample-images/${filename}`,
-          thumbnailUrl: `/sample-images/${filename}`, // Using same image for thumbnail
+          url: useR2 
+            ? `https://${process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN}/samples/local/${filename}` // R2 path for new images
+            : `/sample-images/${filename}`, // Fallback to local path
+          thumbnailUrl: useR2
+            ? `https://${process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN}/samples/local/${filename}` 
+            : `/sample-images/${filename}`,
           gender,
           estimatedAge: generateRandomAge(),
           source: 'curated',

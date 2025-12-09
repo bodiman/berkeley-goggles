@@ -392,3 +392,24 @@ export const isR2Configured = (): boolean => {
     process.env.CLOUDFLARE_R2_ENDPOINT
   );
 };
+
+/**
+ * Validates if a URL is a proper R2 URL for sample images
+ */
+export const isValidR2SampleUrl = (url: string): boolean => {
+  if (!isR2Configured()) return false;
+  
+  const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+  return url.startsWith(`https://${publicDomain}/samples/`);
+};
+
+/**
+ * Converts a local sample image path to R2 URL format
+ */
+export const convertLocalToR2SampleUrl = (localPath: string): string => {
+  if (!isR2Configured()) return localPath;
+  
+  const filename = localPath.replace('/sample-images/', '');
+  const publicDomain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN;
+  return `https://${publicDomain}/samples/local/${filename}`;
+};
