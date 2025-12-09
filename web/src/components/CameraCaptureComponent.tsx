@@ -147,6 +147,7 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
           );
 
           console.log('✅ Upload completed successfully:', uploadResult);
+          console.log('✅ Upload completed successfully:', uploadResult.url);
           capture.uploadResult = uploadResult;
           setUploadProgress({ loaded: blob.size, total: blob.size, percentage: 100 });
           
