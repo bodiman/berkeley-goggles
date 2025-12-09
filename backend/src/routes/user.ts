@@ -58,6 +58,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
     }
     
     let profilePhotoUrl: string | null = null;
+    let relativePhotoUrl: string | null = null;
     let photoId: string | null = null;
     
     // Process photo if provided
@@ -102,15 +103,23 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
       }
       fs.writeFileSync(thumbnailPath, thumbnail);
       
-      profilePhotoUrl = `/uploads/profile-photos/${filename}`;
-      const thumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
+      // Get the base URL for the current environment
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
+        : 'http://localhost:3001';
+
+      // Store relative path in database, but prepare full URL for response
+      relativePhotoUrl = `/uploads/profile-photos/${filename}`;
+      const relativeThumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
+      profilePhotoUrl = `${baseUrl}${relativePhotoUrl}`;
+      const thumbnailUrl = `${baseUrl}${relativeThumbnailUrl}`;
 
       // Create Photo record in database for algorithm training
       const photo = await prisma.photo.create({
         data: {
           userId,
-          url: profilePhotoUrl,
-          thumbnailUrl,
+          url: relativePhotoUrl!,
+          thumbnailUrl: relativeThumbnailUrl,
           status: 'approved', // Profile photos are automatically approved
           originalFilename: req.file.originalname || 'profile-setup.jpg',
           fileSize: processedImage.length,
@@ -137,7 +146,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
       photoId = photo.id;
     }
     
-    // Update user in database
+    // Update user in database (store relative path)
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -145,18 +154,22 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         age: validatedData.age,
         gender: validatedData.gender,
         profileComplete: true,
-        profilePhotoUrl,
+        profilePhotoUrl: photoId ? relativePhotoUrl : null,
         lastActive: new Date(),
       },
     });
     
-    // Return user data without password
+    // Return user data without password, with full URLs for photo
     const { password: _, ...userWithoutPassword } = updatedUser;
+    const userWithFullUrls = {
+      ...userWithoutPassword,
+      profilePhotoUrl: photoId ? profilePhotoUrl : null, // Full URL for frontend
+    };
     
     res.json({ 
       success: true, 
       message: 'Profile setup completed successfully',
-      user: userWithoutPassword,
+      user: userWithFullUrls,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -312,15 +325,24 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
     }
     fs.writeFileSync(thumbnailPath, thumbnail);
     
-    const profilePhotoUrl = `/uploads/profile-photos/${filename}`;
-    const thumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
+    // Get the base URL for the current environment
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
+      : 'http://localhost:3001';
+
+    const profilePhotoUrl = `${baseUrl}/uploads/profile-photos/${filename}`;
+    const thumbnailUrl = `${baseUrl}/uploads/profile-photos/thumbs/${thumbnailFilename}`;
+    
+    // Store relative paths in database (baseUrl will be added at response time)
+    const relativePhotoUrl = `/uploads/profile-photos/${filename}`;
+    const relativeThumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
     
     // Create Photo record in database for algorithm training
     const photo = await prisma.photo.create({
       data: {
         userId,
-        url: profilePhotoUrl,
-        thumbnailUrl,
+        url: relativePhotoUrl,
+        thumbnailUrl: relativeThumbnailUrl,
         status: 'approved', // Profile photos are automatically approved
         originalFilename: req.file.originalname || 'camera-capture.jpg',
         fileSize: processedImage.length,
@@ -344,22 +366,26 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
       },
     });
     
-    // Update user's profile photo URL
+    // Update user's profile photo URL (store relative path in database)
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        profilePhotoUrl,
+        profilePhotoUrl: relativePhotoUrl,
         lastActive: new Date(),
       },
     });
     
-    // Return user data without password
+    // Return user data without password, with full URLs for photo
     const { password: _, ...userWithoutPassword } = updatedUser;
+    const userWithFullUrls = {
+      ...userWithoutPassword,
+      profilePhotoUrl: profilePhotoUrl, // Full URL for frontend
+    };
     
     res.json({ 
       success: true, 
       message: 'Profile photo updated successfully',
-      user: userWithoutPassword,
+      user: userWithFullUrls,
       photo: {
         id: photo.id,
         url: profilePhotoUrl,

@@ -84,31 +84,25 @@ class SampleImageUrlUpdater {
   }
 
   /**
-   * Get all R2 image information by reading metadata files and correlating with actual files
+   * Get all R2 image information by only reading metadata files and constructing URLs
    */
   private async getR2ImageMappings(): Promise<Map<string, R2ImageInfo>> {
     const mapping = new Map<string, R2ImageInfo>();
     
-    console.log('Scanning R2 bucket for sample images...');
+    console.log('Reading R2 metadata files...');
     
     try {
-      // First, collect all image files and metadata files
-      const imageFiles = new Map<string, string>(); // imageId -> key
-      const thumbnailFiles = new Map<string, string>(); // imageId -> key
-      const metadataMap = new Map<string, any>(); // imageId -> metadata
-      
-      // List all objects in samples directory
+      // Only list metadata files - this is much faster
       const command = new ListObjectsV2Command({
         Bucket: this.config.bucketName,
-        Prefix: 'samples/',
+        Prefix: 'samples/metadata/',
         MaxKeys: 10000,
       });
 
       let isTruncated = true;
       let continuationToken: string | undefined;
-      let totalObjects = 0;
+      let processedMetadata = 0;
 
-      console.log('Reading R2 objects...');
       while (isTruncated) {
         if (continuationToken) {
           command.input.ContinuationToken = continuationToken;
@@ -117,57 +111,47 @@ class SampleImageUrlUpdater {
         const response = await this.s3Client.send(command);
         
         if (response.Contents) {
-          totalObjects += response.Contents.length;
-          
-          for (const obj of response.Contents) {
-            if (!obj.Key) continue;
-
-            if (obj.Key.endsWith('.json') && obj.Key.includes('/metadata/')) {
-              // This is a metadata file
+          // Read metadata files in batches
+          const metadataPromises = response.Contents
+            .filter(obj => obj.Key && obj.Key.endsWith('.json'))
+            .map(async obj => {
               try {
                 const getObjCommand = new GetObjectCommand({
                   Bucket: this.config.bucketName,
-                  Key: obj.Key,
+                  Key: obj.Key!,
                 });
                 
                 const objResponse = await this.s3Client.send(getObjCommand);
                 const metadataStr = await objResponse.Body?.transformToString();
                 
                 if (metadataStr) {
-                  const metadata = JSON.parse(metadataStr);
-                  if (metadata.imageId) {
-                    metadataMap.set(metadata.imageId, metadata);
-                  }
+                  return JSON.parse(metadataStr);
                 }
               } catch (error) {
                 console.warn(`Failed to read metadata ${obj.Key}:`, error);
               }
-            } else if (obj.Key.endsWith('.jpg') || obj.Key.endsWith('.jpeg')) {
-              // This is an image file - try to get its imageId from object metadata
-              try {
-                const getObjCommand = new GetObjectCommand({
-                  Bucket: this.config.bucketName,
-                  Key: obj.Key,
-                });
-                
-                const objResponse = await this.s3Client.send(getObjCommand);
-                const imageId = objResponse.Metadata?.imageId;
-                
-                if (imageId) {
-                  if (obj.Key.includes('/thumbnails/')) {
-                    thumbnailFiles.set(imageId, obj.Key);
-                  } else {
-                    imageFiles.set(imageId, obj.Key);
-                  }
-                }
-              } catch (error) {
-                console.warn(`Failed to get metadata for ${obj.Key}:`, error);
+              return null;
+            });
+
+          const metadataResults = await Promise.all(metadataPromises);
+          
+          for (const metadata of metadataResults) {
+            if (metadata && metadata.originalFilename && metadata.imageId) {
+              // We need to find the actual R2 keys since they contain timestamps
+              // Store metadata for now, we'll find the actual keys later
+              mapping.set(metadata.originalFilename, {
+                originalFilename: metadata.originalFilename,
+                imageId: metadata.imageId,
+                mainUrl: '', // Will be found later
+                thumbnailUrl: '' // Will be found later
+              });
+              
+              processedMetadata++;
+              
+              if (processedMetadata % 100 === 0) {
+                console.log(`Processed ${processedMetadata} metadata files...`);
               }
             }
-          }
-          
-          if (totalObjects % 1000 === 0) {
-            console.log(`Processed ${totalObjects} objects...`);
           }
         }
 
@@ -175,37 +159,99 @@ class SampleImageUrlUpdater {
         continuationToken = response.NextContinuationToken;
       }
 
-      console.log(`Found ${totalObjects} total objects`);
-      console.log(`Found ${metadataMap.size} metadata files`);
-      console.log(`Found ${imageFiles.size} main images`);
-      console.log(`Found ${thumbnailFiles.size} thumbnails`);
-
-      // Now correlate metadata with image files
-      let mappedCount = 0;
-      for (const [imageId, metadata] of metadataMap.entries()) {
-        const mainImageKey = imageFiles.get(imageId);
-        const thumbnailKey = thumbnailFiles.get(imageId);
-        
-        if (mainImageKey && metadata.originalFilename) {
-          const info: R2ImageInfo = {
-            originalFilename: metadata.originalFilename,
-            imageId,
-            mainUrl: `https://${this.config.publicDomain}/${mainImageKey}`,
-            thumbnailUrl: thumbnailKey ? `https://${this.config.publicDomain}/${thumbnailKey}` : undefined
-          };
-          
-          mapping.set(metadata.originalFilename, info);
-          mappedCount++;
-        }
-      }
-
-      console.log(`Successfully mapped ${mappedCount} sample images\n`);
+      console.log(`Successfully processed ${processedMetadata} metadata files`);
+      console.log(`Found ${mapping.size} sample image metadata records`);
+      
+      // Now find the actual R2 keys for main images and thumbnails
+      console.log('Finding actual R2 image keys...');
+      await this.populateR2Keys(mapping);
+      
+      const completeMappings = Array.from(mapping.values()).filter(info => info.mainUrl);
+      console.log(`Successfully mapped ${completeMappings.length} sample images with R2 URLs\n`);
       return mapping;
 
     } catch (error) {
-      console.error('Failed to scan R2 bucket:', error);
+      console.error('Failed to read R2 metadata:', error);
       throw error;
     }
+  }
+
+  /**
+   * Find actual R2 keys for images by imageId
+   */
+  private async populateR2Keys(mapping: Map<string, R2ImageInfo>): Promise<void> {
+    // Create a reverse mapping from imageId to filenames
+    const imageIdToFilenames = new Map<string, string>();
+    for (const [filename, info] of mapping.entries()) {
+      imageIdToFilenames.set(info.imageId, filename);
+    }
+
+    // List all actual image files in samples directory
+    const imageListCommand = new ListObjectsV2Command({
+      Bucket: this.config.bucketName,
+      Prefix: 'samples/',
+      MaxKeys: 20000,
+    });
+
+    let isTruncated = true;
+    let continuationToken: string | undefined;
+    let foundImages = 0;
+
+    while (isTruncated) {
+      if (continuationToken) {
+        imageListCommand.input.ContinuationToken = continuationToken;
+      }
+
+      const response = await this.s3Client.send(imageListCommand);
+      
+      if (response.Contents) {
+        for (const obj of response.Contents) {
+          if (!obj.Key || !obj.Key.endsWith('.jpg')) continue;
+          if (obj.Key.includes('/metadata/')) continue;
+
+          try {
+            // Get the imageId from object metadata
+            const getObjCommand = new GetObjectCommand({
+              Bucket: this.config.bucketName,
+              Key: obj.Key,
+            });
+            
+            const objResponse = await this.s3Client.send(getObjCommand);
+            const imageId = objResponse.Metadata?.imageId;
+            
+            if (imageId) {
+              const filename = imageIdToFilenames.get(imageId);
+              if (filename) {
+                const info = mapping.get(filename);
+                if (info) {
+                  const publicUrl = `https://${this.config.publicDomain}/${obj.Key}`;
+                  
+                  if (obj.Key.includes('/thumbnails/')) {
+                    info.thumbnailUrl = publicUrl;
+                  } else {
+                    info.mainUrl = publicUrl;
+                  }
+                  
+                  foundImages++;
+                  
+                  if (foundImages % 200 === 0) {
+                    console.log(`Found ${foundImages} image keys...`);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            // Skip this object if we can't read its metadata
+            continue;
+          }
+        }
+      }
+
+      isTruncated = response.IsTruncated || false;
+      continuationToken = response.NextContinuationToken;
+    }
+
+    console.log(`Found ${foundImages} total image keys`);
   }
 
   /**

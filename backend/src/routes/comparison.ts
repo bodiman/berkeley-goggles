@@ -168,26 +168,30 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
 
     // Build the response pair object
     const buildPhotoObject = (photo: any) => {
+      // Get the base URL for the current environment
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
+        : 'http://localhost:3001';
+
       if (photo.type === 'user') {
         return {
           id: photo.id,
-          url: photo.url,
-          thumbnailUrl: photo.thumbnailUrl,
+          url: `${baseUrl}${photo.url}`,
+          thumbnailUrl: `${baseUrl}${photo.thumbnailUrl}`,
           userId: photo.userId,
           userAge: photo.user.age,
           userGender: photo.user.gender,
           type: 'user',
         };
       } else {
-        // Get the base URL for the current environment
-        const baseUrl = process.env.NODE_ENV === 'production' 
-          ? `https://${process.env.API_BASE_URL || 'berkeley-goggles-production.up.railway.app'}`
-          : 'http://localhost:3001';
-          
+        // For sample images, use the stored URLs directly
+        // This allows for R2 URLs to work without manual URL construction
         return {
           id: photo.id,
-          url: `${baseUrl}${photo.url}`,
-          thumbnailUrl: `${baseUrl}${photo.thumbnailUrl}`,
+          url: photo.url.startsWith('http') ? photo.url : `${baseUrl}${photo.url}`,
+          thumbnailUrl: photo.thumbnailUrl 
+            ? (photo.thumbnailUrl.startsWith('http') ? photo.thumbnailUrl : `${baseUrl}${photo.thumbnailUrl}`)
+            : (photo.url.startsWith('http') ? photo.url : `${baseUrl}${photo.url}`),
           userId: 'sample',
           userAge: photo.estimatedAge,
           userGender: photo.gender,
