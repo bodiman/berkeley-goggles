@@ -36,7 +36,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 }, ref) => {
   const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
-  const [isVisible, setIsVisible] = useState(true);
   
   // Ref for programmatic swiping
   const cardRef = useRef<any>();
@@ -76,7 +75,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
     console.log('Card left screen');
-    setIsVisible(false);
     
     // Notify parent that animation completed
     if (onAnimationComplete) {
@@ -93,10 +91,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     setSwipeDirection(null);
   }, []);
 
-  // Reset visibility when shouldShowCard becomes true
+  // Reset swipe direction when shouldShowCard becomes true
   useEffect(() => {
     if (shouldShowCard) {
-      setIsVisible(true);
       setSwipeDirection(null);
     }
   }, [shouldShowCard]);
@@ -114,7 +111,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   }, [disabled, onSelection]);
 
   // Control card visibility - hide if shouldShowCard is false
-  if (!shouldShowCard || !isVisible) {
+  if (!shouldShowCard) {
     return (
       <div className={`relative w-full max-w-md mx-auto ${className}`}>
         <div className="w-full h-[70vh] flex items-center justify-center">
