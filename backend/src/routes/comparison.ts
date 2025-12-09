@@ -606,6 +606,199 @@ comparisonRoutes.post('/skip-pair', asyncHandler(async (req, res) => {
   }
 }));
 
+// DEBUG endpoint to diagnose ranking issues
+comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+
+    // Get rater's info
+    const rater = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true,
+        gender: true,
+        age: true,
+        createdAt: true,
+      },
+    });
+
+    if (!rater) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    const oppositeGender = rater.gender === 'male' ? 'female' : 'male';
+
+    // Get user photo counts
+    const userPhotoStats = {
+      total: await prisma.photo.count(),
+      approved: await prisma.photo.count({
+        where: { status: 'approved' }
+      }),
+      approvedOppositeGender: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          user: { gender: oppositeGender },
+        }
+      }),
+      excludingCurrentUser: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          userId: { not: userId },
+          user: { gender: oppositeGender },
+        }
+      })
+    };
+
+    // Get sample image counts
+    const sampleImageStats = {
+      total: await prisma.sampleImage.count(),
+      active: await prisma.sampleImage.count({
+        where: { isActive: true }
+      }),
+      activeOppositeGender: await prisma.sampleImage.count({
+        where: {
+          isActive: true,
+          gender: oppositeGender,
+        }
+      }),
+      withR2Urls: await prisma.sampleImage.count({
+        where: {
+          isActive: true,
+          gender: oppositeGender,
+          url: { startsWith: 'https://' }
+        }
+      }),
+      withLocalUrls: await prisma.sampleImage.count({
+        where: {
+          isActive: true,
+          gender: oppositeGender,
+          url: { startsWith: '/sample-images/' }
+        }
+      })
+    };
+
+    // Get sample of sample images for URL inspection
+    const sampleImageExamples = await prisma.sampleImage.findMany({
+      where: {
+        isActive: true,
+        gender: oppositeGender,
+      },
+      select: {
+        id: true,
+        url: true,
+        thumbnailUrl: true,
+        gender: true,
+        isActive: true,
+      },
+      take: 5,
+    });
+
+    // Get comparison stats
+    const comparisonStats = {
+      totalByUser: await prisma.comparison.count({
+        where: { raterId: userId }
+      }),
+      userPhotoComparisons: await prisma.comparison.count({
+        where: { 
+          raterId: userId,
+          comparisonType: 'user_photos'
+        }
+      }),
+      sampleImageComparisons: await prisma.comparison.count({
+        where: { 
+          raterId: userId,
+          comparisonType: 'sample_images'
+        }
+      }),
+      mixedComparisons: await prisma.comparison.count({
+        where: { 
+          raterId: userId,
+          comparisonType: 'mixed'
+        }
+      }),
+    };
+
+    // Get user photos for pair generation testing
+    const actualUserPhotos = await prisma.photo.findMany({
+      where: {
+        status: 'approved',
+        userId: { not: userId },
+        user: { gender: oppositeGender },
+      },
+      take: 10,
+      select: { id: true, userId: true }
+    });
+
+    const actualSampleImages = await prisma.sampleImage.findMany({
+      where: {
+        isActive: true,
+        gender: oppositeGender,
+      },
+      take: 10,
+      select: { id: true, url: true }
+    });
+
+    // Test pair generation logic
+    const typedUserPhotos = actualUserPhotos.map(photo => ({ ...photo, type: 'user' }));
+    const typedSampleImages = actualSampleImages.map(sample => ({ ...sample, type: 'sample' }));
+
+    // Generate test pairs
+    const userOnlyPairs = typedUserPhotos.length >= 2 ? generateUserPhotoPairs(typedUserPhotos) : [];
+    const mixedPairs = generateMixedPairs(typedUserPhotos, typedSampleImages);
+    
+    const pairStats = {
+      userOnlyPairsGenerated: userOnlyPairs.length,
+      mixedPairsGenerated: mixedPairs.length,
+      sampleOnlyPairs: mixedPairs.filter(p => p.type === 'sample_images').length,
+      userVsSamplePairs: mixedPairs.filter(p => p.type === 'mixed').length,
+    };
+
+    // Environment info
+    const environmentInfo = {
+      nodeEnv: process.env.NODE_ENV,
+      hasR2Config: !!(
+        process.env.CLOUDFLARE_R2_ACCOUNT_ID &&
+        process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN &&
+        process.env.CLOUDFLARE_R2_BUCKET_NAME
+      ),
+      r2PublicDomain: process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN || 'not configured',
+    };
+
+    res.json({
+      success: true,
+      debug: {
+        user: rater,
+        oppositeGender,
+        userPhotoStats,
+        sampleImageStats,
+        comparisonStats,
+        pairStats,
+        sampleImageExamples,
+        environmentInfo,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Debug endpoint failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}));
+
 // Helper function to update photo ratings using simple Elo algorithm
 async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
   try {

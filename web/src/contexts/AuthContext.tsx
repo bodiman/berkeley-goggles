@@ -309,6 +309,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const data = await response.json();
       
+      console.log('Photo update response:', data);
+      
       if (data.success && data.user) {
         const updatedUser: AuthUser = {
           ...data.user,
@@ -316,6 +318,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           createdAt: new Date(data.user.createdAt),
           lastActive: new Date(data.user.lastActive),
         };
+        
+        console.log('Updated user with photo:', updatedUser);
 
         setUser(updatedUser);
         localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
