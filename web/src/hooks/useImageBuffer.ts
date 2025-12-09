@@ -69,7 +69,7 @@ export const useImageBuffer = ({
       }
 
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      // Remove crossOrigin to avoid CORS issues with R2 URLs
       
       img.onload = () => {
         imageCache.current[url] = { loaded: true, error: false, image: img };

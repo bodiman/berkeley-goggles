@@ -251,10 +251,10 @@ export const ComparisonPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen bg-black flex flex-col safe-area-inset overflow-hidden">
       {/* Header */}
-      <header className="px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
+      <header className="px-6 py-2 flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold text-white">Berkeley Goggles</h1>
           <div className="text-sm text-gray-400">
             {dailyProgress?.comparisonsCompleted || 0}/{dailyProgress?.dailyTarget || 20} today
@@ -270,7 +270,7 @@ export const ComparisonPage: React.FC = () => {
         </div>
         
         {/* Streak & Buffer Status */}
-        <div className="flex items-center justify-between mt-3 text-sm">
+        <div className="flex items-center justify-between mt-2 text-sm">
           <div className="flex items-center">
             <span className="text-orange-500 mr-2">🔥</span>
             <span className="text-white font-medium">{dailyProgress?.streak || 0} day streak</span>
@@ -288,7 +288,7 @@ export const ComparisonPage: React.FC = () => {
       </header>
 
       {/* Main Comparison Area */}
-      <main className="flex-1 flex items-center justify-center p-4">
+      <main className="flex-1 flex items-center justify-center p-2 overflow-hidden">
         {currentPair ? (
           <PhotoComparisonCard
             topPhoto={{

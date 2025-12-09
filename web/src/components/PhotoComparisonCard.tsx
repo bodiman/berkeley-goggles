@@ -34,7 +34,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   shouldShowCard = true,
   onAnimationComplete,
 }, ref) => {
-  const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
   
   // Ref for programmatic swiping
@@ -82,21 +81,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     }
   }, [onAnimationComplete]);
 
-  // Handle swipe requirement changes for visual feedback
-  const handleSwipeRequirementFulfilled = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
-    setSwipeDirection(direction);
-  }, []);
 
-  const handleSwipeRequirementUnfulfilled = useCallback(() => {
-    setSwipeDirection(null);
-  }, []);
-
-  // Reset swipe direction when shouldShowCard becomes true
-  useEffect(() => {
-    if (shouldShowCard) {
-      setSwipeDirection(null);
-    }
-  }, [shouldShowCard]);
 
   // Handle direct tap selection
   const handleDirectSelection = useCallback((winner: Photo, loser: Photo) => {
@@ -125,17 +110,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   }
 
   return (
-    <div className={`relative w-full max-w-md mx-auto ${className}`}>
+    <div className={`relative w-full max-w-lg mx-auto ${className}`}>
       <TinderCard
         ref={cardRef}
         onSwipe={handleSwipe}
         onCardLeftScreen={handleCardLeftScreen}
-        onSwipeRequirementFulfilled={handleSwipeRequirementFulfilled}
-        onSwipeRequirementUnfulfilled={handleSwipeRequirementUnfulfilled}
         preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : []}
-        swipeRequirementType="position"
-        swipeThreshold={80}
-        className="w-full h-[70vh] cursor-grab active:cursor-grabbing"
+        className="w-full h-[75vh] cursor-grab active:cursor-grabbing"
       >
         <div className="flex flex-col h-full gap-2 p-4 bg-gray-900 rounded-xl shadow-2xl">
           {/* Top Photo */}
@@ -164,14 +145,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* Swipe Direction Overlay */}
-            {swipeDirection === 'up' && (
-              <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                <div className="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-                  ↑ WINNER
-                </div>
-              </div>
-            )}
           </button>
 
           {/* Divider */}
@@ -203,49 +176,34 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* Swipe Direction Overlay */}
-            {swipeDirection === 'down' && (
-              <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
-                <div className="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-                  ↓ WINNER
-                </div>
-              </div>
-            )}
           </button>
         </div>
 
-        {/* Skip Overlay */}
-        {(swipeDirection === 'left' || swipeDirection === 'right') && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
-            <div className="bg-yellow-500 text-black px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-              ← SKIP →
-            </div>
-          </div>
-        )}
 
-        {/* Instructions */}
-        {showInstructions && (
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 text-center relative">
-              {/* Close button */}
-              <button
-                onClick={() => setShowInstructions(false)}
-                className="absolute top-2 right-2 w-6 h-6 bg-gray-600/80 hover:bg-gray-500/80 rounded-full flex items-center justify-center text-white text-sm transition-colors"
-                aria-label="Close instructions"
-              >
-                ×
-              </button>
-              
-              <p className="text-white font-semibold mb-1">
-                Tap or swipe to choose who is more attractive
-              </p>
-              <p className="text-gray-400 text-sm">
-                Swipe up/down to choose • Swipe left/right to skip
-              </p>
-            </div>
-          </div>
-        )}
       </TinderCard>
+
+      {/* Instructions - Outside TinderCard to overlay above */}
+      {showInstructions && (
+        <div className="absolute bottom-4 left-4 right-4 z-50 pointer-events-none">
+          <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 text-center relative pointer-events-auto">
+            {/* Close button */}
+            <button
+              onClick={() => setShowInstructions(false)}
+              className="absolute top-2 right-2 w-6 h-6 bg-gray-600/80 hover:bg-gray-500/80 rounded-full flex items-center justify-center text-white text-sm transition-colors"
+              aria-label="Close instructions"
+            >
+              ×
+            </button>
+            
+            <p className="text-white font-semibold mb-1">
+              Tap or swipe to choose who is more attractive
+            </p>
+            <p className="text-gray-400 text-sm">
+              Swipe up/down to choose • Swipe left/right to skip
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

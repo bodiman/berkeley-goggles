@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-46f6dd99'], (function (workbox) { 'use strict';
+define(['./workbox-fee9d5b1'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -80,13 +80,12 @@ define(['./workbox-46f6dd99'], (function (workbox) { 'use strict';
   workbox.precacheAndRoute([{
     "url": "registerSW.js",
     "revision": "3ca0b8505b4bec776b69afdba2768812"
-  }, {
-    "url": "index.html",
-    "revision": "0.fjo68a8g3t8"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
-    allowlist: [/^\/$/]
-  }));
+  workbox.registerRoute(/^https:\/\/berkeley-goggles-production\.up\.railway\.app\/api\//, new workbox.NetworkFirst({
+    "cacheName": "api-cache",
+    "networkTimeoutSeconds": 10,
+    plugins: []
+  }), 'GET');
 
 }));
