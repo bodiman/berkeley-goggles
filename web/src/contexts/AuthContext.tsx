@@ -292,7 +292,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       formData.append('photo', photoBlob, 'profile-photo.jpg');
 
       const response = await apiRequest('/api/user/photo', {
-        method: 'POST',
+        method: 'POST', //
         body: formData,
         headers: {}, // Clear headers to let browser set Content-Type for FormData
       });
