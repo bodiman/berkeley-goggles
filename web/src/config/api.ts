@@ -1,6 +1,6 @@
 // API Configuration
 const baseURL = import.meta.env.VITE_API_BASE_URL || 
-                (import.meta.env.MODE === 'production' 
+                (import.meta.env.PROD || import.meta.env.MODE === 'production' || window.location.hostname !== 'localhost'
                   ? 'https://berkeley-goggles-production.up.railway.app' 
                   : 'http://localhost:3001');
 
