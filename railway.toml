@@ -3,10 +3,10 @@
 
 [build]
 builder = "nixpacks"
-buildCommand = "npm install --workspace=@berkeley-goggles/backend && npm run build --workspace=@berkeley-goggles/backend"
+buildCommand = "npm install && npm run build:backend"
 
-[deploy] 
-startCommand = "npm run start:prod --workspace=@berkeley-goggles/backend"
+[deploy]
+startCommand = "npm run start:prod"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
