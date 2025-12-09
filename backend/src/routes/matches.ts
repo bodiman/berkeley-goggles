@@ -129,6 +129,8 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
       }
 
       const matchPhoto = potentialMatch.photos[0];
+      if (!matchPhoto?.combinedRanking) continue;
+      
       const matchPercentile = matchPhoto.combinedRanking.currentPercentile;
       const matchPreference = potentialMatch.matchingPercentile;
       

@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
-import { APIError } from '@shared/types';
+
+// Local type definition to avoid shared dependency
+interface APIError {
+  code: string;
+  message: string;
+  statusCode: number;
+  details?: any;
+}
 
 export interface CustomError extends Error {
   statusCode?: number;

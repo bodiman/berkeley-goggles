@@ -323,12 +323,14 @@ rankingRoutes.get('/demographics', asyncHandler(async (req, res) => {
 
     // Process demographics into useful format
     const genderBreakdown = demographics.reduce((acc, item) => {
+      if (!item.gender) return acc;
       if (!acc[item.gender]) acc[item.gender] = 0;
       acc[item.gender] += item._count.id;
       return acc;
     }, {} as Record<string, number>);
 
     const ageGroups = demographics.reduce((acc, item) => {
+      if (!item.age) return acc;
       const ageGroup = Math.floor(item.age / 5) * 5; // Group by 5-year ranges
       const key = `${ageGroup}-${ageGroup + 4}`;
       if (!acc[key]) acc[key] = 0;

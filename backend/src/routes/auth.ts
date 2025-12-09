@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -24,7 +24,7 @@ const loginSchema = z.object({
 });
 
 // POST /api/auth/register
-authRoutes.post('/register', asyncHandler(async (req, res) => {
+authRoutes.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = registerSchema.parse(req.body);
   
   // Check if user already exists
@@ -71,7 +71,7 @@ authRoutes.post('/register', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/auth/login
-authRoutes.post('/login', asyncHandler(async (req, res) => {
+authRoutes.post('/login', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = loginSchema.parse(req.body);
   
   // Find user by email
@@ -120,7 +120,7 @@ authRoutes.post('/login', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/auth/logout
-authRoutes.post('/logout', asyncHandler(async (req, res) => {
+authRoutes.post('/logout', asyncHandler(async (req: Request, res: Response) => {
   // For JWT-based auth, logout is typically handled client-side
   // by removing the token from storage
   res.json({ 
@@ -130,7 +130,7 @@ authRoutes.post('/logout', asyncHandler(async (req, res) => {
 }));
 
 // PUT /api/auth/refresh-token
-authRoutes.put('/refresh-token', asyncHandler(async (req, res) => {
+authRoutes.put('/refresh-token', asyncHandler(async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
   
