@@ -115,6 +115,8 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         onSwipe={handleSwipe}
         onCardLeftScreen={handleCardLeftScreen}
         preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : []}
+        swipeRequirementType="velocity"
+        swipeThreshold={0.3}
         className="w-full h-[75vh] cursor-grab active:cursor-grabbing"
       >
         <div className="flex flex-col h-full gap-2 p-4 bg-gray-900 rounded-xl shadow-2xl">
