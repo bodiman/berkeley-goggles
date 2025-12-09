@@ -167,11 +167,8 @@ export const ComparisonPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       
-      const response = await fetch('/api/comparisons/skip-pair', {
+      const response = await apiRequest('/api/comparisons/skip-pair', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           sessionId: currentPair.sessionId,
           userId: user.id,

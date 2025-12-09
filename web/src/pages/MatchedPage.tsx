@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiRequest } from '../config/api';
 
 interface MatchedUser {
   id: string;
@@ -28,13 +29,7 @@ export const MatchedPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // TODO: Replace with actual API call to /api/matches/get-matches
-      const response = await fetch(`/api/matches/get-matches?userId=${user?.id}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await apiRequest(`/api/matches/get-matches?userId=${user?.id}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch matches');
