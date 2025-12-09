@@ -113,6 +113,8 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         ? 'https://berkeley-goggles-production.up.railway.app'
         : 'http://localhost:3001';
 
+      console.log('baseUrl', baseUrl);
+
       // Store relative path in database, but prepare full URL for response
       relativePhotoUrl = `/uploads/profile-photos/${filename}`;
       const relativeThumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
