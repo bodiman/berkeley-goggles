@@ -15,7 +15,6 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  agreedToTerms: z.boolean().refine(val => val === true, 'Must agree to terms'),
 });
 
 const loginSchema = z.object({
@@ -49,7 +48,6 @@ authRoutes.post('/register', asyncHandler(async (req: Request, res: Response) =>
       email: validatedData.email,
       password: hashedPassword,
       profileComplete: false,
-      agreedToTerms: validatedData.agreedToTerms,
     },
   });
   

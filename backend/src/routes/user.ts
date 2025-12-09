@@ -29,8 +29,6 @@ const profileSetupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   age: z.number().int().min(18, 'Must be at least 18 years old'),
   gender: z.enum(['male', 'female']),
-  agreedToTerms: z.boolean().refine(val => val === true, 'Must agree to terms'),
-  agreedToPrivacy: z.boolean().refine(val => val === true, 'Must agree to privacy policy'),
 });
 
 const profileUpdateSchema = z.object({
@@ -148,8 +146,6 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         gender: validatedData.gender,
         profileComplete: true,
         profilePhotoUrl,
-        agreedToTerms: validatedData.agreedToTerms,
-        agreedToPrivacy: validatedData.agreedToPrivacy,
         lastActive: new Date(),
       },
     });

@@ -22,8 +22,6 @@ interface UserProfileSetup {
   age: number;
   gender: 'male' | 'female';
   photo?: File | Blob;
-  agreedToTerms: boolean;
-  agreedToPrivacy: boolean;
 }
 
 interface AuthContextType {
@@ -43,7 +41,6 @@ interface UserRegistrationData {
   name: string;
   email: string;
   password: string;
-  agreedToTerms: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -198,8 +195,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: profileData.name,
         age: profileData.age,
         gender: profileData.gender,
-        agreedToTerms: profileData.agreedToTerms,
-        agreedToPrivacy: profileData.agreedToPrivacy,
       }));
       
       if (profileData.photo) {

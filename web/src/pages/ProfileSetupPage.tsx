@@ -7,8 +7,6 @@ interface UserProfileSetup {
   age: number;
   gender: 'male' | 'female';
   photo?: File | Blob;
-  agreedToTerms: boolean;
-  agreedToPrivacy: boolean;
 }
 
 interface CameraCapture {
@@ -28,8 +26,6 @@ export const ProfileSetupPage: React.FC = () => {
     name: '',
     age: 18,
     gender: 'male',
-    agreedToTerms: false,
-    agreedToPrivacy: false,
   });
   
   const [capturedPhoto, setCapturedPhoto] = useState<CameraCapture | null>(null);
@@ -60,11 +56,6 @@ export const ProfileSetupPage: React.FC = () => {
   const handleTermsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.agreedToTerms || !formData.agreedToPrivacy) {
-      setError('Please accept the terms and privacy policy to continue');
-      return;
-    }
-
     if (!capturedPhoto) {
       setError('Please take a profile photo');
       return;
@@ -254,7 +245,7 @@ export const ProfileSetupPage: React.FC = () => {
           <div className="max-w-md mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-white mb-2">Almost Done!</h2>
-              <p className="text-gray-400">Please review and accept our terms</p>
+              <p className="text-gray-400">Ready to complete your profile setup</p>
             </div>
 
             {capturedPhoto && (
@@ -270,47 +261,19 @@ export const ProfileSetupPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleTermsSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agreedToTerms}
-                    onChange={(e) => setFormData(prev => ({ ...prev, agreedToTerms: e.target.checked }))}
-                    className="w-5 h-5 bg-gray-800 border border-gray-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-300 leading-relaxed">
-                    I agree to the <span className="text-blue-400 underline">Terms of Service</span> and understand that this app is for entertainment purposes only.
-                  </span>
-                </label>
-
-                <label className="flex items-start space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.agreedToPrivacy}
-                    onChange={(e) => setFormData(prev => ({ ...prev, agreedToPrivacy: e.target.checked }))}
-                    className="w-5 h-5 bg-gray-800 border border-gray-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-300 leading-relaxed">
-                    I agree to the <span className="text-blue-400 underline">Privacy Policy</span> and consent to photo processing for ranking purposes.
-                  </span>
-                </label>
+            {error && (
+              <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">
+                <p className="text-red-400 text-sm">{error}</p>
               </div>
+            )}
 
-              {error && (
-                <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Setting up your profile...' : 'Complete Setup'}
-              </button>
-            </form>
+            <button
+              onClick={handleTermsSubmit}
+              disabled={isLoading}
+              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Setting up your profile...' : 'Complete Setup'}
+            </button>
           </div>
         )}
       </main>

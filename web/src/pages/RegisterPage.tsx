@@ -11,7 +11,6 @@ interface RegisterFormData {
   email: string;
   password: string;
   confirmPassword: string;
-  agreedToTerms: boolean;
 }
 
 export const RegisterPage: React.FC<RegisterPageProps> = ({
@@ -24,7 +23,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     email: '',
     password: '',
     confirmPassword: '',
-    agreedToTerms: false,
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,10 +58,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
       return;
     }
 
-    if (!formData.agreedToTerms) {
-      setError('Please accept the terms of service');
-      return;
-    }
 
     setIsLoading(true);
     setError(null);
@@ -91,9 +85,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   const handleInputChange = (field: keyof RegisterFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const value = field === 'agreedToTerms'
-      ? e.target.checked 
-      : e.target.value;
+    const value = e.target.value;
     
     setFormData(prev => ({ ...prev, [field]: value }));
     
@@ -214,22 +206,6 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
               </div>
             </div>
 
-
-            {/* Terms */}
-            <div>
-              <label className="flex items-start space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.agreedToTerms}
-                  onChange={handleInputChange('agreedToTerms')}
-                  className="w-5 h-5 bg-gray-800 border border-gray-600 rounded focus:ring-2 focus:ring-blue-500 mt-0.5"
-                />
-                <span className="text-sm text-gray-300 leading-relaxed">
-                  I agree to the{' '}
-                  <span className="text-blue-400 underline">Terms of Service</span>
-                </span>
-              </label>
-            </div>
 
             {/* Error Message */}
             {error && (
