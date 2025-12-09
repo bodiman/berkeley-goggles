@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
 import TinderCard from 'react-tinder-card';
 
 interface Photo {
@@ -35,7 +35,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   onAnimationComplete,
 }, ref) => {
   const [showInstructions, setShowInstructions] = useState(true);
-  const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
   
   // Ref for programmatic swiping
   const cardRef = useRef<any>();
@@ -82,21 +81,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     }
   }, [onAnimationComplete]);
 
-  // Handle swipe requirement changes for visual feedback
-  const handleSwipeRequirementFulfilled = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
-    setSwipeDirection(direction);
-  }, []);
-
-  const handleSwipeRequirementUnfulfilled = useCallback(() => {
-    setSwipeDirection(null);
-  }, []);
-
-  // Reset swipe direction when shouldShowCard becomes true
-  useEffect(() => {
-    if (shouldShowCard) {
-      setSwipeDirection(null);
-    }
-  }, [shouldShowCard]);
 
   // Handle direct tap selection
   const handleDirectSelection = useCallback((winner: Photo, loser: Photo) => {
@@ -160,6 +144,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
+            
           </button>
 
           {/* Divider */}
@@ -191,11 +176,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
+            
           </button>
         </div>
 
 
       </TinderCard>
+
 
       {/* Instructions - Outside TinderCard to overlay above */}
       {showInstructions && (
