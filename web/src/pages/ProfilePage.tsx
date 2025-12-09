@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
+import { apiRequest } from '../config/api';
 
 interface CameraCapture {
   blob: Blob;
@@ -60,7 +61,7 @@ export const ProfilePage: React.FC = () => {
       setIsLoadingStats(true);
       setStatsError(null);
       
-      const response = await fetch(`/api/rankings/my-stats?userId=${user.id}`);
+      const response = await apiRequest(`/api/rankings/my-stats?userId=${user.id}`);
       const data = await response.json();
       
       if (data.success) {
@@ -171,11 +172,8 @@ export const ProfilePage: React.FC = () => {
     try {
       setIsUpdatingPreference(true);
 
-      const response = await fetch('/api/matches/update-preference', {
+      const response = await apiRequest('/api/matches/update-preference', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: user?.id,
           matchingPercentile: newPercentile,
