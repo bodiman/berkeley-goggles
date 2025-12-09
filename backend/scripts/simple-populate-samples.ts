@@ -116,7 +116,7 @@ class SimplePopulator {
     return images;
   }
 
-  async populateDatabase(images: SimpleImageInfo[], dryRun: boolean = false): Promise<void> {
+  async populateDatabase(images: SimpleImageInfo[], dryRun: boolean = false, force: boolean = false): Promise<void> {
     console.log(`💾 Populating database ${dryRun ? '(DRY RUN)' : ''}...`);
 
     if (dryRun) {
@@ -131,10 +131,16 @@ class SimplePopulator {
 
     // Check if table already has records
     const existingCount = await prisma.sampleImage.count();
-    if (existingCount > 0) {
+    if (existingCount > 0 && !force) {
       console.log(`⚠️  Database already has ${existingCount} sample images`);
       console.log('Skipping population - table not empty. Use --force to clear first.');
       return;
+    }
+    
+    if (force && existingCount > 0) {
+      console.log(`🗑️  Force mode: Clearing existing ${existingCount} sample images...`);
+      await prisma.sampleImageRanking.deleteMany();
+      await prisma.sampleImage.deleteMany();
     }
 
     console.log(`Creating ${images.length} sample image records...`);
@@ -153,9 +159,6 @@ class SimplePopulator {
         estimatedAge: img.estimatedAge,
         source: 'curated' as const,
         isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        lastUsed: null,
       }));
 
       const result = await prisma.sampleImage.createMany({
@@ -192,8 +195,6 @@ class SimplePopulator {
       losses: 0,
       bradleyTerryScore: 0.5,
       confidence: 0.0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     }));
 
     await prisma.sampleImageRanking.createMany({
@@ -203,7 +204,7 @@ class SimplePopulator {
     console.log(`✅ Created rankings for ${imagesWithoutRankings.length} images`);
   }
 
-  async run(dryRun: boolean = false, debugLimit?: number): Promise<void> {
+  async run(dryRun: boolean = false, debugLimit?: number, force: boolean = false): Promise<void> {
     try {
       console.log(`🚀 Starting simple sample population ${dryRun ? '(DRY RUN)' : ''}${debugLimit ? ` (${debugLimit} images)` : ''}...\n`);
       
@@ -213,7 +214,7 @@ class SimplePopulator {
         throw new Error('No images found in R2');
       }
 
-      await this.populateDatabase(images, dryRun);
+      await this.populateDatabase(images, dryRun, force);
       
       if (!dryRun) {
         await this.createRankings();
@@ -234,11 +235,12 @@ class SimplePopulator {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
+  const force = args.includes('--force');
   const debugFlag = args.find(arg => arg.startsWith('--debug='));
   const debugLimit = debugFlag ? parseInt(debugFlag.split('=')[1]) : undefined;
 
   const populator = new SimplePopulator();
-  await populator.run(dryRun, debugLimit);
+  await populator.run(dryRun, debugLimit, force);
 }
 
 if (require.main === module) {

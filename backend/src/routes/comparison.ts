@@ -9,11 +9,20 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
   try {
     // TODO: Get user ID from auth middleware
     const userId = req.query.userId as string;
+    const bufferSize = parseInt(req.query.buffer as string) || 1;
     
     if (!userId) {
       return res.status(400).json({
         success: false,
         error: 'User ID required',
+      });
+    }
+
+    // Validate buffer size
+    if (bufferSize < 1 || bufferSize > 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'Buffer size must be between 1 and 10',
       });
     }
 
@@ -152,7 +161,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       }
     }
 
-    // Select random pair from available options
+    // Select random pairs from available options (for buffering)
     if (availablePairs.length === 0) {
       // Provide more detailed error messages to help with debugging
       let message = '';
@@ -169,7 +178,8 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
 
       return res.json({
         success: true,
-        pair: null,
+        pair: bufferSize === 1 ? null : undefined,
+        pairs: bufferSize > 1 ? [] : undefined,
         message,
         debug: process.env.NODE_ENV === 'development' ? {
           userPhotosCount: typedUserPhotos.length,
@@ -181,21 +191,30 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       });
     }
 
-    // Select a random pair
-    const selectedPair = availablePairs[Math.floor(Math.random() * availablePairs.length)];
-    const leftPhoto = selectedPair.left;
-    const rightPhoto = selectedPair.right;
+    // Generate multiple pairs for buffering
+    const requestedPairs = Math.min(bufferSize, availablePairs.length);
+    const selectedPairs = [];
+    const usedPairs = new Set<string>();
 
-    // Determine comparison type
-    if (leftPhoto.type === 'user' && rightPhoto.type === 'user') {
-      comparisonType = 'user_photos';
-    } else if (leftPhoto.type === 'sample' && rightPhoto.type === 'sample') {
-      comparisonType = 'sample_images';
-    } else {
-      comparisonType = 'mixed';
+    for (let i = 0; i < requestedPairs; i++) {
+      // Filter out already selected pairs to avoid duplicates in buffer
+      const remainingPairs = availablePairs.filter(pair => {
+        const pairKey = `${pair.left.id}_${pair.right.id}`;
+        const reversePairKey = `${pair.right.id}_${pair.left.id}`;
+        return !usedPairs.has(pairKey) && !usedPairs.has(reversePairKey);
+      });
+
+      if (remainingPairs.length === 0) break;
+
+      const selectedPair = remainingPairs[Math.floor(Math.random() * remainingPairs.length)];
+      selectedPairs.push(selectedPair);
+      
+      // Mark this pair as used
+      const pairKey = `${selectedPair.left.id}_${selectedPair.right.id}`;
+      usedPairs.add(pairKey);
     }
 
-    // Build the response pair object
+    // Build the response pair objects
     const buildPhotoObject = (photo: any) => {
       // Get the base URL for the current environment
       // Use Railway URL if available, otherwise fall back to production URL, then localhost
@@ -234,43 +253,93 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       }
     };
 
-    pair = {
-      sessionId: session.id,
-      leftPhoto: buildPhotoObject(leftPhoto),
-      rightPhoto: buildPhotoObject(rightPhoto),
-    };
+    // Build response pairs and collect sample images for timestamp updates
+    const pairs = [];
+    const sampleUpdatePromises = [];
+    const sampleImagesUsed = new Set<string>();
+
+    for (const selectedPair of selectedPairs) {
+      const leftPhoto = selectedPair.left;
+      const rightPhoto = selectedPair.right;
+
+      // Determine comparison type for this pair
+      let pairComparisonType: string;
+      if (leftPhoto.type === 'user' && rightPhoto.type === 'user') {
+        pairComparisonType = 'user_photos';
+      } else if (leftPhoto.type === 'sample' && rightPhoto.type === 'sample') {
+        pairComparisonType = 'sample_images';
+      } else {
+        pairComparisonType = 'mixed';
+      }
+
+      const pairObject = {
+        sessionId: session.id,
+        leftPhoto: buildPhotoObject(leftPhoto),
+        rightPhoto: buildPhotoObject(rightPhoto),
+        comparisonType: pairComparisonType,
+      };
+
+      pairs.push(pairObject);
+
+      // Collect sample images for timestamp updates (avoid duplicates)
+      if (leftPhoto.type === 'sample' && !sampleImagesUsed.has(leftPhoto.id)) {
+        sampleImagesUsed.add(leftPhoto.id);
+        sampleUpdatePromises.push(
+          prisma.sampleImage.update({
+            where: { id: leftPhoto.id },
+            data: { lastUsed: new Date() },
+          })
+        );
+      }
+      if (rightPhoto.type === 'sample' && !sampleImagesUsed.has(rightPhoto.id)) {
+        sampleImagesUsed.add(rightPhoto.id);
+        sampleUpdatePromises.push(
+          prisma.sampleImage.update({
+            where: { id: rightPhoto.id },
+            data: { lastUsed: new Date() },
+          })
+        );
+      }
+    }
 
     // Update sample image timestamps if used
-    const sampleUpdatePromises = [];
-    if (leftPhoto.type === 'sample') {
-      sampleUpdatePromises.push(
-        prisma.sampleImage.update({
-          where: { id: leftPhoto.id },
-          data: { lastUsed: new Date() },
-        })
-      );
-    }
-    if (rightPhoto.type === 'sample') {
-      sampleUpdatePromises.push(
-        prisma.sampleImage.update({
-          where: { id: rightPhoto.id },
-          data: { lastUsed: new Date() },
-        })
-      );
-    }
-    
     if (sampleUpdatePromises.length > 0) {
       await Promise.all(sampleUpdatePromises);
     }
 
-    res.json({
-      success: true,
-      pair,
-      comparisonType,
-      phase,
-      message: message || undefined,
-      timestamp: new Date().toISOString(),
-    });
+    // Set the overall comparison type based on the most common type in the buffer
+    const pairTypes = pairs.map(p => p.comparisonType);
+    const typeCount = pairTypes.reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    comparisonType = Object.keys(typeCount).reduce((a, b) => typeCount[a] > typeCount[b] ? a : b);
+
+    // Return appropriate format based on buffer size
+    if (bufferSize === 1) {
+      // Single pair - maintain backward compatibility
+      pair = pairs[0];
+      res.json({
+        success: true,
+        pair,
+        comparisonType,
+        phase,
+        message: message || undefined,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      // Multiple pairs - new buffer format
+      res.json({
+        success: true,
+        pairs,
+        bufferSize: pairs.length,
+        requestedBufferSize: bufferSize,
+        comparisonType,
+        phase,
+        message: message || undefined,
+        timestamp: new Date().toISOString(),
+      });
+    }
   } catch (error) {
     console.error('Get next pair error:', error);
     res.status(500).json({
