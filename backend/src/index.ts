@@ -26,7 +26,11 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://your-app.vercel.app'].filter(Boolean) as string[]
+    ? [
+        process.env.FRONTEND_URL, 
+        'https://elocheck.vercel.app',
+        'https://berkeley-goggles-git-main-bodimans-projects.vercel.app'
+      ].filter(Boolean) as string[]
     : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:19006'],
   credentials: true
 }));

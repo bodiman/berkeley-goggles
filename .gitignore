@@ -106,3 +106,4 @@ pnpm-lock.yaml
 /mobile/web-build/
 
 sample_images/
+.vercel
