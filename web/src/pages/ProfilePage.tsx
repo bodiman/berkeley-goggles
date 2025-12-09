@@ -7,6 +7,11 @@ interface CameraCapture {
   blob: Blob;
   dataUrl: string;
   timestamp: number;
+  uploadResult?: {
+    id: string;
+    url: string;
+    thumbnailUrl?: string;
+  };
 }
 
 interface UserStats {
