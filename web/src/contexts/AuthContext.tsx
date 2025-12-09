@@ -195,6 +195,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: profileData.name,
         age: profileData.age,
         gender: profileData.gender,
+        agreedToTerms: true,
+        agreedToPrivacy: true,
       }));
       
       if (profileData.photo) {
