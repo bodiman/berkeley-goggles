@@ -17,6 +17,30 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       });
     }
 
+    // Get rater's info first to validate user exists
+    const rater = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true, 
+        gender: true,
+        createdAt: true,
+      },
+    });
+
+    if (!rater) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found. Please register first.',
+      });
+    }
+
+    if (!rater.gender) {
+      return res.status(400).json({
+        success: false,
+        error: 'User gender not found. Please complete profile setup.',
+      });
+    }
+
     // Find or create current comparison session for today
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
@@ -35,19 +59,6 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           userId: userId,
           startedAt: new Date(),
         },
-      });
-    }
-
-    // Get rater's gender for filtering
-    const rater = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { gender: true },
-    });
-
-    if (!rater?.gender) {
-      return res.status(400).json({
-        success: false,
-        error: 'User gender not found. Please complete profile setup.',
       });
     }
 
@@ -650,7 +661,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
     if (!rater) {
       return res.status(404).json({
         success: false,
-        error: 'User not found',
+        error: 'User not found. Please register first.',
       });
     }
 

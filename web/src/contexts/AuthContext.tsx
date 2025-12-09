@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedUser = localStorage.getItem('berkeley-goggles-user');
+        const storedUser = localStorage.getItem('elo-check-user');
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           // Convert date strings back to Date objects and fix relative photo URLs
@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
-        localStorage.removeItem('berkeley-goggles-user');
+        localStorage.removeItem('elo-check-user');
       } finally {
         setIsLoading(false);
       }
@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         
         setUser(user);
-        localStorage.setItem('berkeley-goggles-user', JSON.stringify(user));
+        localStorage.setItem('elo-check-user', JSON.stringify(user));
         
         setNavigationState(prev => ({
           ...prev,
@@ -159,7 +159,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         
         setUser(user);
-        localStorage.setItem('berkeley-goggles-user', JSON.stringify(user));
+        localStorage.setItem('elo-check-user', JSON.stringify(user));
         
         setNavigationState(prev => ({
           ...prev,
@@ -180,7 +180,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    // Remove both possible localStorage keys for safety
     localStorage.removeItem('elo-check-user');
+    localStorage.removeItem('berkeley-goggles-user');
     setNavigationState({
       currentTab: 'profile',
       profileSetupComplete: false,
