@@ -300,21 +300,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      const data = await response.json();
+      console.log('formData', formData);
+      console.log(response);
+
+      // const data = await response.json();
       
-      if (data.success && data.user) {
-        const updatedUser: AuthUser = {
-          ...data.user,
-          profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
-          createdAt: new Date(data.user.createdAt),
-          lastActive: new Date(data.user.lastActive),
-        };
+      // if (data.success && data.user) {
+      //   const updatedUser: AuthUser = {
+      //     ...data.user,
+      //     profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
+      //     createdAt: new Date(data.user.createdAt),
+      //     lastActive: new Date(data.user.lastActive),
+      //   };
 
-        setUser(updatedUser);
-        localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
+      //   setUser(updatedUser);
+      //   localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
 
-        return true;
-      }
+      //   return true;
+      // }
 
       return false;
     } catch (error) {
