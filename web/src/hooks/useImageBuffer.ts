@@ -148,25 +148,36 @@ export const useImageBuffer = ({
       }
 
       // Convert to buffered pairs
-      const bufferedPairs: BufferedPair[] = newPairs.map(pair => ({
+      const newBufferedPairs: BufferedPair[] = newPairs.map(pair => ({
         ...pair,
         preloaded: false
       }));
 
-      setBuffer(bufferedPairs);
-      setCurrentIndex(0);
+      setBuffer(prev => {
+        // If buffer is empty, replace entirely
+        if (prev.length === 0) {
+          setCurrentIndex(0);
+          return newBufferedPairs;
+        }
+        
+        // Otherwise, keep unused pairs and append new ones to the end
+        return [...prev, ...newBufferedPairs];
+      });
 
-      // Start preloading images in background
-      bufferedPairs.forEach(async (pair, index) => {
-        if (index < 2) { // Preload first 2 pairs immediately
+      // Start preloading images in background for new pairs
+      newBufferedPairs.forEach(async (pair, index) => {
+        if (index < 2) { // Preload first 2 new pairs immediately
           try {
             await preloadPairImages(pair);
             setBuffer(prev => {
-              const updated = [...prev];
-              if (updated[index]) {
-                updated[index] = { ...updated[index], preloaded: true };
+              // Find the pair in the updated buffer and mark as preloaded
+              const pairIndex = prev.findIndex(p => p.sessionId === pair.sessionId);
+              if (pairIndex !== -1) {
+                const updated = [...prev];
+                updated[pairIndex] = { ...updated[pairIndex], preloaded: true };
+                return updated;
               }
-              return updated;
+              return prev;
             });
           } catch (error) {
             console.warn(`Failed to preload pair ${index}:`, error);
