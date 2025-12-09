@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PhotoComparisonCard } from '../components/PhotoComparisonCard';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
@@ -20,6 +20,7 @@ export const ComparisonPage: React.FC = () => {
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   
   // Initialize image buffer hook
   const {
@@ -38,6 +39,20 @@ export const ComparisonPage: React.FC = () => {
   });
   
   const currentPair = getCurrentPair();
+  
+  // Control card visibility - only show when we have a pair, not transitioning, and images are ready
+  const shouldShowCard = Boolean(currentPair && !isTransitioning && isCurrentPairReady());
+
+  // Handle animation completion - card has finished swiping off screen
+  const handleAnimationComplete = useCallback(async () => {
+    setIsTransitioning(true);
+    
+    // Move to next pair in buffer
+    await advanceToNext();
+    
+    // Card will automatically show again when new images are ready
+    // via the shouldShowCard computed value and useEffect below
+  }, [advanceToNext]);
 
   // Fetch initial data on component mount
   useEffect(() => {
@@ -45,6 +60,13 @@ export const ComparisonPage: React.FC = () => {
       loadInitialData();
     }
   }, [user?.id]);
+
+  // Reset transition state when new pair is ready
+  useEffect(() => {
+    if (isTransitioning && currentPair && isCurrentPairReady()) {
+      setIsTransitioning(false);
+    }
+  }, [isTransitioning, currentPair, isCurrentPairReady]);
 
   // Prevent body scroll on mobile
   useEffect(() => {
@@ -121,11 +143,8 @@ export const ComparisonPage: React.FC = () => {
           navigator.vibrate([50, 50, 50]);
         }
         
-        // Advance to next pair and update progress
-        await Promise.all([
-          advanceToNext(),
-          fetchDailyProgress(),
-        ]);
+        // Update progress (pair advancement handled by animation completion)
+        await fetchDailyProgress();
         
         // Daily goal completion handled by UI indicators (progress bar, etc.)
       } else {
@@ -161,11 +180,8 @@ export const ComparisonPage: React.FC = () => {
           navigator.vibrate(30);
         }
         
-        // Advance to next pair and update progress
-        await Promise.all([
-          advanceToNext(),
-          fetchDailyProgress(),
-        ]);
+        // Update progress (pair advancement handled by animation completion)  
+        await fetchDailyProgress();
       } else {
         setError(data.error || 'Failed to skip comparison');
       }
@@ -273,30 +289,39 @@ export const ComparisonPage: React.FC = () => {
 
       {/* Main Comparison Area */}
       <main className="flex-1 flex items-center justify-center p-4">
-        <PhotoComparisonCard
-          topPhoto={{
-            id: currentPair.leftPhoto.id,
-            url: currentPair.leftPhoto.url.startsWith('http') 
-              ? currentPair.leftPhoto.url 
-              : `http://localhost:3001/api/user/photo/${currentPair.leftPhoto.url.split('/').pop()}`,
-            userId: currentPair.leftPhoto.userId,
-            age: currentPair.leftPhoto.userAge,
-            type: currentPair.leftPhoto.type,
-          }}
-          bottomPhoto={{
-            id: currentPair.rightPhoto.id,
-            url: currentPair.rightPhoto.url.startsWith('http') 
-              ? currentPair.rightPhoto.url 
-              : `http://localhost:3001/api/user/photo/${currentPair.rightPhoto.url.split('/').pop()}`,
-            userId: currentPair.rightPhoto.userId,
-            age: currentPair.rightPhoto.userAge,
-            type: currentPair.rightPhoto.type,
-          }}
-          onSelection={handleSelection}
-          onSkip={handleSkip}
-          className="fade-up"
-          disabled={isSubmitting}
-        />
+        {currentPair ? (
+          <PhotoComparisonCard
+            topPhoto={{
+              id: currentPair.leftPhoto.id,
+              url: currentPair.leftPhoto.url.startsWith('http') 
+                ? currentPair.leftPhoto.url 
+                : `http://localhost:3001/api/user/photo/${currentPair.leftPhoto.url.split('/').pop()}`,
+              userId: currentPair.leftPhoto.userId,
+              age: currentPair.leftPhoto.userAge,
+              type: currentPair.leftPhoto.type,
+            }}
+            bottomPhoto={{
+              id: currentPair.rightPhoto.id,
+              url: currentPair.rightPhoto.url.startsWith('http') 
+                ? currentPair.rightPhoto.url 
+                : `http://localhost:3001/api/user/photo/${currentPair.rightPhoto.url.split('/').pop()}`,
+              userId: currentPair.rightPhoto.userId,
+              age: currentPair.rightPhoto.userAge,
+              type: currentPair.rightPhoto.type,
+            }}
+            onSelection={handleSelection}
+            onSkip={handleSkip}
+            className="fade-up"
+            disabled={isSubmitting}
+            shouldShowCard={shouldShowCard}
+            onAnimationComplete={handleAnimationComplete}
+          />
+        ) : (
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-white text-sm">Loading next pair...</p>
+          </div>
+        )}
       </main>
 
       {/* Footer Tips */}

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useSpring, animated } from 'react-spring';
 import { useDrag } from '@use-gesture/react';
 
@@ -17,6 +17,8 @@ interface PhotoComparisonCardProps {
   onSkip: () => void;
   className?: string;
   disabled?: boolean;
+  shouldShowCard?: boolean;
+  onAnimationComplete?: () => void;
 }
 
 export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
@@ -26,6 +28,8 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
   onSkip,
   className = '',
   disabled = false,
+  shouldShowCard = true,
+  onAnimationComplete,
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | 'left' | 'right' | null>(null);
@@ -40,19 +44,35 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
     config: { tension: 200, friction: 20 },
   }));
 
+  // Reset card position when shouldShowCard becomes true
+  useEffect(() => {
+    if (shouldShowCard && !isAnimating) {
+      api.start({ 
+        x: 0, 
+        y: 0, 
+        rotateZ: 0, 
+        opacity: 1,
+        config: { tension: 250, friction: 25 } 
+      });
+      setIsAnimating(false);
+      setSwipeDirection(null);
+    }
+  }, [shouldShowCard, isAnimating, api]);
+
   const handleSelection = useCallback((winner: Photo, loser: Photo) => {
     if (isAnimating || disabled) return;
     
     setIsAnimating(true);
     onSelection(winner.id, loser.id);
     
-    // Reset animation after a brief delay
-    setTimeout(() => {
-      api.start({ x: 0, y: 0, rotateZ: 0, opacity: 1 });
-      setIsAnimating(false);
-      setSwipeDirection(null);
-    }, 300);
-  }, [isAnimating, disabled, onSelection, api]);
+    // Notify parent that animation will complete
+    // Parent controls when card should return
+    if (onAnimationComplete) {
+      setTimeout(() => {
+        onAnimationComplete();
+      }, 300); // Wait for swipe animation to complete
+    }
+  }, [isAnimating, disabled, onSelection, onAnimationComplete]);
 
   const handleSkip = useCallback(() => {
     if (isAnimating || disabled) return;
@@ -60,12 +80,14 @@ export const PhotoComparisonCard: React.FC<PhotoComparisonCardProps> = ({
     setIsAnimating(true);
     onSkip();
     
-    setTimeout(() => {
-      api.start({ x: 0, y: 0, rotateZ: 0, opacity: 1 });
-      setIsAnimating(false);
-      setSwipeDirection(null);
-    }, 300);
-  }, [isAnimating, disabled, onSkip, api]);
+    // Notify parent that animation will complete
+    // Parent controls when card should return
+    if (onAnimationComplete) {
+      setTimeout(() => {
+        onAnimationComplete();
+      }, 300); // Wait for swipe animation to complete
+    }
+  }, [isAnimating, disabled, onSkip, onAnimationComplete]);
 
   // Drag gesture handler
   const bind = useDrag(
