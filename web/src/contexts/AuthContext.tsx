@@ -284,6 +284,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUserPhoto = async (photoBlob: Blob): Promise<boolean> => {
+
+    console.log('this is being called')
     try {
       if (!user) return false;
 
@@ -291,17 +293,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       formData.append('userId', user.id);
       formData.append('photo', photoBlob, 'profile-photo.jpg');
 
-      const response = await fetch('/api/user/photo', {
-        method: 'POST',
-        body: formData,
-      });
+      // const response = await fetch('/api/user/photo', {
+      //   method: 'POST',
+      //   body: formData,
+      // });
 
-      if (!response.ok) {
-        return false;
-      }
+      // if (!response.ok) {
+      //   return false;
+      // }
 
-      console.log('formData', formData);
-      console.log(response);
+      // console.log('formData', formData);
+      // console.log(response);
 
       // const data = await response.json();
       
