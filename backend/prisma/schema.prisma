@@ -29,9 +29,6 @@ model User {
   createdAt   DateTime @default(now()) @map("created_at")
   lastActive  DateTime @default(now()) @map("last_active")
   
-  // Terms and privacy agreement
-  agreedToTerms   Boolean @default(false) @map("agreed_to_terms")
-  agreedToPrivacy Boolean @default(false) @map("agreed_to_privacy")
   
   // Privacy settings (stored as text/strings for SQLite)
   blurFaceUntilConsent Boolean @default(false) @map("blur_face_until_consent")
