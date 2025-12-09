@@ -75,7 +75,9 @@ async function seedSampleImages(): Promise<void> {
     try {
       await fs.access(sampleImagesPath);
     } catch (error) {
-      throw new Error(`Sample images directory not found: ${sampleImagesPath}`);
+      logger.warn(`⚠️  Sample images directory not found: ${sampleImagesPath}`);
+      logger.info('🔄 Skipping sample images seeding - directory not available');
+      return; // Exit gracefully instead of throwing
     }
 
     // Read all files from sample images directory
