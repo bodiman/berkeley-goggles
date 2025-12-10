@@ -87,8 +87,27 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // In production (Railway), serve from local sample_images directory
 // In development, serve from parent directory
 const sampleImagesPath = process.env.NODE_ENV === 'production' 
-  ? path.join(__dirname, '../sample_images')
-  : path.join(__dirname, '../../sample_images');
+  ? path.join(process.cwd(), 'sample_images')  // Use process.cwd() for Railway
+  : path.join(process.cwd(), '../sample_images');
+
+// Log the sample images path for debugging
+logger.info(`📁 Serving sample images from: ${sampleImagesPath}`);
+
+// Check if directory exists and log file count
+import { promises as fs } from 'fs';
+fs.access(sampleImagesPath)
+  .then(async () => {
+    try {
+      const files = await fs.readdir(sampleImagesPath);
+      const imageFiles = files.filter(f => f.toLowerCase().endsWith('.jpg'));
+      logger.info(`📸 Found ${imageFiles.length} sample images in directory`);
+    } catch (error) {
+      logger.warn(`⚠️  Could not read sample images directory: ${error}`);
+    }
+  })
+  .catch(() => {
+    logger.error(`❌ Sample images directory not found at: ${sampleImagesPath}`);
+  });
   
 app.use('/sample-images', express.static(sampleImagesPath));
 
