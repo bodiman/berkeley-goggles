@@ -82,6 +82,20 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     // 4. Gender filtering: show only opposite gender
 
     // Get available user photos (opposite gender only)
+    // Increased pool size for better variety and randomized selection
+    const totalUserPhotos = await prisma.photo.count({
+      where: {
+        status: 'approved',
+        userId: { not: userId },
+        user: {
+          gender: oppositeGender,
+        },
+      },
+    });
+
+    // Use larger pool size, up to 300 photos or all available
+    const userPhotoPoolSize = Math.min(300, totalUserPhotos);
+    
     const userPhotos = await prisma.photo.findMany({
       where: {
         status: 'approved',
@@ -100,14 +114,28 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         },
         ranking: true,
       },
-      orderBy: {
-        uploadedAt: 'desc',
-      },
-      take: 50,
+      orderBy: [
+        // Mix of recent and older photos for variety
+        { uploadedAt: 'desc' },
+        { id: 'asc' }, // Secondary sort for consistent pagination
+      ],
+      take: userPhotoPoolSize,
     });
 
     // Get available sample images (opposite gender only)
-    const sampleImages = await prisma.sampleImage.findMany({
+    // Improved rotation with larger pool and mixed selection strategy
+    const totalSampleImages = await prisma.sampleImage.count({
+      where: {
+        isActive: true,
+        gender: oppositeGender,
+      },
+    });
+
+    // Use larger pool size for much better variety
+    const sampleImagePoolSize = Math.min(200, totalSampleImages);
+    
+    // Get a mix of least recently used and random samples
+    const leastUsedSamples = await prisma.sampleImage.findMany({
       where: {
         isActive: true,
         gender: oppositeGender, // Only opposite gender
@@ -118,16 +146,63 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       orderBy: {
         lastUsed: 'asc', // Prefer less recently used samples
       },
-      take: 50,
+      take: Math.floor(sampleImagePoolSize * 0.7), // 70% least recently used
     });
+
+    // Get some random samples for variety (remaining 30%)
+    const randomSampleCount = sampleImagePoolSize - leastUsedSamples.length;
+    const randomSamples = randomSampleCount > 0 ? await prisma.sampleImage.findMany({
+      where: {
+        isActive: true,
+        gender: oppositeGender,
+        id: {
+          notIn: leastUsedSamples.map(s => s.id), // Exclude already selected
+        },
+      },
+      include: {
+        ranking: true,
+      },
+      orderBy: {
+        id: 'asc', // Deterministic ordering for consistent pagination
+      },
+      skip: Math.floor(Math.random() * Math.max(1, totalSampleImages - leastUsedSamples.length - randomSampleCount)),
+      take: randomSampleCount,
+    }) : [];
+
+    // Combine and shuffle the samples for variety
+    const sampleImages = [...leastUsedSamples, ...randomSamples];
+    
+    // Shuffle array for additional randomness in selection
+    for (let i = sampleImages.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [sampleImages[i], sampleImages[j]] = [sampleImages[j], sampleImages[i]];
+    }
 
     // Get user's previous comparisons to avoid duplicates
     const previousComparisons = await getPreviousComparisons(userId);
     const comparedPairs = extractComparedPairs(previousComparisons);
 
+    // Get recently shown photos from current session to avoid immediate repetition
+    const recentTimeWindow = 30 * 60 * 1000; // 30 minutes
+    const recentThreshold = new Date(Date.now() - recentTimeWindow);
+    
+    const recentlyShownPhotoIds = await getRecentlyShownPhotos(userId, recentThreshold);
+    
+    // Filter out recently shown photos for better variety
+    const filteredUserPhotos = userPhotos.filter(photo => 
+      !recentlyShownPhotoIds.userPhotoIds.has(photo.id)
+    );
+    const filteredSampleImages = sampleImages.filter(sample => 
+      !recentlyShownPhotoIds.sampleImageIds.has(sample.id)
+    );
+
+    // If we've filtered out too many, use original pools (fall back to avoid empty results)
+    const finalUserPhotos = filteredUserPhotos.length > 10 ? filteredUserPhotos : userPhotos;
+    const finalSampleImages = filteredSampleImages.length > 20 ? filteredSampleImages : sampleImages;
+
     // Add type information to photos for easier processing
-    const typedUserPhotos = userPhotos.map(photo => ({ ...photo, type: 'user' }));
-    const typedSampleImages = sampleImages.map(sample => ({ ...sample, type: 'sample' }));
+    const typedUserPhotos = finalUserPhotos.map(photo => ({ ...photo, type: 'user' }));
+    const typedSampleImages = finalSampleImages.map(sample => ({ ...sample, type: 'sample' }));
 
     let pair = null;
     let comparisonType = 'user_photos';
@@ -192,28 +267,9 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       });
     }
 
-    // Generate multiple pairs for buffering
-    const requestedPairs = Math.min(bufferSize, availablePairs.length);
-    const selectedPairs = [];
-    const usedPairs = new Set<string>();
-
-    for (let i = 0; i < requestedPairs; i++) {
-      // Filter out already selected pairs to avoid duplicates in buffer
-      const remainingPairs = availablePairs.filter(pair => {
-        const pairKey = `${pair.left.id}_${pair.right.id}`;
-        const reversePairKey = `${pair.right.id}_${pair.left.id}`;
-        return !usedPairs.has(pairKey) && !usedPairs.has(reversePairKey);
-      });
-
-      if (remainingPairs.length === 0) break;
-
-      const selectedPair = remainingPairs[Math.floor(Math.random() * remainingPairs.length)];
-      selectedPairs.push(selectedPair);
-      
-      // Mark this pair as used
-      const pairKey = `${selectedPair.left.id}_${selectedPair.right.id}`;
-      usedPairs.add(pairKey);
-    }
+    // Use intelligent Bradley-Terry sampler to select most informative pairs
+    // while ensuring no person appears more than once in the buffer
+    const selectedPairs = selectInformativePairs(availablePairs, bufferSize);
 
     // Build the response pair objects
     const buildPhotoObject = (photo: any) => {
@@ -222,7 +278,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : process.env.API_BASE_URL
-        ? `https://${process.env.API_BASE_URL}`
+        ? (process.env.API_BASE_URL.startsWith('http') ? process.env.API_BASE_URL : `https://${process.env.API_BASE_URL}`)
         : process.env.NODE_ENV === 'production'
         ? 'https://berkeley-goggles-production.up.railway.app'
         : 'http://localhost:3001';
@@ -1344,4 +1400,135 @@ function filterUncomparedPairs(pairs: Array<{left: any, right: any, type?: strin
     
     return !comparedPairs.has(pairKey);
   });
+}
+
+// Helper function to get person ID from photo (user ID for user photos, photo ID for samples)
+function getPersonId(photo: any): string {
+  if (photo.type === 'user') {
+    return photo.userId || photo.user?.id || photo.id;
+  } else {
+    // For sample images, use the photo ID as the "person" ID since samples are unique entities
+    return `sample_${photo.id}`;
+  }
+}
+
+// Helper function to get Bradley-Terry score and comparison count from photo
+function getRatingData(photo: any): { score: number; comparisons: number } {
+  if (photo.ranking) {
+    return {
+      score: photo.ranking.bradleyTerryScore || 0.5,
+      comparisons: photo.ranking.totalComparisons || 0,
+    };
+  }
+  
+  // Default values for photos without rankings
+  return {
+    score: 1.0, // Default Bradley-Terry starting score
+    comparisons: 0,
+  };
+}
+
+/**
+ * Intelligent Bradley-Terry sampler that selects pairs for maximum information gain
+ * while ensuring no person appears more than once in the buffer
+ */
+function selectInformativePairs(
+  availablePairs: Array<{left: any, right: any, type?: string}>, 
+  bufferSize: number
+): Array<{left: any, right: any, type?: string}> {
+  if (availablePairs.length === 0 || bufferSize === 0) {
+    return [];
+  }
+
+  // Score all pairs by information gain
+  const scoredPairs = availablePairs.map(pair => {
+    const leftRating = getRatingData(pair.left);
+    const rightRating = getRatingData(pair.right);
+    
+    const informationGain = bradleyTerryService.calculateInformationGain(
+      leftRating.score,
+      rightRating.score,
+      leftRating.comparisons,
+      rightRating.comparisons
+    );
+    
+    return {
+      pair,
+      score: informationGain,
+      leftPersonId: getPersonId(pair.left),
+      rightPersonId: getPersonId(pair.right),
+    };
+  });
+
+  // Sort by information gain (highest first)
+  scoredPairs.sort((a, b) => b.score - a.score);
+
+  // Greedy selection with duplicate person prevention
+  const selectedPairs = [];
+  const usedPersonIds = new Set<string>();
+
+  for (const scoredPair of scoredPairs) {
+    // Check if we've reached the buffer limit
+    if (selectedPairs.length >= bufferSize) {
+      break;
+    }
+
+    // Check if either person is already in the buffer
+    const { leftPersonId, rightPersonId } = scoredPair;
+    if (usedPersonIds.has(leftPersonId) || usedPersonIds.has(rightPersonId)) {
+      continue; // Skip this pair, one of the people is already used
+    }
+
+    // Add this pair to the selection
+    selectedPairs.push(scoredPair.pair);
+    usedPersonIds.add(leftPersonId);
+    usedPersonIds.add(rightPersonId);
+  }
+
+  return selectedPairs;
+}
+
+/**
+ * Get photos that were recently shown to the user to avoid immediate repetition
+ */
+async function getRecentlyShownPhotos(
+  userId: string, 
+  sinceTimestamp: Date
+): Promise<{
+  userPhotoIds: Set<string>;
+  sampleImageIds: Set<string>;
+}> {
+  // Get recent comparisons to extract recently shown photos
+  const recentComparisons = await prisma.comparison.findMany({
+    where: {
+      raterId: userId,
+      timestamp: {
+        gte: sinceTimestamp,
+      },
+    },
+    select: {
+      winnerPhotoId: true,
+      loserPhotoId: true,
+      winnerSampleImageId: true,
+      loserSampleImageId: true,
+    },
+  });
+
+  const userPhotoIds = new Set<string>();
+  const sampleImageIds = new Set<string>();
+
+  for (const comparison of recentComparisons) {
+    // Add user photo IDs
+    if (comparison.winnerPhotoId) userPhotoIds.add(comparison.winnerPhotoId);
+    if (comparison.loserPhotoId) userPhotoIds.add(comparison.loserPhotoId);
+    
+    // Add sample image IDs
+    if (comparison.winnerSampleImageId) sampleImageIds.add(comparison.winnerSampleImageId);
+    if (comparison.loserSampleImageId) sampleImageIds.add(comparison.loserSampleImageId);
+  }
+
+  return {
+    userPhotoIds,
+    sampleImageIds,
+  };
 }

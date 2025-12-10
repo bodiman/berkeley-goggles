@@ -62,6 +62,10 @@ export const ProfileSetupPage: React.FC = () => {
       timestamp: capture.timestamp
     });
     setCapturedPhoto(capture);
+    // Don't auto-advance to terms step - wait for user confirmation
+  };
+
+  const handleUsePhoto = () => {
     setCurrentStep('terms');
   };
 
@@ -278,6 +282,7 @@ export const ProfileSetupPage: React.FC = () => {
             <CameraCaptureComponent
               onCapture={handlePhotoCapture}
               onError={handlePhotoCaptureError}
+              onUsePhoto={handleUsePhoto}
               className="mb-6"
               userId={user?.id}
               autoUpload={true}

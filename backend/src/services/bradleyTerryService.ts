@@ -421,6 +421,52 @@ export class BradleyTerryService {
     
     return winRates;
   }
+
+  /**
+   * Calculate information gain for a potential comparison between two items
+   * Higher values indicate more informative comparisons
+   */
+  public calculateInformationGain(
+    scoreA: number, 
+    scoreB: number, 
+    comparisonsA: number, 
+    comparisonsB: number
+  ): number {
+    // Calculate win probability for A vs B
+    const winProbA = this.calculateWinProbability(scoreA, scoreB);
+    
+    // Uncertainty score: highest when win probability is closest to 50%
+    // This measures how uncertain the outcome is
+    const uncertainty = 1 - Math.abs(winProbA - 0.5) * 2; // Maps [0,1] to [1,0], peak at 0.5
+    
+    // Confidence penalty: lower confidence (fewer comparisons) = higher gain
+    // Use harmonic mean of comparison counts to balance both items
+    const minComparisons = 1; // Avoid division by zero
+    const avgComparisons = 2 / (1 / Math.max(minComparisons, comparisonsA) + 1 / Math.max(minComparisons, comparisonsB));
+    const confidencePenalty = 1 / Math.sqrt(avgComparisons + 1);
+    
+    // Combined information gain score
+    return uncertainty * confidencePenalty;
+  }
+
+  /**
+   * Calculate uncertainty score based on how close the win probability is to 50%
+   * Returns value between 0 and 1, where 1 is maximum uncertainty (50% win prob)
+   */
+  public calculateUncertainty(scoreA: number, scoreB: number): number {
+    const winProbA = this.calculateWinProbability(scoreA, scoreB);
+    return 1 - Math.abs(winProbA - 0.5) * 2;
+  }
+
+  /**
+   * Calculate confidence penalty based on number of comparisons
+   * Returns higher values for items with fewer comparisons (less confident ratings)
+   */
+  public calculateConfidencePenalty(comparisonsA: number, comparisonsB: number): number {
+    const minComparisons = 1;
+    const avgComparisons = 2 / (1 / Math.max(minComparisons, comparisonsA) + 1 / Math.max(minComparisons, comparisonsB));
+    return 1 / Math.sqrt(avgComparisons + 1);
+  }
 }
 
 // Export singleton instance

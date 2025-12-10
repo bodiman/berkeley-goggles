@@ -15,6 +15,7 @@ interface CameraCapture {
 interface CameraCaptureProps {
   onCapture: (capture: CameraCapture) => void;
   onError: (error: string) => void;
+  onUsePhoto?: () => void;
   className?: string;
   userId?: string;
   autoUpload?: boolean;
@@ -24,6 +25,7 @@ interface CameraCaptureProps {
 export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
   onCapture,
   onError,
+  onUsePhoto,
   className = '',
   userId,
   autoUpload = true,
@@ -271,7 +273,7 @@ export const CameraCaptureComponent: React.FC<CameraCaptureProps> = ({
               Retake
             </button>
             <button
-              onClick={() => {/* Photo is already captured via onCapture */}}
+              onClick={onUsePhoto}
               className="flex-1 bg-green-600/80 backdrop-blur text-white py-3 px-4 rounded-lg font-medium"
             >
               Use Photo

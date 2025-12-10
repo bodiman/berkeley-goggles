@@ -25,7 +25,10 @@ const parseGenderFromFilename = (filename: string): string | null => {
   if (!match) return null;
   
   const prefix = match[1].toUpperCase();
-  return (prefix === 'AF' || prefix === 'CF') ? 'female' : 'male';
+  const secondLetter = prefix[1]; // Get the second character (F or M)
+  
+  // Second letter determines gender: F = female, M = male
+  return secondLetter === 'F' ? 'female' : 'male';
 };
 
 async function runDatabaseMigrations() {
