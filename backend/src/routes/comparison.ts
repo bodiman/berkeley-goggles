@@ -586,22 +586,7 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       },
     });
 
-    // Calculate rating updates based on comparison type
-    if (finalComparisonType === 'user_photos') {
-      // Both are user photos - use existing rating update function
-      await updatePhotoRatings(winnerId, loserId);
-      // Also update combined rankings for cross-comparisons
-      await updateCombinedRankings(winnerId, loserId, 'user', 'user');
-    } else if (finalComparisonType === 'sample_images') {
-      // Both are sample images - use sample image rating update
-      await updateSampleImageRatings(winnerId, loserId);
-      // Also update combined rankings
-      await updateCombinedRankings(winnerId, loserId, 'sample', 'sample');
-    } else if (finalComparisonType === 'mixed') {
-      // Mixed comparison - only update combined rankings
-      await updateCombinedRankings(winnerId, loserId, winnerType, loserType);
-    }
-
+    // Send response immediately - don't block on rating updates
     res.json({
       success: true,
       comparison: {
@@ -610,6 +595,29 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
         comparisonType: finalComparisonType,
       },
       message: 'Comparison submitted successfully',
+    });
+
+    // Calculate rating updates in background (non-blocking)
+    setImmediate(async () => {
+      try {
+        if (finalComparisonType === 'user_photos') {
+          // Both are user photos - use existing rating update function
+          await updatePhotoRatings(winnerId, loserId);
+          // Also update combined rankings for cross-comparisons
+          await updateCombinedRankings(winnerId, loserId, 'user', 'user');
+        } else if (finalComparisonType === 'sample_images') {
+          // Both are sample images - use sample image rating update
+          await updateSampleImageRatings(winnerId, loserId);
+          // Also update combined rankings
+          await updateCombinedRankings(winnerId, loserId, 'sample', 'sample');
+        } else if (finalComparisonType === 'mixed') {
+          // Mixed comparison - only update combined rankings
+          await updateCombinedRankings(winnerId, loserId, winnerType, loserType);
+        }
+      } catch (error) {
+        // Log errors but don't affect user experience
+        console.error('Background rating update failed:', error);
+      }
     });
   } catch (error) {
     console.error('Submit comparison error:', error);
@@ -655,26 +663,43 @@ comparisonRoutes.get('/daily-progress', asyncHandler(async (req, res) => {
     const totalSkipped = sessions.reduce((sum, session) => sum + session.comparisonsSkipped, 0);
 
     // Calculate user's streak (consecutive days with at least 1 comparison)
-    let streak = 0;
-    const checkDate = new Date(today);
+    // Optimized: Get all sessions from last 30 days in a single query
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    for (let i = 0; i < 30; i++) { // Check last 30 days max
-      const dayStart = new Date(checkDate);
-      const dayEnd = new Date(checkDate);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      
-      const daySession = await prisma.comparisonSession.findFirst({
-        where: {
-          userId: userId,
-          startedAt: {
-            gte: dayStart,
-            lt: dayEnd,
-          },
-          comparisonsCompleted: { gt: 0 },
+    const recentSessions = await prisma.comparisonSession.findMany({
+      where: {
+        userId: userId,
+        startedAt: {
+          gte: thirtyDaysAgo,
+          lt: new Date(today.getTime() + 24 * 60 * 60 * 1000), // tomorrow
         },
-      });
+        comparisonsCompleted: { gt: 0 },
+      },
+      select: {
+        startedAt: true,
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    // Calculate streak from the sessions data
+    let streak = 0;
+    const activeDays = new Set<string>();
+    
+    // Extract unique active days
+    for (const session of recentSessions) {
+      const dayKey = session.startedAt.toISOString().split('T')[0]; // YYYY-MM-DD format
+      activeDays.add(dayKey);
+    }
+    
+    // Check consecutive days starting from today
+    const checkDate = new Date(today);
+    for (let i = 0; i < 30; i++) {
+      const dayKey = checkDate.toISOString().split('T')[0];
       
-      if (daySession) {
+      if (activeDays.has(dayKey)) {
         streak++;
         checkDate.setDate(checkDate.getDate() - 1);
       } else {
@@ -1049,31 +1074,16 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
 // Helper function to recalculate percentiles for all photos
 async function updatePercentiles() {
   try {
-    // Get all photo rankings ordered by Bradley-Terry score
-    const rankings = await prisma.photoRanking.findMany({
-      where: {
-        totalComparisons: { gt: 0 }, // Only photos that have been compared
-      },
-      orderBy: {
-        bradleyTerryScore: 'desc',
-      },
-    });
-
-    const totalPhotos = rankings.length;
-    
-    if (totalPhotos === 0) return;
-
-    // Update percentiles
-    for (let i = 0; i < rankings.length; i++) {
-      const percentile = ((totalPhotos - i) / totalPhotos) * 100;
-      
-      await prisma.photoRanking.update({
-        where: { id: rankings[i].id },
-        data: {
-          currentPercentile: Math.round(percentile * 10) / 10, // Round to 1 decimal
-        },
-      });
-    }
+    // Use raw SQL for efficient bulk percentile updates
+    // This replaces the N+1 query pattern with a single SQL operation
+    await prisma.$executeRaw`
+      UPDATE photo_rankings 
+      SET current_percentile = ROUND(
+        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
+         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      )
+      WHERE total_comparisons > 0
+    `;
   } catch (error) {
     console.error('Error updating percentiles:', error);
   }
@@ -1082,31 +1092,16 @@ async function updatePercentiles() {
 // Helper function to recalculate percentiles for all sample images
 async function updateSampleImagePercentiles() {
   try {
-    // Get all sample image rankings ordered by Bradley-Terry score
-    const rankings = await prisma.sampleImageRanking.findMany({
-      where: {
-        totalComparisons: { gt: 0 }, // Only sample images that have been compared
-      },
-      orderBy: {
-        bradleyTerryScore: 'desc',
-      },
-    });
-
-    const totalSampleImages = rankings.length;
-    
-    if (totalSampleImages === 0) return;
-
-    // Update percentiles
-    for (let i = 0; i < rankings.length; i++) {
-      const percentile = ((totalSampleImages - i) / totalSampleImages) * 100;
-      
-      await prisma.sampleImageRanking.update({
-        where: { id: rankings[i].id },
-        data: {
-          currentPercentile: Math.round(percentile * 10) / 10, // Round to 1 decimal
-        },
-      });
-    }
+    // Use raw SQL for efficient bulk percentile updates
+    // This replaces the N+1 query pattern with a single SQL operation
+    await prisma.$executeRaw`
+      UPDATE sample_image_rankings 
+      SET current_percentile = ROUND(
+        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
+         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      )
+      WHERE total_comparisons > 0
+    `;
   } catch (error) {
     console.error('Error updating sample image percentiles:', error);
   }
@@ -1238,37 +1233,26 @@ async function getOrCreateCombinedRanking(photoId: string, photoType: 'user' | '
 // Helper function to recalculate percentiles for all combined rankings
 async function updateCombinedPercentiles() {
   try {
-    // Update percentiles by gender separately
-    const genders = ['male', 'female'];
+    // Use raw SQL for efficient bulk percentile updates by gender
+    // Update male rankings
+    await prisma.$executeRaw`
+      UPDATE combined_rankings 
+      SET current_percentile = ROUND(
+        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
+         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      )
+      WHERE total_comparisons > 0 AND gender = 'male'
+    `;
     
-    for (const gender of genders) {
-      // Get all combined rankings for this gender ordered by Bradley-Terry score
-      const rankings = await prisma.combinedRanking.findMany({
-        where: {
-          gender: gender,
-          totalComparisons: { gt: 0 }, // Only items that have been compared
-        },
-        orderBy: {
-          bradleyTerryScore: 'desc',
-        },
-      });
-
-      const totalItems = rankings.length;
-      
-      if (totalItems === 0) continue;
-
-      // Update percentiles
-      for (let i = 0; i < rankings.length; i++) {
-        const percentile = ((totalItems - i) / totalItems) * 100;
-        
-        await prisma.combinedRanking.update({
-          where: { id: rankings[i].id },
-          data: {
-            currentPercentile: Math.round(percentile * 10) / 10, // Round to 1 decimal
-          },
-        });
-      }
-    }
+    // Update female rankings
+    await prisma.$executeRaw`
+      UPDATE combined_rankings 
+      SET current_percentile = ROUND(
+        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
+         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      )
+      WHERE total_comparisons > 0 AND gender = 'female'
+    `;
   } catch (error) {
     console.error('Error updating combined percentiles:', error);
   }

@@ -35,6 +35,8 @@ model User {
   restrictByLocation   Boolean @default(false) @map("restrict_by_location")
   optOutOfLeaderboards Boolean @default(false) @map("opt_out_of_leaderboards")
   limitDemographicData Boolean @default(false) @map("limit_demographic_data")
+  agreedToTerms        Boolean @default(false) @map("agreed_to_terms")
+  agreedToPrivacy      Boolean @default(false) @map("agreed_to_privacy")
   
   // Notification settings
   emailNotifications   Boolean @default(true) @map("email_notifications")
@@ -169,6 +171,8 @@ model ComparisonSession {
   user                User       @relation(fields: [userId], references: [id])
   comparisons         Comparison[]
   
+  // Index for efficient session queries by user and date
+  @@index([userId, startedAt])
   @@map("comparison_sessions")
 }
 
