@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
+import { bradleyTerryService } from '../services/bradleyTerryService';
 
 export const comparisonRoutes = Router();
 
@@ -897,7 +898,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
   }
 }));
 
-// Helper function to update photo ratings using simple Elo algorithm
+// Helper function to update photo ratings using corrected Bradley-Terry algorithm
 async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
   try {
     // Get current rankings for both photos
@@ -911,43 +912,39 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
       return;
     }
 
-    // Simple Bradley-Terry model update
-    const K = 32; // Rating change factor
-    const winnerScore = winnerRanking.bradleyTerryScore;
-    const loserScore = loserRanking.bradleyTerryScore;
+    // Use the corrected Bradley-Terry service
+    const update = bradleyTerryService.updateRatings(
+      winnerRanking.bradleyTerryScore,
+      loserRanking.bradleyTerryScore,
+      { learningRate: 0.1 }
+    );
     
-    // Expected scores
-    const expectedWinnerScore = winnerScore / (winnerScore + loserScore);
-    const expectedLoserScore = loserScore / (winnerScore + loserScore);
-    
-    // Update scores (winner gets 1, loser gets 0)
-    const newWinnerScore = winnerScore + K * (1 - expectedWinnerScore);
-    const newLoserScore = loserScore + K * (0 - expectedLoserScore);
-    
-    // Update Bradley-Terry scores
+    // Update Bradley-Terry scores in database
     await Promise.all([
       prisma.photoRanking.update({
         where: { photoId: winnerPhotoId },
         data: {
-          bradleyTerryScore: Math.max(0.1, newWinnerScore), // Minimum score
+          bradleyTerryScore: update.newWinnerScore,
+          lastUpdated: new Date(),
         },
       }),
       prisma.photoRanking.update({
         where: { photoId: loserPhotoId },
         data: {
-          bradleyTerryScore: Math.max(0.1, newLoserScore), // Minimum score
+          bradleyTerryScore: update.newLoserScore,
+          lastUpdated: new Date(),
         },
       }),
     ]);
 
-    // TODO: Update percentiles based on new scores
+    // Update percentiles based on new scores
     await updatePercentiles();
   } catch (error) {
     console.error('Error updating photo ratings:', error);
   }
 }
 
-// Helper function to update sample image ratings using Bradley-Terry algorithm
+// Helper function to update sample image ratings using corrected Bradley-Terry algorithm
 async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: string) {
   try {
     // Get current rankings for both sample images
@@ -961,31 +958,27 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
       return;
     }
 
-    // Simple Bradley-Terry model update
-    const K = 32; // Rating change factor
-    const winnerScore = winnerRanking.bradleyTerryScore;
-    const loserScore = loserRanking.bradleyTerryScore;
+    // Use the corrected Bradley-Terry service
+    const update = bradleyTerryService.updateRatings(
+      winnerRanking.bradleyTerryScore,
+      loserRanking.bradleyTerryScore,
+      { learningRate: 0.1 }
+    );
     
-    // Expected scores
-    const expectedWinnerScore = winnerScore / (winnerScore + loserScore);
-    const expectedLoserScore = loserScore / (winnerScore + loserScore);
-    
-    // Update scores (winner gets 1, loser gets 0)
-    const newWinnerScore = winnerScore + K * (1 - expectedWinnerScore);
-    const newLoserScore = loserScore + K * (0 - expectedLoserScore);
-    
-    // Update Bradley-Terry scores
+    // Update Bradley-Terry scores in database
     await Promise.all([
       prisma.sampleImageRanking.update({
         where: { sampleImageId: winnerSampleId },
         data: {
-          bradleyTerryScore: Math.max(0.1, newWinnerScore), // Minimum score
+          bradleyTerryScore: update.newWinnerScore,
+          lastUpdated: new Date(),
         },
       }),
       prisma.sampleImageRanking.update({
         where: { sampleImageId: loserSampleId },
         data: {
-          bradleyTerryScore: Math.max(0.1, newLoserScore), // Minimum score
+          bradleyTerryScore: update.newLoserScore,
+          lastUpdated: new Date(),
         },
       }),
     ]);
@@ -1100,31 +1093,25 @@ async function updateCombinedRankings(
       }),
     ]);
 
-    // Simple Bradley-Terry model update for combined rankings
-    const K = 32; // Rating change factor
-    const winnerScore = winnerCombinedRanking.bradleyTerryScore;
-    const loserScore = loserCombinedRanking.bradleyTerryScore;
+    // Use the corrected Bradley-Terry service for combined rankings
+    const update = bradleyTerryService.updateRatings(
+      winnerCombinedRanking.bradleyTerryScore,
+      loserCombinedRanking.bradleyTerryScore,
+      { learningRate: 0.1 }
+    );
     
-    // Expected scores
-    const expectedWinnerScore = winnerScore / (winnerScore + loserScore);
-    const expectedLoserScore = loserScore / (winnerScore + loserScore);
-    
-    // Update scores (winner gets 1, loser gets 0)
-    const newWinnerScore = winnerScore + K * (1 - expectedWinnerScore);
-    const newLoserScore = loserScore + K * (0 - expectedLoserScore);
-    
-    // Update Bradley-Terry scores
+    // Update Bradley-Terry scores in database
     await Promise.all([
       prisma.combinedRanking.update({
         where: { id: winnerCombinedRanking.id },
         data: {
-          bradleyTerryScore: Math.max(0.1, newWinnerScore), // Minimum score
+          bradleyTerryScore: update.newWinnerScore,
         },
       }),
       prisma.combinedRanking.update({
         where: { id: loserCombinedRanking.id },
         data: {
-          bradleyTerryScore: Math.max(0.1, newLoserScore), // Minimum score
+          bradleyTerryScore: update.newLoserScore,
         },
       }),
     ]);
