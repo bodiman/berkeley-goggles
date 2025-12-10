@@ -83,14 +83,20 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
             </div>
             
             <div className="w-full">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                size="large"
-                text="signin"
-                width="100%"
-                theme="outline"
-              />
+              {isLoading ? (
+                <div className="w-full py-3 px-4 bg-gray-800 border border-gray-600 rounded-lg text-center">
+                  <span className="text-gray-300">Signing in with Google...</span>
+                </div>
+              ) : (
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  size="large"
+                  text="signin"
+                  width="100%"
+                  theme="outline"
+                />
+              )}
             </div>
             
             {error && (
