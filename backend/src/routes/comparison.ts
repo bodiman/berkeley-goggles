@@ -1430,7 +1430,7 @@ function getRatingData(photo: any): { score: number; comparisons: number } {
 
 /**
  * Intelligent Bradley-Terry sampler that selects pairs for maximum information gain
- * while ensuring no person appears more than once in the buffer
+ * while ensuring no person OR image appears more than once in the buffer
  */
 function selectInformativePairs(
   availablePairs: Array<{left: any, right: any, type?: string}>, 
@@ -1457,15 +1457,18 @@ function selectInformativePairs(
       score: informationGain,
       leftPersonId: getPersonId(pair.left),
       rightPersonId: getPersonId(pair.right),
+      leftImageId: pair.left.id,
+      rightImageId: pair.right.id,
     };
   });
 
   // Sort by information gain (highest first)
   scoredPairs.sort((a, b) => b.score - a.score);
 
-  // Greedy selection with duplicate person prevention
+  // Greedy selection with both person and image duplicate prevention
   const selectedPairs = [];
   const usedPersonIds = new Set<string>();
+  const usedImageIds = new Set<string>();
 
   for (const scoredPair of scoredPairs) {
     // Check if we've reached the buffer limit
@@ -1474,15 +1477,22 @@ function selectInformativePairs(
     }
 
     // Check if either person is already in the buffer
-    const { leftPersonId, rightPersonId } = scoredPair;
+    const { leftPersonId, rightPersonId, leftImageId, rightImageId } = scoredPair;
     if (usedPersonIds.has(leftPersonId) || usedPersonIds.has(rightPersonId)) {
       continue; // Skip this pair, one of the people is already used
+    }
+
+    // Check if either image is already in the buffer
+    if (usedImageIds.has(leftImageId) || usedImageIds.has(rightImageId)) {
+      continue; // Skip this pair, one of the images is already used
     }
 
     // Add this pair to the selection
     selectedPairs.push(scoredPair.pair);
     usedPersonIds.add(leftPersonId);
     usedPersonIds.add(rightPersonId);
+    usedImageIds.add(leftImageId);
+    usedImageIds.add(rightImageId);
   }
 
   return selectedPairs;
