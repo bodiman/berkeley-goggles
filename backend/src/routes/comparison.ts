@@ -134,48 +134,69 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     // Use larger pool size for much better variety
     const sampleImagePoolSize = Math.min(200, totalSampleImages);
     
-    // Get a mix of least recently used and random samples
-    const leastUsedSamples = await prisma.sampleImage.findMany({
+    // Apply true randomization using SQL to ensure diverse ethnic representation
+    // This prevents clustering around first database entries (AF files) that was causing
+    // over-representation of Asian females due to alphabetical processing order
+    const randomizedSamples = await prisma.$queryRaw<Array<{
+      id: string;
+      url: string;
+      thumbnail_url: string | null;
+      gender: string;
+      estimated_age: number;
+      source: string;
+      description: string | null;
+      is_active: boolean;
+      created_at: Date;
+      last_used: Date | null;
+    }>>`
+      SELECT * FROM sample_images 
+      WHERE is_active = true AND gender = ${oppositeGender}
+      ORDER BY RANDOM()
+      LIMIT ${sampleImagePoolSize}
+    `;
+
+    // Get ranking data for the randomly selected samples
+    const sampleImageIds = randomizedSamples.map(s => s.id);
+    const rankings = await prisma.sampleImageRanking.findMany({
       where: {
-        isActive: true,
-        gender: oppositeGender, // Only opposite gender
-      },
-      include: {
-        ranking: true,
-      },
-      orderBy: {
-        lastUsed: 'asc', // Prefer less recently used samples
-      },
-      take: Math.floor(sampleImagePoolSize * 0.7), // 70% least recently used
+        sampleImageId: { in: sampleImageIds }
+      }
     });
 
-    // Get some random samples for variety (remaining 30%)
-    const randomSampleCount = sampleImagePoolSize - leastUsedSamples.length;
-    const randomSamples = randomSampleCount > 0 ? await prisma.sampleImage.findMany({
-      where: {
-        isActive: true,
-        gender: oppositeGender,
-        id: {
-          notIn: leastUsedSamples.map(s => s.id), // Exclude already selected
-        },
-      },
-      include: {
-        ranking: true,
-      },
-      orderBy: {
-        id: 'asc', // Deterministic ordering for consistent pagination
-      },
-      skip: Math.floor(Math.random() * Math.max(1, totalSampleImages - leastUsedSamples.length - randomSampleCount)),
-      take: randomSampleCount,
-    }) : [];
+    // Build ranking lookup map
+    const rankingMap = new Map();
+    rankings.forEach(ranking => {
+      rankingMap.set(ranking.sampleImageId, ranking);
+    });
 
-    // Combine and shuffle the samples for variety
-    const sampleImages = [...leastUsedSamples, ...randomSamples];
-    
-    // Shuffle array for additional randomness in selection
-    for (let i = sampleImages.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [sampleImages[i], sampleImages[j]] = [sampleImages[j], sampleImages[i]];
+    // Combine sample data with rankings (maintaining same structure as before)
+    const sampleImages = randomizedSamples.map(sample => ({
+      id: sample.id,
+      url: sample.url,
+      thumbnailUrl: sample.thumbnail_url,
+      gender: sample.gender,
+      estimatedAge: sample.estimated_age,
+      source: sample.source,
+      description: sample.description,
+      isActive: sample.is_active,
+      createdAt: sample.created_at,
+      lastUsed: sample.last_used,
+      ranking: rankingMap.get(sample.id) || null,
+    }));
+
+    // Debug: Log sample diversity to verify ethnic representation
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG_PAIRS) {
+      const sampleUrlPrefixes = sampleImages.map(sample => {
+        const filename = sample.url.split('/').pop() || '';
+        return filename.substring(0, 2); // Get AF, AM, CF, CM prefix
+      });
+      
+      const prefixCounts = sampleUrlPrefixes.reduce((acc, prefix) => {
+        acc[prefix] = (acc[prefix] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      console.log(`🎭 Sample diversity: AF=${prefixCounts.AF || 0}, AM=${prefixCounts.AM || 0}, CF=${prefixCounts.CF || 0}, CM=${prefixCounts.CM || 0} (Total: ${sampleImages.length})`);
     }
 
     // Get user's previous comparisons to avoid duplicates
@@ -196,9 +217,80 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       !recentlyShownPhotoIds.sampleImageIds.has(sample.id)
     );
 
-    // If we've filtered out too many, use original pools (fall back to avoid empty results)
-    const finalUserPhotos = filteredUserPhotos.length > 10 ? filteredUserPhotos : userPhotos;
-    const finalSampleImages = filteredSampleImages.length > 20 ? filteredSampleImages : sampleImages;
+    // Improved fallback strategy: if too many filtered out, get fresh random samples
+    // instead of falling back to the same biased pool
+    let finalUserPhotos = filteredUserPhotos;
+    let finalSampleImages = filteredSampleImages;
+    
+    if (filteredUserPhotos.length < 10) {
+      // If not enough user photos, use all available
+      finalUserPhotos = userPhotos;
+    }
+    
+    if (filteredSampleImages.length < 20) {
+      // If not enough sample images after filtering, get a fresh random batch
+      // This prevents falling back to the same set repeatedly
+      console.log(`Only ${filteredSampleImages.length} samples after filtering, getting fresh random batch`);
+      
+      // Get fresh random samples excluding already selected ones
+      const freshRandomSamples = sampleImageIds.length > 0 
+        ? await prisma.sampleImage.findMany({
+            where: {
+              isActive: true,
+              gender: oppositeGender,
+              id: { notIn: sampleImageIds }
+            },
+            take: Math.max(50, sampleImagePoolSize - filteredSampleImages.length),
+            // Use orderBy with random skip to simulate RANDOM() for compatibility
+            orderBy: { createdAt: 'asc' },
+            skip: Math.floor(Math.random() * Math.max(1, totalSampleImages - sampleImageIds.length)),
+          })
+        : await prisma.$queryRaw<Array<{
+            id: string;
+            url: string;
+            thumbnail_url: string | null;
+            gender: string;
+            estimated_age: number;
+            source: string;
+            description: string | null;
+            is_active: boolean;
+            created_at: Date;
+            last_used: Date | null;
+          }>>`
+            SELECT * FROM sample_images 
+            WHERE is_active = true AND gender = ${oppositeGender}
+            ORDER BY RANDOM()
+            LIMIT ${Math.max(50, sampleImagePoolSize - filteredSampleImages.length)}
+          `;
+      
+      // Get rankings for fresh samples
+      const freshIds = freshRandomSamples.map(s => s.id);
+      const freshRankings = await prisma.sampleImageRanking.findMany({
+        where: { sampleImageId: { in: freshIds } }
+      });
+      
+      const freshRankingMap = new Map();
+      freshRankings.forEach(ranking => {
+        freshRankingMap.set(ranking.sampleImageId, ranking);
+      });
+      
+      const freshSamplesWithRankings = freshRandomSamples.map(sample => ({
+        id: sample.id,
+        url: sample.url,
+        thumbnailUrl: sample.thumbnail_url,
+        gender: sample.gender,
+        estimatedAge: sample.estimated_age,
+        source: sample.source,
+        description: sample.description,
+        isActive: sample.is_active,
+        createdAt: sample.created_at,
+        lastUsed: sample.last_used,
+        ranking: freshRankingMap.get(sample.id) || null,
+      }));
+      
+      // Combine filtered samples with fresh random samples
+      finalSampleImages = [...filteredSampleImages, ...freshSamplesWithRankings];
+    }
 
     // Add type information to photos for easier processing
     const typedUserPhotos = finalUserPhotos.map(photo => ({ ...photo, type: 'user' }));
@@ -483,12 +575,12 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       comparisonData.loserSampleImageId = loserId;
     }
 
-    // Create the comparison record
+    // Create the comparison record immediately - this prevents race conditions for duplicate detection
     const comparison = await prisma.comparison.create({
       data: comparisonData,
     });
 
-    // Update rankings based on photo types
+    // Update basic ranking counts immediately - needed for duplicate detection
     const rankingUpdates = [];
 
     if (winnerType === 'user') {
@@ -575,7 +667,7 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       );
     }
 
-    // Execute all ranking updates
+    // Execute basic ranking updates immediately - ensures comparison is recorded for duplicate detection
     await Promise.all(rankingUpdates);
 
     // Update session stats
@@ -586,7 +678,7 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       },
     });
 
-    // Send response immediately - don't block on rating updates
+    // Send response immediately - comparison is now saved and available for duplicate detection
     res.json({
       success: true,
       comparison: {
@@ -597,7 +689,7 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       message: 'Comparison submitted successfully',
     });
 
-    // Calculate rating updates in background (non-blocking)
+    // Calculate expensive rating updates in background (non-blocking)
     setImmediate(async () => {
       try {
         if (finalComparisonType === 'user_photos') {
@@ -980,6 +1072,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
 }));
 
 // Helper function to update photo ratings using corrected Bradley-Terry algorithm
+// Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
 async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
   try {
     // Get current rankings for both photos
@@ -1000,7 +1093,7 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
       { learningRate: 0.1 }
     );
     
-    // Update Bradley-Terry scores in database
+    // Update only Bradley-Terry scores (counts already updated in main flow)
     await Promise.all([
       prisma.photoRanking.update({
         where: { photoId: winnerPhotoId },
@@ -1026,6 +1119,7 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
 }
 
 // Helper function to update sample image ratings using corrected Bradley-Terry algorithm
+// Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
 async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: string) {
   try {
     // Get current rankings for both sample images
@@ -1046,7 +1140,7 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
       { learningRate: 0.1 }
     );
     
-    // Update Bradley-Terry scores in database
+    // Update only Bradley-Terry scores (counts already updated in main flow)
     await Promise.all([
       prisma.sampleImageRanking.update({
         where: { sampleImageId: winnerSampleId },
@@ -1074,15 +1168,20 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
 // Helper function to recalculate percentiles for all photos
 async function updatePercentiles() {
   try {
-    // Use raw SQL for efficient bulk percentile updates
-    // This replaces the N+1 query pattern with a single SQL operation
+    // Use CTE approach since window functions aren't allowed in UPDATE
     await prisma.$executeRaw`
-      UPDATE photo_rankings 
-      SET current_percentile = ROUND(
-        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
-         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      WITH ranked_photos AS (
+        SELECT 
+          id,
+          ROW_NUMBER() OVER (ORDER BY bradley_terry_score DESC) as rank_num,
+          COUNT(*) OVER () as total_count
+        FROM photo_rankings 
+        WHERE total_comparisons > 0
       )
-      WHERE total_comparisons > 0
+      UPDATE photo_rankings 
+      SET current_percentile = ROUND(((total_count - rank_num + 1)::DECIMAL / total_count::DECIMAL) * 100.0, 1)
+      FROM ranked_photos 
+      WHERE photo_rankings.id = ranked_photos.id
     `;
   } catch (error) {
     console.error('Error updating percentiles:', error);
@@ -1092,15 +1191,20 @@ async function updatePercentiles() {
 // Helper function to recalculate percentiles for all sample images
 async function updateSampleImagePercentiles() {
   try {
-    // Use raw SQL for efficient bulk percentile updates
-    // This replaces the N+1 query pattern with a single SQL operation
+    // Use CTE approach since window functions aren't allowed in UPDATE
     await prisma.$executeRaw`
-      UPDATE sample_image_rankings 
-      SET current_percentile = ROUND(
-        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
-         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      WITH ranked_sample_images AS (
+        SELECT 
+          id,
+          ROW_NUMBER() OVER (ORDER BY bradley_terry_score DESC) as rank_num,
+          COUNT(*) OVER () as total_count
+        FROM sample_image_rankings 
+        WHERE total_comparisons > 0
       )
-      WHERE total_comparisons > 0
+      UPDATE sample_image_rankings 
+      SET current_percentile = ROUND(((total_count - rank_num + 1)::DECIMAL / total_count::DECIMAL) * 100.0, 1)
+      FROM ranked_sample_images 
+      WHERE sample_image_rankings.id = ranked_sample_images.id
     `;
   } catch (error) {
     console.error('Error updating sample image percentiles:', error);
@@ -1233,25 +1337,36 @@ async function getOrCreateCombinedRanking(photoId: string, photoType: 'user' | '
 // Helper function to recalculate percentiles for all combined rankings
 async function updateCombinedPercentiles() {
   try {
-    // Use raw SQL for efficient bulk percentile updates by gender
-    // Update male rankings
+    // Use CTE approach for male rankings
     await prisma.$executeRaw`
-      UPDATE combined_rankings 
-      SET current_percentile = ROUND(
-        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
-         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      WITH ranked_male_combined AS (
+        SELECT 
+          id,
+          ROW_NUMBER() OVER (ORDER BY bradley_terry_score DESC) as rank_num,
+          COUNT(*) OVER () as total_count
+        FROM combined_rankings 
+        WHERE total_comparisons > 0 AND gender = 'male'
       )
-      WHERE total_comparisons > 0 AND gender = 'male'
+      UPDATE combined_rankings 
+      SET current_percentile = ROUND(((total_count - rank_num + 1)::DECIMAL / total_count::DECIMAL) * 100.0, 1)
+      FROM ranked_male_combined 
+      WHERE combined_rankings.id = ranked_male_combined.id
     `;
     
-    // Update female rankings
+    // Use CTE approach for female rankings
     await prisma.$executeRaw`
-      UPDATE combined_rankings 
-      SET current_percentile = ROUND(
-        ((RANK() OVER (ORDER BY bradley_terry_score DESC))::DECIMAL / 
-         (COUNT(*) OVER ())::DECIMAL) * 100.0, 1
+      WITH ranked_female_combined AS (
+        SELECT 
+          id,
+          ROW_NUMBER() OVER (ORDER BY bradley_terry_score DESC) as rank_num,
+          COUNT(*) OVER () as total_count
+        FROM combined_rankings 
+        WHERE total_comparisons > 0 AND gender = 'female'
       )
-      WHERE total_comparisons > 0 AND gender = 'female'
+      UPDATE combined_rankings 
+      SET current_percentile = ROUND(((total_count - rank_num + 1)::DECIMAL / total_count::DECIMAL) * 100.0, 1)
+      FROM ranked_female_combined 
+      WHERE combined_rankings.id = ranked_female_combined.id
     `;
   } catch (error) {
     console.error('Error updating combined percentiles:', error);

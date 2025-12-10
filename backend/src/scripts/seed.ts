@@ -122,13 +122,20 @@ async function seedSampleImages(): Promise<void> {
         const gender = parseGenderFromFilename(filename);
         if (!gender) continue;
 
-        // Use R2 URLs for production deployment
-        const r2Domain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN || 'pub-348e171b4d40413abdb8c2b075b6de0d.r2.dev';
-        const r2BaseUrl = `https://${r2Domain}`;
+        // Use local URLs in development, R2 URLs in production
+        let baseUrl: string;
+        if (process.env.NODE_ENV === 'production') {
+          const r2Domain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN || 'pub-348e171b4d40413abdb8c2b075b6de0d.r2.dev';
+          baseUrl = `https://${r2Domain}/sample-images`;
+        } else {
+          // In development, serve from local API
+          const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
+          baseUrl = `${apiBaseUrl}/sample-images`;
+        }
         
         const imageData = {
-          url: `${r2BaseUrl}/sample-images/${filename}`,
-          thumbnailUrl: `${r2BaseUrl}/sample-images/${filename}`, // Using same image for thumbnail
+          url: `${baseUrl}/${filename}`,
+          thumbnailUrl: `${baseUrl}/${filename}`, // Using same image for thumbnail
           gender,
           estimatedAge: generateRandomAge(),
           source: 'curated',
