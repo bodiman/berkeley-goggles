@@ -101,6 +101,10 @@ pnpm-lock.yaml
 /backend/dist/
 /backend/.env*
 
+# Web frontend specific
+/web/.env*
+!web/.env.example
+
 # Mobile specific
 /mobile/.expo/
 /mobile/web-build/

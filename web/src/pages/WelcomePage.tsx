@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 interface WelcomePageProps {
   onNavigateToLogin: () => void;
@@ -10,27 +11,34 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
   onNavigateToLogin,
   onNavigateToRegister,
 }) => {
-  const { login } = useAuth();
+  const { loginWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleDemoLogin = async () => {
+  const handleGoogleSuccess = async (credentialResponse: any) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Demo login for testing
-      const success = await login('demo@berkeleygoggles.app', 'demo123');
+      if (!credentialResponse.credential) {
+        throw new Error('No credential received from Google');
+      }
+      
+      const success = await loginWithGoogle(credentialResponse.credential);
       
       if (!success) {
-        throw new Error('Demo login failed');
+        throw new Error('Google login failed');
       }
     } catch (err) {
-      console.error('Demo login failed:', err);
-      setError('Demo login failed. Please try again.');
+      console.error('Google login failed:', err);
+      setError('Google login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google login failed. Please try again.');
   };
 
   return (
@@ -64,23 +72,26 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
               Log In
             </button>
             
-            {/* Demo Option */}
+            {/* Google OAuth Option */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-700"></div>
               </div>
               <div className="relative flex justify-center">
-                <span className="px-4 bg-black text-sm text-gray-500">Or try demo</span>
+                <span className="px-4 bg-black text-sm text-gray-500">Or</span>
               </div>
             </div>
             
-            <button
-              onClick={handleDemoLogin}
-              disabled={isLoading}
-              className="w-full bg-gray-900 hover:bg-gray-800 disabled:bg-gray-900/50 disabled:cursor-not-allowed text-gray-300 py-3 px-6 rounded-lg font-medium transition-colors"
-            >
-              {isLoading ? 'Starting Demo...' : 'Continue as Guest'}
-            </button>
+            <div className="w-full">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                size="large"
+                text="signin"
+                width="100%"
+                theme="outline"
+              />
+            </div>
             
             {error && (
               <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">

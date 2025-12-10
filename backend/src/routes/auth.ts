@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { OAuth2Client } from 'google-auth-library';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
 
@@ -9,6 +10,9 @@ export const authRoutes = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 const JWT_EXPIRES_IN = '7d';
+
+// Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Validation schemas
 const registerSchema = z.object({
@@ -20,6 +24,10 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
+});
+
+const googleAuthSchema = z.object({
+  idToken: z.string().min(1, 'Google ID token is required'),
 });
 
 // POST /api/auth/register
@@ -125,6 +133,73 @@ authRoutes.post('/logout', asyncHandler(async (req: Request, res: Response) => {
     success: true, 
     message: 'Logged out successfully',
   });
+}));
+
+// POST /api/auth/google
+authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
+  const validatedData = googleAuthSchema.parse(req.body);
+  
+  try {
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: validatedData.idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Google token payload',
+      });
+    }
+    
+    // Check if user already exists
+    let user = await prisma.user.findUnique({
+      where: { email: payload.email },
+    });
+    
+    if (!user) {
+      // Create new user from Google profile
+      user = await prisma.user.create({
+        data: {
+          name: payload.name,
+          email: payload.email,
+          profileComplete: false,
+          // No password for OAuth users
+          password: '',
+        },
+      });
+    }
+    
+    // Update last active
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastActive: new Date() },
+    });
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+    
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+    
+    res.json({
+      success: true,
+      user: userWithoutPassword,
+      token,
+    });
+  } catch (error) {
+    console.error('Google OAuth verification failed:', error);
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid Google token',
+    });
+  }
 }));
 
 // PUT /api/auth/refresh-token

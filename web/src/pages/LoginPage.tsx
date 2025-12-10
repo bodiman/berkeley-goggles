@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 interface LoginPageProps {
   onNavigateToRegister: () => void;
@@ -12,13 +13,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onNavigateToWelcome,
   onNavigateToForgotPassword,
 }) => {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -68,6 +70,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     if (error) {
       setError(null);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setIsGoogleLoading(true);
+    setError(null);
+    
+    try {
+      if (!credentialResponse.credential) {
+        throw new Error('No credential received from Google');
+      }
+      
+      const success = await loginWithGoogle(credentialResponse.credential);
+      
+      if (!success) {
+        throw new Error('Google login failed');
+      }
+    } catch (err) {
+      console.error('Google login failed:', err);
+      setError('Google login failed. Please try again.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google login failed. Please try again.');
   };
 
   return (
@@ -185,6 +213,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {isLoading ? 'Logging in...' : 'Log In'}
             </button>
           </form>
+
+          {/* Google OAuth Option */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-700"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-4 bg-black text-sm text-gray-500">Or</span>
+              </div>
+            </div>
+            
+            <div className="w-full">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                size="large"
+                text="signin"
+                width="100%"
+                theme="outline"
+              />
+            </div>
+          </div>
 
           {/* Sign Up Link */}
           <div className="mt-8 text-center">

@@ -88,6 +88,7 @@ export const API_ENDPOINTS = {
     register: '/api/auth/register',
     logout: '/api/auth/logout',
     refresh: '/api/auth/refresh',
+    google: '/api/auth/google',
   },
   user: {
     profile: '/api/user/profile',

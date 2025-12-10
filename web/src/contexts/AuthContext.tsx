@@ -29,6 +29,7 @@ interface AuthContextType {
   navigationState: AppNavigationState;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   register: (registrationData: UserRegistrationData) => Promise<boolean>;
   logout: () => void;
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
@@ -132,6 +133,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return false;
     } catch (error) {
       console.error('Login failed:', error);
+      return false;
+    }
+  };
+
+  const loginWithGoogle = async (idToken: string): Promise<boolean> => {
+    try {
+      const response = await apiRequest(API_ENDPOINTS.auth.google, {
+        method: 'POST',
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.user) {
+        const user: AuthUser = {
+          ...data.user,
+          profilePhoto: data.user.profilePhotoUrl,
+          createdAt: new Date(data.user.createdAt),
+          lastActive: new Date(data.user.lastActive),
+        };
+        
+        setUser(user);
+        localStorage.setItem('elo-check-user', JSON.stringify(user));
+        
+        setNavigationState(prev => ({
+          ...prev,
+          isAuthenticated: true,
+          profileSetupComplete: user.profileComplete,
+          currentTab: user.profileComplete ? 'play' : 'profile',
+        }));
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Google login failed:', error);
       return false;
     }
   };
@@ -389,6 +431,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       navigationState,
       isLoading,
       login,
+      loginWithGoogle,
       register,
       logout,
       setupProfile,
