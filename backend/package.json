@@ -42,7 +42,8 @@
     "populate:simple:dry": "tsx scripts/simple-populate-samples.ts --dry-run",
     "populate:simple:debug": "tsx scripts/simple-populate-samples.ts --debug=100",
     "populate:simple:debug:dry": "tsx scripts/simple-populate-samples.ts --dry-run --debug=100",
-    "fix:production:urls": "node scripts/fix-production-urls.js"
+    "fix:production:urls": "node scripts/fix-production-urls.js",
+    "upload:samples:r2": "node scripts/upload-samples-to-r2.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.947.0",
