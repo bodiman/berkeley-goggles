@@ -206,6 +206,7 @@ export const ComparisonPage: React.FC = () => {
     );
   }
 
+
   // Error state
   if (error) {
     return (

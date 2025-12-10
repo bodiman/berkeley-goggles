@@ -37,6 +37,7 @@ export const ProfileSetupPage: React.FC = () => {
   
   const [capturedPhoto, setCapturedPhoto] = useState<CameraCapture | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [hasSkippedPhoto, setHasSkippedPhoto] = useState(false);
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,11 +70,17 @@ export const ProfileSetupPage: React.FC = () => {
     setError(errorMessage);
   };
 
+  const handleSkipPhoto = () => {
+    setHasSkippedPhoto(true);
+    setCurrentStep('terms');
+  };
+
   const handleTermsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!capturedPhoto) {
-      setError('Please take a profile photo');
+    // Allow submission without photo if user explicitly skipped
+    if (!capturedPhoto && !hasSkippedPhoto) {
+      setError('Please take a profile photo or skip this step');
       return;
     }
 
@@ -83,19 +90,21 @@ export const ProfileSetupPage: React.FC = () => {
     try {
       console.log('👤 ProfileSetup: Starting profile setup with data:', {
         formData,
-        capturedPhoto: {
+        capturedPhoto: capturedPhoto ? {
           hasBlob: !!capturedPhoto.blob,
           hasUploadResult: !!capturedPhoto.uploadResult,
           uploadResultUrl: capturedPhoto.uploadResult?.url
-        }
+        } : { skipped: true }
       });
 
       const profileData: UserProfileSetup = {
         ...formData,
-        // If photo was uploaded to R2, use the URL, otherwise use the blob for upload
-        ...(capturedPhoto.uploadResult?.url 
+        // Only add photo data if user didn't skip the photo step
+        ...(capturedPhoto && capturedPhoto.uploadResult?.url 
           ? { photoUrl: capturedPhoto.uploadResult.url }
-          : { photo: capturedPhoto.blob }
+          : capturedPhoto 
+          ? { photo: capturedPhoto.blob }
+          : {}
         ),
       };
 
@@ -121,6 +130,8 @@ export const ProfileSetupPage: React.FC = () => {
     if (currentStep === 'photo') {
       setCurrentStep('name');
     } else if (currentStep === 'terms') {
+      // Reset skip state if going back to photo step
+      setHasSkippedPhoto(false);
       setCurrentStep('photo');
     }
   };
@@ -288,6 +299,29 @@ export const ProfileSetupPage: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Skip Photo Option */}
+            <div className="mt-8 text-center">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700"></div>
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="px-4 bg-black text-sm text-gray-500">Or</span>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleSkipPhoto}
+                className="mt-4 w-full bg-gray-800 hover:bg-gray-700 text-gray-300 py-3 px-6 rounded-lg font-medium transition-colors"
+              >
+                Skip Photo for Now
+              </button>
+              
+              <p className="text-xs text-gray-500 mt-2">
+                ⚠️ You won't be able to rate others or be rated without a photo
+              </p>
+            </div>
           </div>
         )}
 
@@ -299,7 +333,7 @@ export const ProfileSetupPage: React.FC = () => {
               <p className="text-gray-400">Ready to complete your profile setup</p>
             </div>
 
-            {capturedPhoto && (
+            {capturedPhoto ? (
               <div className="mb-6">
                 <img
                   src={capturedPhoto.dataUrl}
@@ -310,7 +344,21 @@ export const ProfileSetupPage: React.FC = () => {
                   Hello, {formData.name}!
                 </p>
               </div>
-            )}
+            ) : hasSkippedPhoto ? (
+              <div className="mb-6">
+                <div className="w-32 h-32 rounded-full bg-gray-700 flex items-center justify-center mx-auto border-4 border-gray-600">
+                  <span className="text-4xl text-gray-500">👤</span>
+                </div>
+                <p className="text-center text-gray-400 mt-2">
+                  Hello, {formData.name}!
+                </p>
+                <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-600/50 rounded-lg">
+                  <p className="text-yellow-400 text-sm text-center">
+                    ⚠️ Without a photo, you won't be able to participate in ratings or see your ranking stats until you add one later.
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             {error && (
               <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">
