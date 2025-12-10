@@ -386,14 +386,28 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           type: 'user',
         };
       } else {
-        // For sample images, use the stored URLs directly
-        // This allows for R2 URLs to work without manual URL construction
+        // For sample images, handle URL construction properly
+        let finalUrl = photo.url;
+        let finalThumbnailUrl = photo.thumbnailUrl || photo.url;
+        
+        // In production, convert localhost URLs to R2 URLs
+        if (process.env.NODE_ENV === 'production' && photo.url.includes('localhost')) {
+          const r2Domain = process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN || 'pub-348e171b4d40413abdb8c2b075b6de0d.r2.dev';
+          const filename = photo.url.split('/').pop();
+          finalUrl = `https://${r2Domain}/sample-images/${filename}`;
+          finalThumbnailUrl = finalUrl;
+        } else if (!photo.url.startsWith('http')) {
+          // Handle relative URLs
+          finalUrl = `${baseUrl}${photo.url}`;
+          finalThumbnailUrl = photo.thumbnailUrl 
+            ? `${baseUrl}${photo.thumbnailUrl}`
+            : finalUrl;
+        }
+        
         return {
           id: photo.id,
-          url: photo.url.startsWith('http') ? photo.url : `${baseUrl}${photo.url}`,
-          thumbnailUrl: photo.thumbnailUrl 
-            ? (photo.thumbnailUrl.startsWith('http') ? photo.thumbnailUrl : `${baseUrl}${photo.thumbnailUrl}`)
-            : (photo.url.startsWith('http') ? photo.url : `${baseUrl}${photo.url}`),
+          url: finalUrl,
+          thumbnailUrl: finalThumbnailUrl,
           userId: 'sample',
           userAge: photo.estimatedAge,
           userGender: photo.gender,

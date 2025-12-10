@@ -133,6 +133,11 @@ async function seedSampleImages(): Promise<void> {
           baseUrl = `${apiBaseUrl}/sample-images`;
         }
         
+        // Validation: Prevent localhost URLs in production
+        if (process.env.NODE_ENV === 'production' && baseUrl.includes('localhost')) {
+          throw new Error('🚨 Production deployment attempted to use localhost URLs. Check NODE_ENV and R2 configuration.');
+        }
+        
         const imageData = {
           url: `${baseUrl}/${filename}`,
           thumbnailUrl: `${baseUrl}/${filename}`, // Using same image for thumbnail

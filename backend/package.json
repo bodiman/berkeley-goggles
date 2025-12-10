@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
-    "start:prod": "prisma migrate deploy && npm run populate:simple:debug && node dist/index.js",
+    "start:prod": "prisma migrate deploy && npm run populate:simple:debug && npm run fix:production:urls && node dist/index.js",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -41,7 +41,8 @@
     "populate:simple": "tsx scripts/simple-populate-samples.ts",
     "populate:simple:dry": "tsx scripts/simple-populate-samples.ts --dry-run",
     "populate:simple:debug": "tsx scripts/simple-populate-samples.ts --debug=100",
-    "populate:simple:debug:dry": "tsx scripts/simple-populate-samples.ts --dry-run --debug=100"
+    "populate:simple:debug:dry": "tsx scripts/simple-populate-samples.ts --dry-run --debug=100",
+    "fix:production:urls": "node scripts/fix-production-urls.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.947.0",
