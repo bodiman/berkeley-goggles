@@ -108,4 +108,4 @@ pnpm-lock.yaml
 sample_images/
 .vercel
 
-# analysis_output/
+analysis_output/
