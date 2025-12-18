@@ -55,6 +55,14 @@ export const ComparisonPage: React.FC = () => {
   
   const currentPair = getCurrentPair();
   
+  // Debug logging for shouldShowCard
+  console.log('🎯 ComparisonPage shouldShowCard debug:', {
+    hasCurrentPair: !!currentPair,
+    isTransitioning,
+    isCurrentPairReady: isCurrentPairReady(),
+    currentPairId: currentPair ? `${currentPair.leftPhoto.id} vs ${currentPair.rightPhoto.id}` : null
+  });
+  
   // Control card visibility - only show when we have a pair, not transitioning, and images are ready
   const shouldShowCard = Boolean(currentPair && !isTransitioning && isCurrentPairReady());
 
@@ -168,24 +176,24 @@ export const ComparisonPage: React.FC = () => {
         
         // IMMEDIATELY store in ref for reliable access in animation completion (before any async operations)
         pendingSubmittedPairRef.current = submittedPairInfo;
-        console.log('📝 Frontend: IMMEDIATELY stored pair info in ref before async operations:', {
-          submittedPairInfo,
-          refValue: pendingSubmittedPairRef.current
-        });
+        // console.log('📝 Frontend: IMMEDIATELY stored pair info in ref before async operations:', {
+        //   submittedPairInfo,
+        //   refValue: pendingSubmittedPairRef.current
+        // });
         
         // Store for future use (fallback)
         setRecentlySubmittedPair(submittedPairInfo);
         
         // Frontend logging for pair exclusion
-        console.log('🚫 Frontend: Created pair info for immediate exclusion:', {
-          winnerId,
-          loserId,
-          winnerType: winner.type,
-          loserType: loser.type,
-          leftPhotoId: currentPair.leftPhoto.id,
-          rightPhotoId: currentPair.rightPhoto.id,
-          willPassToAdvanceNext: true
-        });
+        // console.log('🚫 Frontend: Created pair info for immediate exclusion:', {
+        //   winnerId,
+        //   loserId,
+        //   winnerType: winner.type,
+        //   loserType: loser.type,
+        //   leftPhotoId: currentPair.leftPhoto.id,
+        //   rightPhotoId: currentPair.rightPhoto.id,
+        //   willPassToAdvanceNext: true
+        // });
         
         // Add haptic feedback
         if (navigator.vibrate) {

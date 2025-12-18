@@ -97,7 +97,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           gender: oppositeGender,
           profilePhotoUrl: { not: null },
           isActive: true,
-          profileComplete: true,
+          // profileComplete: true, // REMOVED - approved photos should be available regardless of profile completion
         },
       },
     });
@@ -113,7 +113,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           gender: oppositeGender, // Only opposite gender
           profilePhotoUrl: { not: null }, // Must have an active profile photo
           isActive: true,
-          profileComplete: true,
+          // profileComplete: true, // REMOVED - approved photos should be available regardless of profile completion
         },
       },
       include: {
@@ -357,11 +357,12 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     let pair = null;
     let comparisonType = 'user_photos';
 
-    // Phase 1: Try user-only comparisons first
+    // Prioritize user photos first when available, then mixed pairs, then sample-only pairs
     let availablePairs: Array<{left: any, right: any, type?: string}> = [];
-    let phase = 'user_only';
+    let phase = 'user_photos';
     let message = '';
 
+    // Phase 1: Prioritize user-only comparisons when available
     if (typedUserPhotos.length >= 2) {
       // Generate all possible user photo pairs
       const userPairs = generateUserPhotoPairs(typedUserPhotos);
@@ -370,40 +371,61 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       
       // Debug logging for pair filtering
       if (process.env.NODE_ENV === 'development') {
-        console.log(`📊 User Photo Pair Filtering:`);
+        console.log(`👥 User Photo Pair Filtering (Priority Phase):`);
         console.log(`  - Generated ${userPairs.length} possible user photo pairs`);
         console.log(`  - After filtering: ${availablePairs.length} available pairs`);
         if (userPairs.length > 0 && availablePairs.length === 0) {
-          console.log(`  - ⚠️  All pairs filtered out - potential duplicate detection issue`);
+          console.log(`  - ⚠️  All user pairs filtered out - moving to mixed pairs`);
         }
       }
       
       if (availablePairs.length > 0) {
-        phase = 'user_only';
+        phase = 'user_photos';
+        message = 'Comparing user photos';
       }
     }
 
-    // Phase 2: If no user pairs left, move to combined phase
-    if (availablePairs.length === 0 && (typedUserPhotos.length > 0 || typedSampleImages.length > 0)) {
-      // Generate mixed pairs (user + sample images)
-      const mixedPairs = generateMixedPairs(typedUserPhotos, typedSampleImages);
+    // Phase 2: Mixed pairs (user vs sample) if no user-only pairs available
+    if (availablePairs.length === 0 && typedUserPhotos.length >= 1 && typedSampleImages.length > 0) {
+      // Generate user vs sample pairs only (not sample vs sample)
+      const mixedPairs = generateUserVsSamplePairs(typedUserPhotos, typedSampleImages);
       availablePairs = filterUncomparedPairs(mixedPairs, comparedPairs);
       
       // Debug logging for mixed pair filtering
       if (process.env.NODE_ENV === 'development') {
-        console.log(`🔄 Mixed Pair Filtering:`);
-        console.log(`  - Generated ${mixedPairs.length} possible mixed pairs`);
+        console.log(`🔄 User vs Sample Pair Filtering (Mixed Phase):`);
+        console.log(`  - Generated ${mixedPairs.length} possible user vs sample pairs`);
         console.log(`  - After filtering: ${availablePairs.length} available pairs`);
         if (mixedPairs.length > 0 && availablePairs.length === 0) {
-          console.log(`  - ⚠️  All mixed pairs filtered out - checking comparison history`);
+          console.log(`  - ⚠️  All mixed pairs filtered out - moving to sample-only pairs`);
         }
       }
       
       if (availablePairs.length > 0) {
-        phase = 'combined';
-        if (typedUserPhotos.length >= 2) {
-          message = 'You\'ve compared all user photos! Now comparing with sample images.';
+        phase = 'mixed_pairs';
+        message = 'Comparing user photos with sample images';
+      }
+    }
+
+    // Phase 3: Sample-only pairs as final fallback
+    if (availablePairs.length === 0 && typedSampleImages.length >= 2) {
+      // Generate sample-only pairs
+      const samplePairs = generateSampleOnlyPairs(typedSampleImages);
+      availablePairs = filterUncomparedPairs(samplePairs, comparedPairs);
+      
+      // Debug logging for sample pair filtering
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🖼️ Sample-Only Pair Filtering (Fallback Phase):`);
+        console.log(`  - Generated ${samplePairs.length} possible sample-only pairs`);
+        console.log(`  - After filtering: ${availablePairs.length} available pairs`);
+        if (samplePairs.length > 0 && availablePairs.length === 0) {
+          console.log(`  - ⚠️  All sample pairs filtered out - potential duplicate detection issue`);
         }
+      }
+      
+      if (availablePairs.length > 0) {
+        phase = 'sample_images';
+        message = 'Rating sample images';
       }
     }
 
@@ -1080,7 +1102,60 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
           userId: { not: userId },
           user: { gender: oppositeGender },
         }
-      })
+      }),
+      withActiveProfiles: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          userId: { not: userId },
+          user: { 
+            gender: oppositeGender,
+            isActive: true 
+          },
+        }
+      }),
+      withCompleteProfiles: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          userId: { not: userId },
+          user: { 
+            gender: oppositeGender,
+            profileComplete: true 
+          },
+        }
+      }),
+      withActiveAndCompleteProfiles: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          userId: { not: userId },
+          user: { 
+            gender: oppositeGender,
+            isActive: true,
+            profileComplete: true 
+          },
+        }
+      }),
+      withProfilePhotos: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          userId: { not: userId },
+          user: { 
+            gender: oppositeGender,
+            profilePhotoUrl: { not: null }
+          },
+        }
+      }),
+      meetingCurrentFilters: await prisma.photo.count({
+        where: {
+          status: 'approved',
+          userId: { not: userId },
+          user: { 
+            gender: oppositeGender,
+            profilePhotoUrl: { not: null },
+            isActive: true,
+            // Note: profileComplete no longer required after fix
+          },
+        }
+      }),
     };
 
     // Get sample image counts
@@ -1584,7 +1659,49 @@ function generateUserPhotoPairs(photos: any[]): Array<{left: any, right: any}> {
   return pairs;
 }
 
-// Helper function to generate mixed pairs (user photos + sample images)
+// Helper function to generate user vs sample pairs only (not user vs user or sample vs sample)
+function generateUserVsSamplePairs(userPhotos: any[], sampleImages: any[]): Array<{left: any, right: any, type: string}> {
+  const pairs = [];
+
+  // User photo vs sample image
+  for (const userPhoto of userPhotos) {
+    for (const sampleImage of sampleImages) {
+      pairs.push({ 
+        left: userPhoto, 
+        right: sampleImage, 
+        type: 'mixed' 
+      });
+      pairs.push({ 
+        left: sampleImage, 
+        right: userPhoto, 
+        type: 'mixed' 
+      });
+    }
+  }
+
+  return pairs;
+}
+
+// Helper function to generate sample-only pairs
+function generateSampleOnlyPairs(sampleImages: any[]): Array<{left: any, right: any, type: string}> {
+  const pairs = [];
+
+  // Sample image vs sample image  
+  for (let i = 0; i < sampleImages.length - 1; i++) {
+    for (let j = i + 1; j < sampleImages.length; j++) {
+      pairs.push({ 
+        left: sampleImages[i], 
+        right: sampleImages[j], 
+        type: 'sample_images' 
+      });
+    }
+  }
+
+  return pairs;
+}
+
+// DEPRECATED: Helper function to generate mixed pairs (user photos + sample images)
+// This function is kept for backward compatibility but is replaced by the more specific functions above
 function generateMixedPairs(userPhotos: any[], sampleImages: any[]): Array<{left: any, right: any, type: string}> {
   const pairs = [];
 
