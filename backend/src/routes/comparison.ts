@@ -81,42 +81,39 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     // 3. 10% chance to include samples even with incomplete user ordering
     // 4. Gender filtering: show only opposite gender
 
-    // Get available user photos (opposite gender only)
-    // Increased pool size for better variety and randomized selection
-    const totalUserPhotos = await prisma.photo.count({
+    // Get available users with active profile photos (opposite gender only)
+    // Only include users who have set a profile photo (profilePhotoUrl is not null)
+    const totalUsersWithPhotos = await prisma.user.count({
       where: {
-        status: 'approved',
-        userId: { not: userId },
-        user: {
-          gender: oppositeGender,
-        },
+        id: { not: userId },
+        gender: oppositeGender,
+        profilePhotoUrl: { not: null },
+        isActive: true,
+        profileComplete: true,
       },
     });
 
-    // Use larger pool size, up to 300 photos or all available
-    const userPhotoPoolSize = Math.min(300, totalUserPhotos);
+    // Use larger pool size, up to 300 users or all available
+    const userPhotoPoolSize = Math.min(300, totalUsersWithPhotos);
     
-    const userPhotos = await prisma.photo.findMany({
+    const usersWithPhotos = await prisma.user.findMany({
       where: {
-        status: 'approved',
-        userId: { not: userId }, // Don't show user their own photos
-        user: {
-          gender: oppositeGender, // Only opposite gender
-        },
+        id: { not: userId }, // Don't show user their own profile
+        gender: oppositeGender, // Only opposite gender
+        profilePhotoUrl: { not: null }, // Must have an active profile photo
+        isActive: true,
+        profileComplete: true,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            age: true,
-            gender: true,
-          },
-        },
-        ranking: true,
+      select: {
+        id: true,
+        age: true,
+        gender: true,
+        profilePhotoUrl: true,
+        lastActive: true,
       },
       orderBy: [
-        // Mix of recent and older photos for variety
-        { uploadedAt: 'desc' },
+        // Mix of recent and older users for variety
+        { lastActive: 'desc' },
         { id: 'asc' }, // Secondary sort for consistent pagination
       ],
       take: userPhotoPoolSize,
@@ -209,6 +206,21 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     
     const recentlyShownPhotoIds = await getRecentlyShownPhotos(userId, recentThreshold);
     
+    // Transform users into photo-like objects for compatibility with existing code
+    const userPhotos = usersWithPhotos.map(user => ({
+      id: user.id, // Use user ID as the photo ID
+      url: user.profilePhotoUrl,
+      thumbnailUrl: user.profilePhotoUrl, // Use same URL for thumbnail
+      userId: user.id,
+      user: {
+        id: user.id,
+        age: user.age,
+        gender: user.gender,
+      },
+      ranking: null, // Will be populated later if needed
+      type: 'user',
+    }));
+
     // Filter out recently shown photos for better variety
     const filteredUserPhotos = userPhotos.filter(photo => 
       !recentlyShownPhotoIds.userPhotoIds.has(photo.id)
