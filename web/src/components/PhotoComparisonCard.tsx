@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
 import TinderCard from './TinderCard';
-import type { TinderCardRef } from './TinderCard';
+import type { DragState, TinderCardRef } from './TinderCard';
 
 interface Photo {
   id: string;
@@ -43,6 +43,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 }, ref) => {
   const [showInstructions, setShowInstructions] = useState(true);
   
+  // Swipe tracking state for MOGS overlay
+  const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | null>(null);
+  const [swipeProgress, setSwipeProgress] = useState(0);
   
   // Ref for programmatic swiping
   const cardRef = useRef<TinderCardRef>(null);
@@ -102,6 +105,24 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     onSelection(winner.id, loser.id);
   }, [disabled, onSelection]);
 
+  // Handle real-time drag movement for MOGS overlay
+  const handleDragMove = useCallback((dragState: DragState) => {
+    // Only track up/down for MOGS overlay
+    if (dragState.direction === 'up' || dragState.direction === 'down') {
+      setSwipeDirection(dragState.direction);
+      setSwipeProgress(dragState.progress);
+    } else {
+      setSwipeDirection(null);
+      setSwipeProgress(0);
+    }
+  }, []);
+
+  // Handle drag end - reset overlay
+  const handleDragEnd = useCallback(() => {
+    setSwipeDirection(null);
+    setSwipeProgress(0);
+  }, []);
+
 
   // Control card visibility - hide if shouldShowCard is false
   if (!shouldShowCard) {
@@ -123,6 +144,8 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         ref={cardRef}
         onSwipe={handleSwipe}
         onCardLeftScreen={handleCardLeftScreen}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
         preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : ['left', 'right']}
         swipeRequirementType="velocity"
         swipeThreshold={0.1}
@@ -155,6 +178,20 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
+            {/* MOGS Overlay for Top Photo */}
+            {swipeDirection === 'up' && (
+              <div 
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none"
+                style={{ 
+                  backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
+                  opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
+                }}
+              >
+                <div className="text-white text-6xl font-bold tracking-widest drop-shadow-2xl animate-pulse">
+                  MOGS
+                </div>
+              </div>
+            )}
             
           </button>
 
@@ -187,6 +224,20 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
+            {/* MOGS Overlay for Bottom Photo */}
+            {swipeDirection === 'down' && (
+              <div 
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none"
+                style={{ 
+                  backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
+                  opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
+                }}
+              >
+                <div className="text-white text-6xl font-bold tracking-widest drop-shadow-2xl animate-pulse">
+                  MOGS
+                </div>
+              </div>
+            )}
             
           </button>
         </div>
