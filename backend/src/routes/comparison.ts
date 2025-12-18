@@ -376,10 +376,22 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         : 'http://localhost:3001';
 
       if (photo.type === 'user') {
+        // Handle user photo URLs properly
+        let finalUrl = photo.url;
+        let finalThumbnailUrl = photo.thumbnailUrl || photo.url;
+        
+        // Only prepend baseUrl if the URL doesn't already start with http
+        if (!photo.url.startsWith('http')) {
+          finalUrl = `${baseUrl}${photo.url}`;
+          finalThumbnailUrl = photo.thumbnailUrl 
+            ? `${baseUrl}${photo.thumbnailUrl}`
+            : finalUrl;
+        }
+        
         return {
           id: photo.id,
-          url: `${baseUrl}${photo.url}`,
-          thumbnailUrl: `${baseUrl}${photo.thumbnailUrl}`,
+          url: finalUrl,
+          thumbnailUrl: finalThumbnailUrl,
           userId: photo.userId,
           userAge: photo.user.age,
           userGender: photo.user.gender,
