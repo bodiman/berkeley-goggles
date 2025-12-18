@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
-import TinderCard from 'react-tinder-card';
+import TinderCard from './TinderCard';
+import type { TinderCardRef } from './TinderCard';
 
 interface Photo {
   id: string;
@@ -42,13 +43,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 }, ref) => {
   const [showInstructions, setShowInstructions] = useState(true);
   
-  // Swipe tracking state
-  const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | null>(null);
-  const [swipeProgress, setSwipeProgress] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   
   // Ref for programmatic swiping
-  const cardRef = useRef<any>();
+  const cardRef = useRef<TinderCardRef>(null);
 
   // Expose swipe method to parent
   useImperativeHandle(ref, () => ({
@@ -60,7 +57,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   }));
 
   // Handle swipe completion
-  const handleSwipe = useCallback((direction: 'left' | 'right' | 'up' | 'down') => {
+  const handleSwipe = useCallback((direction: string) => {
     if (disabled) return;
 
     console.log('Swiped:', direction);
@@ -86,11 +83,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   const handleCardLeftScreen = useCallback(() => {
     console.log('Card left screen');
     
-    // Reset overlay state
-    setSwipeDirection(null);
-    setSwipeProgress(0);
-    setIsDragging(false);
-    
     // Notify parent that animation completed
     if (onAnimationComplete) {
       onAnimationComplete();
@@ -110,22 +102,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     onSelection(winner.id, loser.id);
   }, [disabled, onSelection]);
 
-  // Handle swipe requirement callbacks from TinderCard
-  const handleSwipeRequirementFulfilled = useCallback((direction: string) => {
-    console.log('Swipe requirement fulfilled:', direction);
-    if (direction === 'up' || direction === 'down') {
-      setSwipeDirection(direction as 'up' | 'down');
-      setSwipeProgress(0.8); // Show strong overlay when swipe requirement is met
-      setIsDragging(true);
-    }
-  }, []);
-
-  const handleSwipeRequirementUnfulfilled = useCallback(() => {
-    console.log('Swipe requirement unfulfilled');
-    setSwipeDirection(null);
-    setSwipeProgress(0);
-    setIsDragging(false);
-  }, []);
 
   // Control card visibility - hide if shouldShowCard is false
   if (!shouldShowCard) {
@@ -147,8 +123,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         ref={cardRef}
         onSwipe={handleSwipe}
         onCardLeftScreen={handleCardLeftScreen}
-        onSwipeRequirementFulfilled={handleSwipeRequirementFulfilled}
-        onSwipeRequirementUnfulfilled={handleSwipeRequirementUnfulfilled}
         preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : ['left', 'right']}
         swipeRequirementType="velocity"
         swipeThreshold={0.1}
@@ -181,20 +155,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* MOGS Overlay for Top Photo */}
-            {swipeDirection === 'up' && (
-              <div 
-                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none"
-                style={{ 
-                  backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
-                  opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
-                }}
-              >
-                <div className="text-white text-6xl font-bold tracking-widest drop-shadow-2xl animate-pulse">
-                  MOGS
-                </div>
-              </div>
-            )}
             
           </button>
 
@@ -227,20 +187,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* MOGS Overlay for Bottom Photo */}
-            {swipeDirection === 'down' && (
-              <div 
-                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none"
-                style={{ 
-                  backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
-                  opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
-                }}
-              >
-                <div className="text-white text-6xl font-bold tracking-widest drop-shadow-2xl animate-pulse">
-                  MOGS
-                </div>
-              </div>
-            )}
             
           </button>
         </div>
