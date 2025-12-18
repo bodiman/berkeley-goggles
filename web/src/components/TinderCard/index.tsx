@@ -27,6 +27,7 @@ export interface TinderCardProps {
   preventSwipe?: string[];
   swipeRequirementType?: 'velocity' | 'position';
   swipeThreshold?: number;
+  flickOnSwipe?: boolean;
 }
 
 const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
@@ -41,6 +42,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
   preventSwipe = [],
   swipeRequirementType = 'velocity',
   swipeThreshold = 0.1,
+  flickOnSwipe = true,
 }, ref) => {
   const [{ xyrot }, setSpringTarget] = useSpring(() => ({
     xyrot: [0, 0, 0],
@@ -56,7 +58,9 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     startX: 0,
     startY: 0,
     currentDirection: null as string | null,
-    isDragging: false
+    isDragging: false,
+    wasMovingOnRelease: false,
+    lastMoveTime: 0
   })
 
   const getDirection = (vx: number, vy: number, dx: number, dy: number) => {
@@ -92,8 +96,11 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
   }
 
   const handleMove = (dx: number, dy: number, vx: number, vy: number) => {
-    const rot = vx * 15 // rotation factor
+    const rot = vx * 0 // reduced rotation factor (was 15)
     setSpringTarget.start({ xyrot: [dx, dy, rot] })
+    
+    // Track movement for flick detection
+    gestureState.current.lastMoveTime = Date.now()
     
     const direction = getDirection(vx, vy, dx, dy)
     const progress = Math.min(Math.sqrt(dx * dx + dy * dy) / 80, 1) // normalize over 80px for faster response
@@ -139,14 +146,30 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     const direction = getDirection(vx, vy, dx, dy)
     const isFulfilled = getSwipeRequirementFulfilled(vx, vy, dx, dy)
     
-    console.log('HandleEnd:', { dx, dy, vx, vy, direction, isFulfilled, preventSwipe })
+    // Check if this was a flick gesture (released while moving)
+    const timeSinceLastMove = Date.now() - gestureState.current.lastMoveTime
+    const wasFlicked = timeSinceLastMove < 100 // Released within 100ms of last movement
+    
+    console.log('HandleEnd:', { 
+      dx, dy, vx, vy, direction, isFulfilled, preventSwipe, 
+      flickOnSwipe, wasFlicked, timeSinceLastMove 
+    })
 
-    if (isFulfilled && !preventSwipe.includes(direction)) {
+    // Determine if swipe should trigger
+    let shouldSwipe = isFulfilled && !preventSwipe.includes(direction)
+    
+    if (flickOnSwipe && shouldSwipe) {
+      // If flick is required, only swipe if user released while moving
+      shouldSwipe = wasFlicked
+      console.log('Flick check:', { flickRequired: flickOnSwipe, wasFlicked, shouldSwipe })
+    }
+
+    if (shouldSwipe) {
       console.log('Swiping!', direction)
       // Swipe the card off screen
       const multiplier = 3
       setSpringTarget.start({ 
-        xyrot: [dx * multiplier, dy * multiplier, vx * 15],
+        xyrot: [dx * multiplier, dy * multiplier, vx * 5],
         config: { tension: 200, friction: 20 }
       })
       onSwipe?.(direction)
@@ -154,7 +177,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
         onCardLeftScreen?.()
       }, 300)
     } else {
-      console.log('Returning to center, isFulfilled:', isFulfilled, 'preventSwipe:', preventSwipe)
+      console.log('Returning to center, shouldSwipe:', shouldSwipe, 'reason:', !wasFlicked ? 'not flicked' : 'requirements not met')
       // Return to center
       setSpringTarget.start({ 
         xyrot: [0, 0, 0],
@@ -210,7 +233,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     handleMove(dx, dy, vx, vy)
   }
 
-  const handleMouseUp = (event: React.MouseEvent) => {
+  const handleMouseUp = (_event: React.MouseEvent) => {
     if (!gestureState.current.isDragging) return
     // Use the last known values instead of trying to get them from the end event
     const { dx, dy, vx, vy } = gestureState.current
@@ -230,7 +253,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     handleMove(dx, dy, vx, vy)
   }
 
-  const handleTouchEnd = (event: React.TouchEvent) => {
+  const handleTouchEnd = (_event: React.TouchEvent) => {
     // Use the last known values instead of trying to get them from the end event
     const { dx, dy, vx, vy } = gestureState.current
     console.log('TouchEnd using stored values:', { dx, dy, vx, vy })
@@ -242,8 +265,8 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     swipe: (direction = 'left') => {
       const multiplier = 3
       const directions = {
-        left: [-100 * multiplier, 0, -15],
-        right: [100 * multiplier, 0, 15],
+        left: [-100 * multiplier, 0, -5],
+        right: [100 * multiplier, 0, 5],
         up: [0, -100 * multiplier, 0],
         down: [0, 100 * multiplier, 0]
       }
