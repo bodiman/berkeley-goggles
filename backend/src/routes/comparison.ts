@@ -12,6 +12,12 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     const userId = req.query.userId as string;
     const bufferSize = parseInt(req.query.buffer as string) || 1;
     
+    // Get recently submitted pair info to exclude from next load
+    const recentWinnerId = req.query.recentWinnerId as string;
+    const recentLoserId = req.query.recentLoserId as string;
+    const recentWinnerType = req.query.recentWinnerType as string;
+    const recentLoserType = req.query.recentLoserType as string;
+    
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -221,9 +227,42 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     // Get user's previous comparisons to avoid duplicates
     const previousComparisons = await getPreviousComparisons(userId);
     const comparedPairs = extractComparedPairs(previousComparisons);
+    
+    // Add recently submitted pair to exclusion list if provided
+    console.log('🔍 Backend Debug: Recent pair exclusion check:', {
+      recentWinnerId,
+      recentLoserId,
+      recentWinnerType,
+      recentLoserType,
+      hasAllParams: !!(recentWinnerId && recentLoserId && recentWinnerType && recentLoserType),
+      nodeEnv: process.env.NODE_ENV
+    });
+    
+    if (recentWinnerId && recentLoserId && recentWinnerType && recentLoserType) {
+      const recentPairKey = generateRecentPairKey(recentWinnerId, recentLoserId, recentWinnerType, recentLoserType);
+      comparedPairs.add(recentPairKey);
+      
+      console.log(`🚫 Excluding recently submitted pair:`);
+      console.log(`  - Winner: ${recentWinnerId} (${recentWinnerType})`);
+      console.log(`  - Loser: ${recentLoserId} (${recentLoserType})`);
+      console.log(`  - Generated exclusion key: "${recentPairKey}"`);
+      console.log(`  - Total excluded pairs now: ${comparedPairs.size}`);
+    } else {
+      console.log('❌ Backend: Missing recent pair parameters - will not exclude');
+    }
+    
+    // Debug logging for duplicate detection
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🔍 Duplicate Detection Debug for user ${userId}:`);
+      console.log(`  - Found ${previousComparisons.length} previous comparisons`);
+      console.log(`  - Generated ${comparedPairs.size} unique compared pairs`);
+      if (comparedPairs.size > 0 && comparedPairs.size <= 5) {
+        console.log(`  - Compared pairs:`, Array.from(comparedPairs));
+      }
+    }
 
-    // Get recently shown photos from current session to avoid immediate repetition
-    const recentTimeWindow = 30 * 60 * 1000; // 30 minutes
+    // Get recently shown photos to avoid immediate repetition (reduced window for faster cycling)
+    const recentTimeWindow = 5 * 60 * 1000; // 5 minutes (reduced from 30 minutes)
     const recentThreshold = new Date(Date.now() - recentTimeWindow);
     
     const recentlyShownPhotoIds = await getRecentlyShownPhotos(userId, recentThreshold);
@@ -329,6 +368,16 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       // Filter out already compared pairs
       availablePairs = filterUncomparedPairs(userPairs, comparedPairs);
       
+      // Debug logging for pair filtering
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`📊 User Photo Pair Filtering:`);
+        console.log(`  - Generated ${userPairs.length} possible user photo pairs`);
+        console.log(`  - After filtering: ${availablePairs.length} available pairs`);
+        if (userPairs.length > 0 && availablePairs.length === 0) {
+          console.log(`  - ⚠️  All pairs filtered out - potential duplicate detection issue`);
+        }
+      }
+      
       if (availablePairs.length > 0) {
         phase = 'user_only';
       }
@@ -339,6 +388,16 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       // Generate mixed pairs (user + sample images)
       const mixedPairs = generateMixedPairs(typedUserPhotos, typedSampleImages);
       availablePairs = filterUncomparedPairs(mixedPairs, comparedPairs);
+      
+      // Debug logging for mixed pair filtering
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`🔄 Mixed Pair Filtering:`);
+        console.log(`  - Generated ${mixedPairs.length} possible mixed pairs`);
+        console.log(`  - After filtering: ${availablePairs.length} available pairs`);
+        if (mixedPairs.length > 0 && availablePairs.length === 0) {
+          console.log(`  - ⚠️  All mixed pairs filtered out - checking comparison history`);
+        }
+      }
       
       if (availablePairs.length > 0) {
         phase = 'combined';
@@ -381,6 +440,17 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     // Use intelligent Bradley-Terry sampler to select most informative pairs
     // while ensuring no person appears more than once in the buffer
     const selectedPairs = selectInformativePairs(availablePairs, bufferSize);
+    
+    // Debug logging for selected pairs
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎯 Pair Selection Results:`);
+      console.log(`  - Available pairs: ${availablePairs.length}`);
+      console.log(`  - Requested buffer size: ${bufferSize}`);
+      console.log(`  - Selected pairs: ${selectedPairs.length}`);
+      if (selectedPairs.length > 0) {
+        console.log(`  - Selected pair IDs:`, selectedPairs.map(p => `${p.left.id} vs ${p.right.id}`));
+      }
+    }
 
     // Build the response pair objects
     const buildPhotoObject = (photo: any) => {
@@ -620,108 +690,139 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       comparisonData.loserSampleImageId = loserId;
     }
 
-    // Create the comparison record immediately - this prevents race conditions for duplicate detection
-    const comparison = await prisma.comparison.create({
-      data: comparisonData,
-    });
-
-    // Update basic ranking counts immediately - needed for duplicate detection
-    const rankingUpdates = [];
-
-    if (winnerType === 'user') {
-      // Update user photo ranking for winner
-      rankingUpdates.push(
-        prisma.photoRanking.upsert({
-          where: { photoId: winnerId },
-          update: {
-            totalComparisons: { increment: 1 },
-            wins: { increment: 1 },
-            lastUpdated: new Date(),
-          },
-          create: {
-            photoId: winnerId,
-            userId: (await prisma.photo.findUnique({ where: { id: winnerId } }))!.userId,
-            totalComparisons: 1,
-            wins: 1,
-            losses: 0,
-          },
-        })
-      );
-    } else {
-      // Update sample image ranking for winner
-      rankingUpdates.push(
-        prisma.sampleImageRanking.upsert({
-          where: { sampleImageId: winnerId },
-          update: {
-            totalComparisons: { increment: 1 },
-            wins: { increment: 1 },
-            lastUpdated: new Date(),
-          },
-          create: {
-            sampleImageId: winnerId,
-            totalComparisons: 1,
-            wins: 1,
-            losses: 0,
-            currentPercentile: 50.0,
-            bradleyTerryScore: 0.5,
-            confidence: 0.0,
-          },
-        })
-      );
+    // Debug logging for comparison submission
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`💾 Comparison Submission Debug:`);
+      console.log(`  - Winner ID: ${winnerId} (${winnerType})`);
+      console.log(`  - Loser ID: ${loserId} (${loserType})`);
+      console.log(`  - Database fields:`, {
+        winnerPhotoId: comparisonData.winnerPhotoId,
+        loserPhotoId: comparisonData.loserPhotoId,
+        winnerSampleImageId: comparisonData.winnerSampleImageId,
+        loserSampleImageId: comparisonData.loserSampleImageId,
+      });
     }
 
-    if (loserType === 'user') {
-      // Update user photo ranking for loser
-      rankingUpdates.push(
-        prisma.photoRanking.upsert({
-          where: { photoId: loserId },
-          update: {
-            totalComparisons: { increment: 1 },
-            losses: { increment: 1 },
-            lastUpdated: new Date(),
-          },
-          create: {
-            photoId: loserId,
-            userId: (await prisma.photo.findUnique({ where: { id: loserId } }))!.userId,
-            totalComparisons: 1,
-            wins: 0,
-            losses: 1,
-          },
-        })
-      );
-    } else {
-      // Update sample image ranking for loser
-      rankingUpdates.push(
-        prisma.sampleImageRanking.upsert({
-          where: { sampleImageId: loserId },
-          update: {
-            totalComparisons: { increment: 1 },
-            losses: { increment: 1 },
-            lastUpdated: new Date(),
-          },
-          create: {
-            sampleImageId: loserId,
-            totalComparisons: 1,
-            wins: 0,
-            losses: 1,
-            currentPercentile: 50.0,
-            bradleyTerryScore: 0.5,
-            confidence: 0.0,
-          },
-        })
-      );
-    }
+    // Use transaction to ensure comparison and basic stats are atomically written
+    // This prevents race conditions in duplicate detection
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the comparison record first
+      const comparison = await tx.comparison.create({
+        data: comparisonData,
+      });
 
-    // Execute basic ranking updates immediately - ensures comparison is recorded for duplicate detection
-    await Promise.all(rankingUpdates);
+      // Prepare ranking updates for immediate execution
+      const rankingPromises = [];
 
-    // Update session stats
-    await prisma.comparisonSession.update({
-      where: { id: sessionId },
-      data: {
-        comparisonsCompleted: { increment: 1 },
-      },
+      if (winnerType === 'user') {
+        // Get winner photo's user ID first
+        const winnerPhoto = await tx.photo.findUnique({ 
+          where: { id: winnerId },
+          select: { userId: true }
+        });
+        if (!winnerPhoto) throw new Error(`Winner photo ${winnerId} not found`);
+
+        rankingPromises.push(
+          tx.photoRanking.upsert({
+            where: { photoId: winnerId },
+            update: {
+              totalComparisons: { increment: 1 },
+              wins: { increment: 1 },
+              lastUpdated: new Date(),
+            },
+            create: {
+              photoId: winnerId,
+              userId: winnerPhoto.userId,
+              totalComparisons: 1,
+              wins: 1,
+              losses: 0,
+            },
+          })
+        );
+      } else {
+        rankingPromises.push(
+          tx.sampleImageRanking.upsert({
+            where: { sampleImageId: winnerId },
+            update: {
+              totalComparisons: { increment: 1 },
+              wins: { increment: 1 },
+              lastUpdated: new Date(),
+            },
+            create: {
+              sampleImageId: winnerId,
+              totalComparisons: 1,
+              wins: 1,
+              losses: 0,
+              currentPercentile: 50.0,
+              bradleyTerryScore: 0.5,
+              confidence: 0.0,
+            },
+          })
+        );
+      }
+
+      if (loserType === 'user') {
+        // Get loser photo's user ID first
+        const loserPhoto = await tx.photo.findUnique({ 
+          where: { id: loserId },
+          select: { userId: true }
+        });
+        if (!loserPhoto) throw new Error(`Loser photo ${loserId} not found`);
+
+        rankingPromises.push(
+          tx.photoRanking.upsert({
+            where: { photoId: loserId },
+            update: {
+              totalComparisons: { increment: 1 },
+              losses: { increment: 1 },
+              lastUpdated: new Date(),
+            },
+            create: {
+              photoId: loserId,
+              userId: loserPhoto.userId,
+              totalComparisons: 1,
+              wins: 0,
+              losses: 1,
+            },
+          })
+        );
+      } else {
+        rankingPromises.push(
+          tx.sampleImageRanking.upsert({
+            where: { sampleImageId: loserId },
+            update: {
+              totalComparisons: { increment: 1 },
+              losses: { increment: 1 },
+              lastUpdated: new Date(),
+            },
+            create: {
+              sampleImageId: loserId,
+              totalComparisons: 1,
+              wins: 0,
+              losses: 1,
+              currentPercentile: 50.0,
+              bradleyTerryScore: 0.5,
+              confidence: 0.0,
+            },
+          })
+        );
+      }
+
+      // Execute all ranking updates in the same transaction
+      await Promise.all(rankingPromises);
+
+      // Update session stats in the same transaction
+      await tx.comparisonSession.update({
+        where: { id: sessionId },
+        data: {
+          comparisonsCompleted: { increment: 1 },
+        },
+      });
+
+      return comparison;
     });
+
+    const comparison = result;
 
     // Send response immediately - comparison is now saved and available for duplicate detection
     res.json({
@@ -730,6 +831,12 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
         id: comparison.id,
         timestamp: comparison.timestamp,
         comparisonType: finalComparisonType,
+        submittedPair: {
+          winnerId,
+          loserId,
+          winnerType,
+          loserType,
+        },
       },
       message: 'Comparison submitted successfully',
     });
@@ -1524,7 +1631,9 @@ function generateMixedPairs(userPhotos: any[], sampleImages: any[]): Array<{left
 
 // Helper function to filter out already compared pairs
 function filterUncomparedPairs(pairs: Array<{left: any, right: any, type?: string}>, comparedPairs: Set<string>): Array<{left: any, right: any, type?: string}> {
-  return pairs.filter(pair => {
+  const filteredPairs = [];
+  
+  for (const pair of pairs) {
     const leftId = pair.left.id;
     const rightId = pair.right.id;
     
@@ -1542,8 +1651,21 @@ function filterUncomparedPairs(pairs: Array<{left: any, right: any, type?: strin
       pairKey = normalizePair(`photo_${photoId}`, `sample_${sampleId}`);
     }
     
-    return !comparedPairs.has(pairKey);
-  });
+    const isAlreadyCompared = comparedPairs.has(pairKey);
+    
+    // Debug logging for pair filtering (only log first few to avoid spam)
+    if (process.env.NODE_ENV === 'development' && filteredPairs.length < 3) {
+      console.log(`  🔍 Checking pair: ${leftId} vs ${rightId} (types: ${pair.left.type}/${pair.right.type})`);
+      console.log(`    - Generated key: "${pairKey}"`);
+      console.log(`    - Already compared: ${isAlreadyCompared}`);
+    }
+    
+    if (!isAlreadyCompared) {
+      filteredPairs.push(pair);
+    }
+  }
+  
+  return filteredPairs;
 }
 
 // Helper function to get person ID from photo (user ID for user photos, photo ID for samples)
@@ -1685,4 +1807,29 @@ async function getRecentlyShownPhotos(
     userPhotoIds,
     sampleImageIds,
   };
+}
+
+/**
+ * Generate exclusion key for recently submitted pair
+ * This ensures the exact same pair won't be loaded again immediately
+ */
+function generateRecentPairKey(
+  winnerId: string, 
+  loserId: string, 
+  winnerType: string, 
+  loserType: string
+): string {
+  // Use the same logic as extractComparedPairs for consistency
+  if (winnerType === 'user' && loserType === 'user') {
+    // User photo comparison
+    return normalizePair(winnerId, loserId);
+  } else if (winnerType === 'sample' && loserType === 'sample') {
+    // Sample image comparison
+    return normalizePair(winnerId, loserId);
+  } else {
+    // Mixed comparison (user photo vs sample image)
+    const photoId = winnerType === 'user' ? winnerId : loserId;
+    const sampleId = winnerType === 'sample' ? winnerId : loserId;
+    return normalizePair(`photo_${photoId}`, `sample_${sampleId}`);
+  }
 }

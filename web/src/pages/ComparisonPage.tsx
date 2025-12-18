@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { PhotoComparisonCard } from '../components/PhotoComparisonCard';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
@@ -21,6 +21,20 @@ export const ComparisonPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [recentlySubmittedPair, setRecentlySubmittedPair] = useState<{
+    winnerId: string;
+    loserId: string;
+    winnerType: string;
+    loserType: string;
+  } | null>(null);
+  
+  // Use ref to reliably store recent pair info for animation completion
+  const pendingSubmittedPairRef = useRef<{
+    winnerId: string;
+    loserId: string;
+    winnerType: string;
+    loserType: string;
+  } | null>(null);
   
   // Initialize image buffer hook
   const {
@@ -35,6 +49,7 @@ export const ComparisonPage: React.FC = () => {
     bufferSize: 10,
     refillThreshold: 3,
     userId: user?.id || '',
+    recentlySubmittedPair,
     onError: setError
   });
   
@@ -44,11 +59,16 @@ export const ComparisonPage: React.FC = () => {
   const shouldShowCard = Boolean(currentPair && !isTransitioning && isCurrentPairReady());
 
   // Handle animation completion - card has finished swiping off screen
-  const handleAnimationComplete = useCallback(async () => {
+  const handleAnimationComplete = useCallback(async (submittedPairInfo?: {
+    winnerId: string;
+    loserId: string;
+    winnerType: string;
+    loserType: string;
+  }) => {
     setIsTransitioning(true);
     
-    // Move to next pair in buffer
-    await advanceToNext();
+    // Move to next pair in buffer, passing recent pair info for immediate exclusion
+    await advanceToNext(submittedPairInfo);
     
     // Card will automatically show again when new images are ready
     // via the shouldShowCard computed value and useEffect below
@@ -138,12 +158,41 @@ export const ComparisonPage: React.FC = () => {
       const data = await response.json();
       
       if (data.success) {
+        // Create recent pair info for immediate exclusion
+        const submittedPairInfo = {
+          winnerId: winnerId,
+          loserId: loserId,
+          winnerType: winner.type,
+          loserType: loser.type,
+        };
+        
+        // IMMEDIATELY store in ref for reliable access in animation completion (before any async operations)
+        pendingSubmittedPairRef.current = submittedPairInfo;
+        console.log('📝 Frontend: IMMEDIATELY stored pair info in ref before async operations:', {
+          submittedPairInfo,
+          refValue: pendingSubmittedPairRef.current
+        });
+        
+        // Store for future use (fallback)
+        setRecentlySubmittedPair(submittedPairInfo);
+        
+        // Frontend logging for pair exclusion
+        console.log('🚫 Frontend: Created pair info for immediate exclusion:', {
+          winnerId,
+          loserId,
+          winnerType: winner.type,
+          loserType: loser.type,
+          leftPhotoId: currentPair.leftPhoto.id,
+          rightPhotoId: currentPair.rightPhoto.id,
+          willPassToAdvanceNext: true
+        });
+        
         // Add haptic feedback
         if (navigator.vibrate) {
           navigator.vibrate([50, 50, 50]);
         }
         
-        // Update progress (pair advancement handled by animation completion)
+        // Update progress (pair advancement will happen in animation completion with exclusion info)
         await fetchDailyProgress();
         
         // Daily goal completion handled by UI indicators (progress bar, etc.)
@@ -311,11 +360,22 @@ export const ComparisonPage: React.FC = () => {
               type: currentPair.rightPhoto.type,
             }}
             onSelection={handleSelection}
-            onSkip={handleSkip}
             className="fade-up"
             disabled={isSubmitting}
             shouldShowCard={shouldShowCard}
-            onAnimationComplete={handleAnimationComplete}
+            onAnimationComplete={() => {
+              // Retrieve submitted pair info from ref and pass to handler
+              const submittedPairInfo = pendingSubmittedPairRef.current;
+              console.log('🎬 Animation Complete: Retrieved submitted pair info from ref:', {
+                submittedPairInfo,
+                refValue: pendingSubmittedPairRef.current,
+                hasValidInfo: !!submittedPairInfo
+              });
+              // Clear the pending info
+              pendingSubmittedPairRef.current = null;
+              // Call handler with the info
+              handleAnimationComplete(submittedPairInfo);
+            }}
           />
         ) : (
           <div className="text-center">

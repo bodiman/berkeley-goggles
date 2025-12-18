@@ -65,11 +65,11 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         break;
       case 'left':
       case 'right':
-        // Skip
-        onSkip();
+        // Skip functionality disabled - ignore these swipes
+        console.log('Skip disabled - ignoring left/right swipe');
         break;
     }
-  }, [disabled, onSelection, onSkip, topPhoto.id, bottomPhoto.id]);
+  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id]);
 
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
@@ -114,7 +114,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         ref={cardRef}
         onSwipe={handleSwipe}
         onCardLeftScreen={handleCardLeftScreen}
-        preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : []}
+        preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : ['left', 'right']}
         swipeRequirementType="velocity"
         swipeThreshold={0.1}
         className="w-full h-[75vh] cursor-grab active:cursor-grabbing"
@@ -203,7 +203,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               Tap or swipe to choose who is more attractive
             </p>
             <p className="text-gray-400 text-sm">
-              Swipe up/down to choose • Swipe left/right to skip
+              Swipe up/down to choose • Tap photos to select
             </p>
           </div>
         </div>
