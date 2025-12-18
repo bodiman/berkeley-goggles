@@ -1,8 +1,26 @@
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+
+// First load .env as the base
+dotenv.config();
+console.log('After loading .env:', process.env.DATABASE_URL?.substring(0, 50) + '...');
+
+// Then load environment-specific file to override
+const nodeEnv = process.env.NODE_ENV || 'development';
+console.log('NODE_ENV:', nodeEnv);
+
+if (nodeEnv === 'development') {
+  dotenv.config({ path: '.env.development', override: true });
+  console.log('After loading .env.development:', process.env.DATABASE_URL?.substring(0, 50) + '...');
+} else if (nodeEnv === 'production') {
+  dotenv.config({ path: '.env.production', override: true });
+}
+
+// Now import everything else after environment is loaded
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import path from 'path';
 import { logger } from './utils/logger';
 import { connectDatabase } from './services/database';
@@ -14,9 +32,6 @@ import { photoRoutes } from './routes/photo';
 import { comparisonRoutes } from './routes/comparison';
 import { rankingRoutes } from './routes/ranking';
 import { matchesRoutes } from './routes/matches';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -146,7 +161,9 @@ const startServer = async () => {
       logger.info(`🚀 Berkeley Goggles API server running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
       logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
-      logger.info(`💾 Database: SQLite (dev.db)`);
+      const dbType = process.env.DATABASE_URL?.startsWith('postgresql://') ? 'PostgreSQL' : 
+                     process.env.DATABASE_URL?.startsWith('file:') ? 'SQLite' : 'Unknown';
+      logger.info(`💾 Database: ${dbType}`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

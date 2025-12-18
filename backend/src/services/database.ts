@@ -1,14 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 
+console.log("database service - DATABASE_URL:", process.env.DATABASE_URL?.substring(0, 50) + '...');
+
 // Create Prisma client instance
+// Let Prisma read DATABASE_URL from environment naturally
 export const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
 });
 
 // Connect to database
@@ -19,7 +17,9 @@ export const connectDatabase = async () => {
     
     // Test the database connection
     await prisma.$queryRaw`SELECT 1`;
-    logger.info(`📊 Database type: ${process.env.NODE_ENV === 'development' ? 'SQLite (dev)' : 'PostgreSQL (prod)'}`);
+    const dbType = process.env.DATABASE_URL?.startsWith('postgresql://') ? 'PostgreSQL' : 
+                   process.env.DATABASE_URL?.startsWith('file:') ? 'SQLite' : 'Unknown';
+    logger.info(`📊 Database type: ${dbType}`);
   } catch (error) {
     logger.error('❌ Database connection failed:', error);
     if (process.env.NODE_ENV === 'production') {
