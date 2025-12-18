@@ -132,15 +132,47 @@ export const useImageBuffer = ({
   //   }
   // }, [userId, loadStoredCombinations]);
 
+  // Helper function to check if a buffer pair matches the recently submitted pair
+  const doesPairMatch = useCallback((
+    bufferPair: PhotoPair,
+    submittedPair: {
+      winnerId: string;
+      loserId: string;
+      winnerType: string;
+      loserType: string;
+    }
+  ): boolean => {
+    const leftId = bufferPair.leftPhoto.id;
+    const rightId = bufferPair.rightPhoto.id;
+    const leftType = bufferPair.leftPhoto.type;
+    const rightType = bufferPair.rightPhoto.type;
+
+    // Check if this buffer pair contains the same two photos as the submitted pair
+    // Order doesn't matter - A vs B is the same as B vs A
+    const hasWinnerPhoto = 
+      (leftId === submittedPair.winnerId && leftType === submittedPair.winnerType) ||
+      (rightId === submittedPair.winnerId && rightType === submittedPair.winnerType);
+    
+    const hasLoserPhoto = 
+      (leftId === submittedPair.loserId && leftType === submittedPair.loserType) ||
+      (rightId === submittedPair.loserId && rightType === submittedPair.loserType);
+
+    return hasWinnerPhoto && hasLoserPhoto;
+  }, []);
+
   // Image preloading utility
   const preloadImage = useCallback((url: string): Promise<void> => {
+    console.log('🖼️ Starting image preload:', { url });
+    
     return new Promise((resolve, reject) => {
       if (imageCache.current[url]?.loaded) {
+        console.log('✅ Image already cached and loaded:', { url });
         resolve();
         return;
       }
 
       if (imageCache.current[url]?.error) {
+        console.log('❌ Image previously failed, rejecting:', { url });
         reject(new Error('Image failed to load previously'));
         return;
       }
@@ -149,15 +181,27 @@ export const useImageBuffer = ({
       // Remove crossOrigin to avoid CORS issues with R2 URLs
       
       img.onload = () => {
+        console.log('✅ Image loaded successfully:', { 
+          url, 
+          width: img.naturalWidth, 
+          height: img.naturalHeight 
+        });
         imageCache.current[url] = { loaded: true, error: false, image: img };
         resolve();
       };
 
-      img.onerror = () => {
+      img.onerror = (error) => {
+        console.log('❌ Image failed to load:', { 
+          url, 
+          error: error,
+          imageComplete: img.complete,
+          imageSrc: img.src 
+        });
         imageCache.current[url] = { loaded: false, error: true };
         reject(new Error(`Failed to load image: ${url}`));
       };
 
+      console.log('🔄 Setting image src and marking as loading:', { url });
       imageCache.current[url] = { loaded: false, error: false };
       img.src = url;
     });
@@ -172,8 +216,24 @@ export const useImageBuffer = ({
       pair.rightPhoto.thumbnailUrl
     ].filter(Boolean);
 
+    console.log('📥 preloadPairImages called for pair:', {
+      pairId: `${pair.leftPhoto.id} vs ${pair.rightPhoto.id}`,
+      sessionId: pair.sessionId,
+      urlCount: urls.length,
+      urls: urls
+    });
+
     try {
-      await Promise.allSettled(urls.map(url => preloadImage(url)));
+      const results = await Promise.allSettled(urls.map(url => preloadImage(url)));
+      const successes = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results.filter(r => r.status === 'rejected').length;
+      
+      console.log('📥 preloadPairImages completed:', {
+        pairId: `${pair.leftPhoto.id} vs ${pair.rightPhoto.id}`,
+        successes,
+        failures,
+        totalUrls: urls.length
+      });
     } catch (error) {
       console.warn('Some images failed to preload for pair:', pair.sessionId, error);
     }
@@ -201,6 +261,16 @@ export const useImageBuffer = ({
       
       // Add recently submitted pair info if available (use override first, then state)
       const recentPair = recentPairOverride || recentlySubmittedPair;
+      
+      console.log('🔍 Frontend Debug: Recent pair info check:', {
+        hasRecentPairOverride: !!recentPairOverride,
+        hasRecentlySubmittedPair: !!recentlySubmittedPair,
+        finalRecentPair: !!recentPair,
+        recentPairOverride,
+        recentlySubmittedPair,
+        recentPair
+      });
+      
       if (recentPair) {
         params.append('recentWinnerId', recentPair.winnerId);
         params.append('recentLoserId', recentPair.loserId);
@@ -320,6 +390,14 @@ export const useImageBuffer = ({
           if (newBufferedPairs.length > 0) {
             setCurrentIndex(0);
           }
+          // Immediately preload the current pair (index 0) when buffer is reset
+          if (newBufferedPairs.length > 0) {
+            console.log('🚀 Buffer reset: Immediately preloading current pair at index 0');
+            setTimeout(() => {
+              preloadPairImages(newBufferedPairs[0]).catch(console.error);
+            }, 0);
+          }
+          
           return newBufferedPairs;
         }
         
@@ -431,7 +509,7 @@ export const useImageBuffer = ({
     return pair;
   }, [buffer, currentIndex, markPairAsViewed]);
 
-  // Advance to next pair - simplified without filtering
+  // Advance to next pair with immediate filtering of submitted pair
   const advanceToNext = useCallback(async (
     recentPair?: {
       winnerId: string;
@@ -441,6 +519,9 @@ export const useImageBuffer = ({
     } | null
   ): Promise<void> => {
     logBufferState('before_advance', { hasRecentPair: !!recentPair, recentPair });
+    
+    // Backend handles all filtering - no frontend filtering needed
+    console.log('⏭️ Frontend: Delegating all filtering to backend, proceeding with advancement');
     
     const nextIndex = currentIndex + 1;
     
@@ -452,6 +533,14 @@ export const useImageBuffer = ({
     }
 
     setCurrentIndex(nextIndex);
+    
+    // Immediately preload the new current pair
+    if (buffer[nextIndex]) {
+      console.log('🚀 Index advanced: Immediately preloading new current pair at index', nextIndex);
+      setTimeout(() => {
+        preloadPairImages(buffer[nextIndex]).catch(console.error);
+      }, 0);
+    }
     
     // Log state after advance
     logBufferState('after_advance', { previousIndex: currentIndex, nextIndex });
@@ -484,19 +573,51 @@ export const useImageBuffer = ({
         });
       }).catch(console.warn);
     }
-  }, [currentIndex, buffer, refillThreshold, isBuffering, refillBuffer, preloadPairImages]);
+  }, [currentIndex, buffer, refillThreshold, isBuffering, refillBuffer, preloadPairImages, doesPairMatch]);
 
   // Check if current pair images are preloaded
   const isCurrentPairReady = useCallback((): boolean => {
     const pair = getCurrentPair();
-    if (!pair) return false;
+    if (!pair) {
+      console.log('🔍 isCurrentPairReady: No current pair available');
+      return false;
+    }
 
     const urls = [
       pair.leftPhoto.url,
       pair.rightPhoto.url
     ];
 
-    return urls.every(url => imageCache.current[url]?.loaded);
+    const cacheStatus = urls.map(url => ({
+      url,
+      cached: !!imageCache.current[url],
+      loaded: imageCache.current[url]?.loaded || false,
+      error: imageCache.current[url]?.error || false,
+      hasImage: !!imageCache.current[url]?.image
+    }));
+
+    const allLoaded = urls.every(url => imageCache.current[url]?.loaded);
+
+    console.log('🔍 isCurrentPairReady debug:', {
+      pairId: `${pair.leftPhoto.id} vs ${pair.rightPhoto.id}`,
+      allLoaded,
+      cacheStatus,
+      totalCacheEntries: Object.keys(imageCache.current).length
+    });
+
+    // Log any problematic images
+    cacheStatus.forEach(status => {
+      if (!status.loaded) {
+        console.log(`❌ Image not ready: ${status.url}`, {
+          cached: status.cached,
+          loaded: status.loaded,
+          error: status.error,
+          hasImage: status.hasImage
+        });
+      }
+    });
+
+    return allLoaded;
   }, [getCurrentPair]);
 
   // Cleanup unused images from cache

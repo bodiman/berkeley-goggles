@@ -1813,7 +1813,7 @@ function getRatingData(photo: any): { score: number; comparisons: number } {
 
 /**
  * Intelligent Bradley-Terry sampler that selects pairs for maximum information gain
- * while ensuring no person OR image appears more than once in the buffer
+ * Uses a tiered approach: first try person deduplication, then allow image reuse if needed
  */
 function selectInformativePairs(
   availablePairs: Array<{left: any, right: any, type?: string}>, 
@@ -1822,7 +1822,7 @@ function selectInformativePairs(
   if (availablePairs.length === 0 || bufferSize === 0) {
     return [];
   }
-
+  
   // Score all pairs by information gain
   const scoredPairs = availablePairs.map(pair => {
     const leftRating = getRatingData(pair.left);
@@ -1844,40 +1844,62 @@ function selectInformativePairs(
       rightImageId: pair.right.id,
     };
   });
-
+  
   // Sort by information gain (highest first)
   scoredPairs.sort((a, b) => b.score - a.score);
-
-  // Greedy selection with both person and image duplicate prevention
-  const selectedPairs = [];
-  const usedPersonIds = new Set<string>();
-  const usedImageIds = new Set<string>();
-
+  
+  // Phase 1: Try strict person deduplication (ideal case)
+  let selectedPairs = [];
+  let usedPersonIds = new Set<string>();
+  
   for (const scoredPair of scoredPairs) {
-    // Check if we've reached the buffer limit
-    if (selectedPairs.length >= bufferSize) {
-      break;
+    if (selectedPairs.length >= bufferSize) break;
+    
+    const { leftPersonId, rightPersonId } = scoredPair;
+    if (!usedPersonIds.has(leftPersonId) && !usedPersonIds.has(rightPersonId)) {
+      selectedPairs.push(scoredPair.pair);
+      usedPersonIds.add(leftPersonId);
+      usedPersonIds.add(rightPersonId);
     }
-
-    // Check if either person is already in the buffer
-    const { leftPersonId, rightPersonId, leftImageId, rightImageId } = scoredPair;
-    if (usedPersonIds.has(leftPersonId) || usedPersonIds.has(rightPersonId)) {
-      continue; // Skip this pair, one of the people is already used
-    }
-
-    // Check if either image is already in the buffer
-    if (usedImageIds.has(leftImageId) || usedImageIds.has(rightImageId)) {
-      continue; // Skip this pair, one of the images is already used
-    }
-
-    // Add this pair to the selection
-    selectedPairs.push(scoredPair.pair);
-    usedPersonIds.add(leftPersonId);
-    usedPersonIds.add(rightPersonId);
-    usedImageIds.add(leftImageId);
-    usedImageIds.add(rightImageId);
   }
-
+  
+  // Phase 2: If we don't have enough pairs, allow image reuse but track exact pairs
+  if (selectedPairs.length < bufferSize && selectedPairs.length < availablePairs.length) {
+    const usedPairKeys = new Set<string>();
+    
+    // Add already selected pairs to the set
+    selectedPairs.forEach(pair => {
+      const key = `${pair.left.id}_${pair.right.id}`;
+      const reverseKey = `${pair.right.id}_${pair.left.id}`;
+      usedPairKeys.add(key);
+      usedPairKeys.add(reverseKey);
+    });
+    
+    // Try to add more pairs without exact duplicates
+    for (const scoredPair of scoredPairs) {
+      if (selectedPairs.length >= bufferSize) break;
+      
+      const { pair } = scoredPair;
+      const key = `${pair.left.id}_${pair.right.id}`;
+      const reverseKey = `${pair.right.id}_${pair.left.id}`;
+      
+      if (!usedPairKeys.has(key) && !usedPairKeys.has(reverseKey)) {
+        selectedPairs.push(pair);
+        usedPairKeys.add(key);
+        usedPairKeys.add(reverseKey);
+      }
+    }
+  }
+  
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🎯 selectInformativePairs results:`);
+    console.log(`  - Available pairs: ${availablePairs.length}`);
+    console.log(`  - Requested buffer size: ${bufferSize}`);
+    console.log(`  - Phase 1 (person dedup): ${Math.min(selectedPairs.length, usedPersonIds.size / 2)} pairs`);
+    console.log(`  - Final selection: ${selectedPairs.length} pairs`);
+  }
+  
   return selectedPairs;
 }
 

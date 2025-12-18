@@ -18,6 +18,12 @@ interface PhotoComparisonCardProps {
   disabled?: boolean;
   shouldShowCard?: boolean;
   onAnimationComplete?: () => void;
+  bufferStats?: {
+    total: number;
+    current: number;
+    remaining: number;
+    preloadedCount: number;
+  };
 }
 
 export interface PhotoComparisonCardRef {
@@ -32,6 +38,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   disabled = false,
   shouldShowCard = true,
   onAnimationComplete,
+  bufferStats,
 }, ref) => {
   const [showInstructions, setShowInstructions] = useState(true);
   
@@ -100,7 +107,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         <div className="w-full h-[70vh] flex items-center justify-center">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-white text-sm">Loading next pair...</p>
+            <p className="text-white text-sm">Loading next pair... {bufferStats?.current ?? 0}</p>
           </div>
         </div>
       </div>

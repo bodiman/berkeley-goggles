@@ -56,11 +56,22 @@ export const ComparisonPage: React.FC = () => {
   const currentPair = getCurrentPair();
   
   // Debug logging for shouldShowCard
+  const hasCurrentPair = !!currentPair;
+  const pairReady = isCurrentPairReady();
+  const shouldShow = hasCurrentPair && !isTransitioning && pairReady;
+  
   console.log('🎯 ComparisonPage shouldShowCard debug:', {
-    hasCurrentPair: !!currentPair,
+    hasCurrentPair,
     isTransitioning,
-    isCurrentPairReady: isCurrentPairReady(),
-    currentPairId: currentPair ? `${currentPair.leftPhoto.id} vs ${currentPair.rightPhoto.id}` : null
+    pairReady,
+    shouldShow,
+    currentPairId: currentPair ? `${currentPair.leftPhoto.id} vs ${currentPair.rightPhoto.id}` : null,
+    bufferStats,
+    blockingReasons: {
+      noPair: !hasCurrentPair,
+      stillTransitioning: isTransitioning,
+      imagesNotReady: !pairReady
+    }
   });
   
   // Control card visibility - only show when we have a pair, not transitioning, and images are ready
@@ -91,8 +102,26 @@ export const ComparisonPage: React.FC = () => {
 
   // Reset transition state when new pair is ready
   useEffect(() => {
-    if (isTransitioning && currentPair && isCurrentPairReady()) {
+    const hasCurrentPair = !!currentPair;
+    const pairReady = isCurrentPairReady();
+    const shouldReset = isTransitioning && hasCurrentPair && pairReady;
+    
+    console.log('🔄 Transition reset useEffect:', {
+      isTransitioning,
+      hasCurrentPair,
+      pairReady,
+      shouldReset,
+      currentPairId: currentPair ? `${currentPair.leftPhoto.id} vs ${currentPair.rightPhoto.id}` : null
+    });
+    
+    if (shouldReset) {
+      console.log('✅ Resetting isTransitioning to false');
       setIsTransitioning(false);
+    } else if (isTransitioning) {
+      console.log('⏳ Still transitioning, waiting for conditions:', {
+        needsCurrentPair: !hasCurrentPair,
+        needsPairReady: !pairReady
+      });
     }
   }, [isTransitioning, currentPair, isCurrentPairReady]);
 
@@ -337,6 +366,7 @@ export const ComparisonPage: React.FC = () => {
             className="fade-up"
             disabled={isSubmitting}
             shouldShowCard={shouldShowCard}
+            bufferStats={bufferStats}
             onAnimationComplete={() => {
               // Retrieve submitted pair info from ref and pass to handler
               const submittedPairInfo = pendingSubmittedPairRef.current;
@@ -354,7 +384,7 @@ export const ComparisonPage: React.FC = () => {
         ) : (
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-white text-sm">Loading next pair...</p>
+            <p className="text-white text-sm">Loading next pair rn {bufferStats.current}</p>
           </div>
         )}
       </main>
