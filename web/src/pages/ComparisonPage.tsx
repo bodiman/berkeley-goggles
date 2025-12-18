@@ -64,7 +64,7 @@ export const ComparisonPage: React.FC = () => {
     loserId: string;
     winnerType: string;
     loserType: string;
-  }) => {
+  } | null) => {
     setIsTransitioning(true);
     
     // Move to next pair in buffer, passing recent pair info for immediate exclusion
@@ -207,40 +207,6 @@ export const ComparisonPage: React.FC = () => {
     }
   };
 
-  const handleSkip = async () => {
-    if (isSubmitting || !currentPair || !user?.id) return;
-
-    try {
-      setIsSubmitting(true);
-      
-      const response = await apiRequest('/api/comparisons/skip-pair', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId: currentPair.sessionId,
-          userId: user.id,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Light haptic feedback for skip
-        if (navigator.vibrate) {
-          navigator.vibrate(30);
-        }
-        
-        // Update progress (pair advancement handled by animation completion)  
-        await fetchDailyProgress();
-      } else {
-        setError(data.error || 'Failed to skip comparison');
-      }
-    } catch (error) {
-      console.error('Failed to skip comparison:', error);
-      setError('Failed to skip comparison');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // Loading state
   if (isLoading) {

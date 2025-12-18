@@ -89,12 +89,14 @@ export const useImageBuffer = ({
   const storageKey = `viewed_pairs_${userId}`;
   const comparedStorageKey = `compared_pairs_${userId}`;
 
-  // Helper function to create consistent photo combination key
+  // Helper function to create consistent photo combination key matching backend format
   const createCombinationKey = useCallback((pair: PhotoPair): string => {
-    const leftId = pair.leftPhoto.id;
-    const rightId = pair.rightPhoto.id;
-    // Sort IDs to ensure consistent key regardless of left/right order
-    return leftId < rightId ? `${leftId}_${rightId}` : `${rightId}_${leftId}`;
+    // Add prefixes based on photo type to match backend key format
+    const leftKey = pair.leftPhoto.type === 'sample' ? `sample_${pair.leftPhoto.id}` : `photo_${pair.leftPhoto.id}`;
+    const rightKey = pair.rightPhoto.type === 'sample' ? `sample_${pair.rightPhoto.id}` : `photo_${pair.rightPhoto.id}`;
+    
+    // Sort keys to ensure consistent key regardless of left/right order
+    return leftKey < rightKey ? `${leftKey}_${rightKey}` : `${rightKey}_${leftKey}`;
   }, []);
 
   // Persistent storage functions

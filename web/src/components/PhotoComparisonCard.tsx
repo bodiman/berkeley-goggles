@@ -13,7 +13,7 @@ interface PhotoComparisonCardProps {
   topPhoto: Photo;
   bottomPhoto: Photo;
   onSelection: (winnerId: string, loserId: string) => void;
-  onSkip: () => void;
+  onSkip?: () => void;
   className?: string;
   disabled?: boolean;
   shouldShowCard?: boolean;
@@ -28,7 +28,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   topPhoto,
   bottomPhoto,
   onSelection,
-  onSkip,
   className = '',
   disabled = false,
   shouldShowCard = true,
