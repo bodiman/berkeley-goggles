@@ -130,17 +130,15 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     });
 
     // Filter to only include photos that match the user's current profile photo URL
+    // Since both photo URLs and profile URLs are now absolute URLs, we can compare directly
     const filteredUserPhotosByProfile = userPhotos.filter(photo => {
-      // Convert absolute URL to relative path for comparison
-      const photoRelativeUrl = photo.url;
+      const photoUrl = photo.url;
       const userProfileUrl = photo.user.profilePhotoUrl;
       
       if (!userProfileUrl) return false;
       
-      // Extract relative path from absolute URL
-      const profileRelativeUrl = userProfileUrl.replace(/^https?:\/\/[^\/]+/, '');
-      
-      return photoRelativeUrl === profileRelativeUrl;
+      // Direct comparison since both are absolute URLs
+      return photoUrl === userProfileUrl;
     });
 
     // Get available sample images (opposite gender only)
