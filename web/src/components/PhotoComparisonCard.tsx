@@ -102,8 +102,20 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       navigator.vibrate(50);
     }
 
+    // Submit the selection
     onSelection(winner.id, loser.id);
-  }, [disabled, onSelection]);
+    
+    // Determine swipe direction based on which photo was selected
+    // Top photo (topPhoto) -> swipe up, Bottom photo (bottomPhoto) -> swipe down
+    const swipeDirection = winner.id === topPhoto.id ? 'up' : 'down';
+    
+    // Trigger programmatic swipe animation after a brief delay for visual feedback
+    setTimeout(() => {
+      if (cardRef.current) {
+        cardRef.current.swipe(swipeDirection);
+      }
+    }, 150); // 150ms delay for user to see their selection
+  }, [disabled, onSelection, topPhoto.id]);
 
   // Handle real-time drag movement for MOGS overlay
   const handleDragMove = useCallback((dragState: DragState) => {

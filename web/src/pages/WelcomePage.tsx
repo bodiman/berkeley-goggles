@@ -2,15 +2,9 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 
-interface WelcomePageProps {
-  onNavigateToLogin: () => void;
-  onNavigateToRegister: () => void;
-}
+interface WelcomePageProps {}
 
-export const WelcomePage: React.FC<WelcomePageProps> = ({
-  onNavigateToLogin,
-  onNavigateToRegister,
-}) => {
+export const WelcomePage: React.FC<WelcomePageProps> = () => {
   const { loginWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,31 +50,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({
 
           {/* Authentication Options */}
           <div className="space-y-4">
-            {/* Primary CTA - Sign Up */}
-            <button
-              onClick={onNavigateToRegister}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 px-6 rounded-xl font-semibold text-lg transition-colors"
-            >
-              Create Account
-            </button>
-            
-            {/* Secondary CTA - Log In */}
-            <button
-              onClick={onNavigateToLogin}
-              className="w-full bg-gray-800 hover:bg-gray-700 text-white py-4 px-6 rounded-xl font-semibold text-lg transition-colors"
-            >
-              Log In
-            </button>
-            
             {/* Google OAuth Option */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-700"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-4 bg-black text-sm text-gray-500">Or</span>
-              </div>
-            </div>
             
             <div className="w-full">
               {isLoading ? (

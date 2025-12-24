@@ -12,7 +12,7 @@ interface AuthUser {
 }
 
 interface AppNavigationState {
-  currentTab: 'profile' | 'play' | 'matched';
+  currentTab: 'league' | 'play' | 'matched' | 'profile';
   profileSetupComplete: boolean;
   isAuthenticated: boolean;
 }
@@ -35,7 +35,7 @@ interface AuthContextType {
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
   updateUserName: (name: string) => Promise<boolean>;
   updateUserPhoto: (photoData: { blob?: Blob; r2Url?: string; r2ThumbnailUrl?: string }) => Promise<boolean>;
-  updateNavigationTab: (tab: 'profile' | 'play' | 'matched') => void;
+  updateNavigationTab: (tab: 'league' | 'play' | 'matched' | 'profile') => void;
 }
 
 interface UserRegistrationData {
@@ -418,7 +418,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const updateNavigationTab = (tab: 'profile' | 'play' | 'matched') => {
+  const updateNavigationTab = (tab: 'league' | 'play' | 'matched' | 'profile') => {
     setNavigationState(prev => ({
       ...prev,
       currentTab: tab,

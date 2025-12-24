@@ -3,13 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 
 interface LoginPageProps {
-  onNavigateToRegister: () => void;
   onNavigateToWelcome: () => void;
   onNavigateToForgotPassword: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
-  onNavigateToRegister,
   onNavigateToWelcome,
   onNavigateToForgotPassword,
 }) => {
@@ -243,18 +241,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
           </div>
 
-          {/* Sign Up Link */}
-          <div className="mt-8 text-center">
-            <p className="text-gray-400">
-              Don't have an account?{' '}
-              <button
-                onClick={onNavigateToRegister}
-                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-              >
-                Sign up
-              </button>
-            </p>
-          </div>
 
           {/* Demo Login Option */}
           <div className="mt-6 pt-6 border-t border-gray-700">
