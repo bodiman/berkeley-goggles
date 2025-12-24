@@ -86,11 +86,11 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
   const getSwipeRequirementFulfilled = (vx: number, vy: number, dx: number, dy: number) => {
     if (swipeRequirementType === 'velocity') {
       const velocity = Math.sqrt(vx * vx + vy * vy)
-      console.log('Velocity check:', { velocity, threshold: swipeThreshold, fulfilled: velocity > swipeThreshold })
+      // console.log('Velocity check:', { velocity, threshold: swipeThreshold, fulfilled: velocity > swipeThreshold })
       return velocity > swipeThreshold
     } else {
       const distance = Math.sqrt(dx * dx + dy * dy)
-      console.log('Distance check:', { distance, threshold: swipeThreshold, fulfilled: distance > swipeThreshold })
+      // console.log('Distance check:', { distance, threshold: swipeThreshold, fulfilled: distance > swipeThreshold })
       return distance > swipeThreshold
     }
   }
@@ -149,11 +149,6 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     // Check if this was a flick gesture (released while moving)
     const timeSinceLastMove = Date.now() - gestureState.current.lastMoveTime
     const wasFlicked = timeSinceLastMove < 100 // Released within 100ms of last movement
-    
-    console.log('HandleEnd:', { 
-      dx, dy, vx, vy, direction, isFulfilled, preventSwipe, 
-      flickOnSwipe, wasFlicked, timeSinceLastMove 
-    })
 
     // Determine if swipe should trigger
     let shouldSwipe = isFulfilled && !preventSwipe.includes(direction)
@@ -161,11 +156,11 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     if (flickOnSwipe && shouldSwipe) {
       // If flick is required, only swipe if user released while moving
       shouldSwipe = wasFlicked
-      console.log('Flick check:', { flickRequired: flickOnSwipe, wasFlicked, shouldSwipe })
+      // console.log('Flick check:', { flickRequired: flickOnSwipe, wasFlicked, shouldSwipe })
     }
 
     if (shouldSwipe) {
-      console.log('Swiping!', direction)
+      // console.log('Swiping!', direction)
       // Swipe the card off screen
       const multiplier = 3
       setSpringTarget.start({ 
@@ -177,7 +172,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
         onCardLeftScreen?.()
       }, 300)
     } else {
-      console.log('Returning to center, shouldSwipe:', shouldSwipe, 'reason:', !wasFlicked ? 'not flicked' : 'requirements not met')
+      // console.log('Returning to center, shouldSwipe:', shouldSwipe, 'reason:', !wasFlicked ? 'not flicked' : 'requirements not met')
       // Return to center
       setSpringTarget.start({ 
         xyrot: [0, 0, 0],
@@ -210,7 +205,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     const vx = dt > 0 && !isNaN(dx) ? (dx / dt) * 1000 : 0 // Convert to pixels per second
     const vy = dt > 0 && !isNaN(dy) ? (dy / dt) * 1000 : 0 // Convert to pixels per second
 
-    console.log('Gesture state:', { dx, dy, dt, vx, vy, clientX, clientY })
+    // console.log('Gesture state:', { dx, dy, dt, vx, vy, clientX, clientY })
 
     gestureState.current.dx = dx
     gestureState.current.dy = dy
@@ -237,7 +232,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     if (!gestureState.current.isDragging) return
     // Use the last known values instead of trying to get them from the end event
     const { dx, dy, vx, vy } = gestureState.current
-    console.log('MouseUp using stored values:', { dx, dy, vx, vy })
+    // console.log('MouseUp using stored values:', { dx, dy, vx, vy })
     handleEnd(dx, dy, vx, vy)
     gestureState.current.startTime = 0
   }
@@ -256,7 +251,7 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
   const handleTouchEnd = (_event: React.TouchEvent) => {
     // Use the last known values instead of trying to get them from the end event
     const { dx, dy, vx, vy } = gestureState.current
-    console.log('TouchEnd using stored values:', { dx, dy, vx, vy })
+    // console.log('TouchEnd using stored values:', { dx, dy, vx, vy })
     handleEnd(dx, dy, vx, vy)
     gestureState.current.startTime = 0
   }

@@ -60,20 +60,6 @@ export const ComparisonPage: React.FC = () => {
   const pairReady = isCurrentPairReady();
   const shouldShow = hasCurrentPair && !isTransitioning && pairReady;
   
-  console.log('🎯 ComparisonPage shouldShowCard debug:', {
-    hasCurrentPair,
-    isTransitioning,
-    pairReady,
-    shouldShow,
-    currentPairId: currentPair ? `${currentPair.leftPhoto.id} vs ${currentPair.rightPhoto.id}` : null,
-    bufferStats,
-    blockingReasons: {
-      noPair: !hasCurrentPair,
-      stillTransitioning: isTransitioning,
-      imagesNotReady: !pairReady
-    }
-  });
-  
   // Control card visibility - only show when we have a pair, not transitioning, and images are ready
   const shouldShowCard = Boolean(currentPair && !isTransitioning && isCurrentPairReady());
 
@@ -106,22 +92,12 @@ export const ComparisonPage: React.FC = () => {
     const pairReady = isCurrentPairReady();
     const shouldReset = isTransitioning && hasCurrentPair && pairReady;
     
-    console.log('🔄 Transition reset useEffect:', {
-      isTransitioning,
-      hasCurrentPair,
-      pairReady,
-      shouldReset,
-      currentPairId: currentPair ? `${currentPair.leftPhoto.id} vs ${currentPair.rightPhoto.id}` : null
-    });
     
     if (shouldReset) {
       console.log('✅ Resetting isTransitioning to false');
       setIsTransitioning(false);
     } else if (isTransitioning) {
-      console.log('⏳ Still transitioning, waiting for conditions:', {
-        needsCurrentPair: !hasCurrentPair,
-        needsPairReady: !pairReady
-      });
+
     }
   }, [isTransitioning, currentPair, isCurrentPairReady]);
 
@@ -385,11 +361,7 @@ export const ComparisonPage: React.FC = () => {
             onAnimationComplete={() => {
               // Retrieve submitted pair info from ref and pass to handler
               const submittedPairInfo = pendingSubmittedPairRef.current;
-              console.log('🎬 Animation Complete: Retrieved submitted pair info from ref:', {
-                submittedPairInfo,
-                refValue: pendingSubmittedPairRef.current,
-                hasValidInfo: !!submittedPairInfo
-              });
+
               // Clear the pending info
               pendingSubmittedPairRef.current = null;
               // Call handler with the info

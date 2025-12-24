@@ -22,35 +22,7 @@ interface LeagueProgression {
   eloFromPreviousLeague: number;
 }
 
-interface LeagueStats {
-  league: League;
-  playerCount: number;
-  averageElo: number;
-  topPlayer?: {
-    userId: string;
-    elo: number;
-    rank: number;
-  };
-}
 
-interface LeaderboardEntry {
-  rank: number;
-  user: {
-    id: string;
-    name: string;
-    age: number;
-    location: string | null;
-  };
-  photo: {
-    id: string;
-    url: string;
-  };
-  stats: {
-    percentile: number;
-    totalComparisons: number;
-    winRate: number;
-  };
-}
 
 interface LeagueLeaderboardEntry {
   rank: number;
@@ -92,11 +64,6 @@ interface LeagueLeaderboardResponse {
   timestamp: string;
 }
 
-interface LeaderboardResponse {
-  success: boolean;
-  leaderboard: LeaderboardEntry[];
-  timestamp: string;
-}
 
 interface UserStatsResponse {
   success: boolean;
@@ -113,10 +80,8 @@ interface UserStatsResponse {
 export const LeaguePage: React.FC = () => {
   const { user } = useAuth();
   const [userLeague, setUserLeague] = useState<LeagueProgression | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [leagueLeaderboard, setLeagueLeaderboard] = useState<LeagueLeaderboardEntry[]>([]);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true);
   const [isLoadingLeagueLeaderboard, setIsLoadingLeagueLeaderboard] = useState(true);
   const [activeTab, setActiveTab] = useState<'my-league' | 'info'>('my-league');
   const [selectedPlayer, setSelectedPlayer] = useState<LeagueLeaderboardEntry | null>(null);
@@ -124,7 +89,6 @@ export const LeaguePage: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       fetchUserLeague();
-      fetchLeaderboard();
     }
   }, [user?.id]);
 
@@ -152,21 +116,6 @@ export const LeaguePage: React.FC = () => {
     }
   };
 
-  const fetchLeaderboard = async () => {
-    try {
-      setIsLoadingLeaderboard(true);
-      const response = await apiRequest('/api/rankings/leaderboard?limit=20');
-      const data: LeaderboardResponse = await response.json();
-      
-      if (data.success) {
-        setLeaderboard(data.leaderboard);
-      }
-    } catch (error) {
-      console.error('Failed to fetch leaderboard:', error);
-    } finally {
-      setIsLoadingLeaderboard(false);
-    }
-  };
 
   const fetchLeagueLeaderboard = async () => {
     if (!user?.id || !userLeague?.currentLeague.id) return;

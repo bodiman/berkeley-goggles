@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomePage } from './pages/WelcomePage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ProfileSetupPage } from './pages/ProfileSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ComparisonPage } from './pages/ComparisonPage';
@@ -11,11 +10,8 @@ import { LeaguePage } from './pages/LeaguePage';
 import { BottomNavigation } from './components/BottomNavigation';
 import './index.css';
 
-type AuthPageType = 'welcome' | 'forgot-password';
-
 const AppContent: React.FC = () => {
   const { user, navigationState, isLoading } = useAuth();
-  const [currentAuthPage, setCurrentAuthPage] = useState<AuthPageType>('welcome');
 
   if (isLoading) {
     return (

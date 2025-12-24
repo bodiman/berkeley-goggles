@@ -162,17 +162,17 @@ export const useImageBuffer = ({
 
   // Image preloading utility
   const preloadImage = useCallback((url: string): Promise<void> => {
-    console.log('🖼️ Starting image preload:', { url });
+    // console.log('🖼️ Starting image preload:', { url });
     
     return new Promise((resolve, reject) => {
       if (imageCache.current[url]?.loaded) {
-        console.log('✅ Image already cached and loaded:', { url });
+        // console.log('✅ Image already cached and loaded:', { url });
         resolve();
         return;
       }
 
       if (imageCache.current[url]?.error) {
-        console.log('❌ Image previously failed, rejecting:', { url });
+        // console.log('❌ Image previously failed, rejecting:', { url });
         reject(new Error('Image failed to load previously'));
         return;
       }
@@ -181,27 +181,15 @@ export const useImageBuffer = ({
       // Remove crossOrigin to avoid CORS issues with R2 URLs
       
       img.onload = () => {
-        console.log('✅ Image loaded successfully:', { 
-          url, 
-          width: img.naturalWidth, 
-          height: img.naturalHeight 
-        });
         imageCache.current[url] = { loaded: true, error: false, image: img };
         resolve();
       };
 
       img.onerror = (error) => {
-        console.log('❌ Image failed to load:', { 
-          url, 
-          error: error,
-          imageComplete: img.complete,
-          imageSrc: img.src 
-        });
         imageCache.current[url] = { loaded: false, error: true };
         reject(new Error(`Failed to load image: ${url}`));
       };
 
-      console.log('🔄 Setting image src and marking as loading:', { url });
       imageCache.current[url] = { loaded: false, error: false };
       img.src = url;
     });
@@ -216,24 +204,10 @@ export const useImageBuffer = ({
       pair.rightPhoto.thumbnailUrl
     ].filter(Boolean);
 
-    console.log('📥 preloadPairImages called for pair:', {
-      pairId: `${pair.leftPhoto.id} vs ${pair.rightPhoto.id}`,
-      sessionId: pair.sessionId,
-      urlCount: urls.length,
-      urls: urls
-    });
-
     try {
       const results = await Promise.allSettled(urls.map(url => preloadImage(url)));
       const successes = results.filter(r => r.status === 'fulfilled').length;
       const failures = results.filter(r => r.status === 'rejected').length;
-      
-      console.log('📥 preloadPairImages completed:', {
-        pairId: `${pair.leftPhoto.id} vs ${pair.rightPhoto.id}`,
-        successes,
-        failures,
-        totalUrls: urls.length
-      });
     } catch (error) {
       console.warn('Some images failed to preload for pair:', pair.sessionId, error);
     }
@@ -262,36 +236,13 @@ export const useImageBuffer = ({
       // Add recently submitted pair info if available (use override first, then state)
       const recentPair = recentPairOverride || recentlySubmittedPair;
       
-      console.log('🔍 Frontend Debug: Recent pair info check:', {
-        hasRecentPairOverride: !!recentPairOverride,
-        hasRecentlySubmittedPair: !!recentlySubmittedPair,
-        finalRecentPair: !!recentPair,
-        recentPairOverride,
-        recentlySubmittedPair,
-        recentPair
-      });
-      
       if (recentPair) {
         params.append('recentWinnerId', recentPair.winnerId);
         params.append('recentLoserId', recentPair.loserId);
         params.append('recentWinnerType', recentPair.winnerType);
         params.append('recentLoserType', recentPair.loserType);
-        
-        // Frontend logging for API call with exclusion
-        console.log('📞 Frontend API Call: Including recently submitted pair for exclusion:', {
-          recentWinnerId: recentPair.winnerId,
-          recentLoserId: recentPair.loserId,
-          recentWinnerType: recentPair.winnerType,
-          recentLoserType: recentPair.loserType,
-          requestedBufferSize,
-          source: recentPairOverride ? 'parameter' : 'state',
-          apiUrl: `/api/comparisons/next-pair?${params.toString()}`
-        });
       } else {
-        console.log('📞 Frontend API Call: No recent pair to exclude, normal request:', {
-          requestedBufferSize,
-          apiUrl: `/api/comparisons/next-pair?${params.toString()}`
-        });
+
       }
       
       const response = await apiRequest(
@@ -320,7 +271,7 @@ export const useImageBuffer = ({
       //   pairIds: pairs.map(p => `${p.leftPhoto.id} vs ${p.rightPhoto.id}`),
       //   message: data.message || 'No message from backend'
       // });
-      console.log("pair received", pairs.map(p => `${p.leftPhoto.id} vs ${p.rightPhoto.id}`));
+      // console.log("pair received", pairs.map(p => `${p.leftPhoto.id} vs ${p.rightPhoto.id}`));
       
       return pairs;
     } catch (error) {
@@ -338,13 +289,6 @@ export const useImageBuffer = ({
       loserType: string;
     } | null
   ): Promise<void> => {
-    console.log('🔄 Frontend: RefillBuffer called with parameters:', {
-      hasRecentPairOverride: !!recentPairOverride,
-      recentPairOverride,
-      hasStateRecentPair: !!recentlySubmittedPair,
-      currentBufferLength: buffer.length,
-      currentIndex
-    });
     
     if (isFetching.current) return;
     
@@ -372,27 +316,15 @@ export const useImageBuffer = ({
         recentPairOverride: !!recentPairOverride
       });
 
-      console.log('🔍 Frontend: New pairs validation:', {
-        totalReceivedPairs: newPairs.length,
-        bufferedPairs: newBufferedPairs.length,
-        pairIds: newBufferedPairs.map(p => `${p.leftPhoto.id} vs ${p.rightPhoto.id}`)
-      });
-
       setBuffer(prev => {
         // Simple buffer management - no filtering, just append new pairs
         if (prev.length === 0) {
-          console.log('🔄 Frontend: Buffer is empty, replacing entirely:', {
-            newPairsCount: newBufferedPairs.length,
-            currentIndex,
-            willResetIndex: newBufferedPairs.length > 0
-          });
           // Only reset index if we have new pairs
           if (newBufferedPairs.length > 0) {
             setCurrentIndex(0);
           }
           // Immediately preload the current pair (index 0) when buffer is reset
           if (newBufferedPairs.length > 0) {
-            console.log('🚀 Buffer reset: Immediately preloading current pair at index 0');
             setTimeout(() => {
               preloadPairImages(newBufferedPairs[0]).catch(console.error);
             }, 0);
@@ -470,12 +402,6 @@ export const useImageBuffer = ({
   // Get current pair
   const getCurrentPair = useCallback((): PhotoPair | null => {
     // Debug logging for buffer vs index mismatch
-    console.log('🔍 getCurrentPair debug:', {
-      bufferLength: buffer.length,
-      currentIndex,
-      hasValidIndex: currentIndex < buffer.length,
-      bufferPairIds: buffer.map(p => `${p.leftPhoto.id} vs ${p.rightPhoto.id}`)
-    });
     
     if (buffer.length === 0) {
       return null;
@@ -483,10 +409,6 @@ export const useImageBuffer = ({
     
     // Fix: Reset index if it's out of bounds
     if (currentIndex >= buffer.length) {
-      console.log('🔧 Index out of bounds, resetting to 0:', {
-        currentIndex,
-        bufferLength: buffer.length
-      });
       setCurrentIndex(0);
       // Return the first pair after reset
       if (buffer.length > 0) {
@@ -521,13 +443,11 @@ export const useImageBuffer = ({
     logBufferState('before_advance', { hasRecentPair: !!recentPair, recentPair });
     
     // Backend handles all filtering - no frontend filtering needed
-    console.log('⏭️ Frontend: Delegating all filtering to backend, proceeding with advancement');
     
     const nextIndex = currentIndex + 1;
     
     if (nextIndex >= buffer.length) {
       // Buffer exhausted, need to refill
-      console.log('🔄 Frontend: Buffer exhausted, refilling...');
       await refillBuffer(recentPair);
       return;
     }
@@ -536,7 +456,6 @@ export const useImageBuffer = ({
     
     // Immediately preload the new current pair
     if (buffer[nextIndex]) {
-      console.log('🚀 Index advanced: Immediately preloading new current pair at index', nextIndex);
       setTimeout(() => {
         preloadPairImages(buffer[nextIndex]).catch(console.error);
       }, 0);
@@ -548,10 +467,6 @@ export const useImageBuffer = ({
     // Check if we need to refill buffer
     const remaining = buffer.length - nextIndex;
     if (remaining <= refillThreshold && !isBuffering) {
-      console.log('📋 Frontend: Scheduling background refill, low buffer:', {
-        remaining,
-        refillThreshold
-      });
       
       // Refill in background
       setTimeout(() => {
@@ -579,7 +494,6 @@ export const useImageBuffer = ({
   const isCurrentPairReady = useCallback((): boolean => {
     const pair = getCurrentPair();
     if (!pair) {
-      console.log('🔍 isCurrentPairReady: No current pair available');
       return false;
     }
 
@@ -598,22 +512,15 @@ export const useImageBuffer = ({
 
     const allLoaded = urls.every(url => imageCache.current[url]?.loaded);
 
-    console.log('🔍 isCurrentPairReady debug:', {
-      pairId: `${pair.leftPhoto.id} vs ${pair.rightPhoto.id}`,
-      allLoaded,
-      cacheStatus,
-      totalCacheEntries: Object.keys(imageCache.current).length
-    });
-
     // Log any problematic images
     cacheStatus.forEach(status => {
       if (!status.loaded) {
-        console.log(`❌ Image not ready: ${status.url}`, {
-          cached: status.cached,
-          loaded: status.loaded,
-          error: status.error,
-          hasImage: status.hasImage
-        });
+        // console.log(`❌ Image not ready: ${status.url}`, {
+        //   cached: status.cached,
+        //   loaded: status.loaded,
+        //   error: status.error,
+        //   hasImage: status.hasImage
+        // });
       }
     });
 

@@ -53,13 +53,23 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 }, ref) => {
   const [showInstructions, setShowInstructions] = useState(true);
   
+  // Immediate state tracking for instructions (to prevent timing issues)
+  const instructionsVisibleRef = useRef(true);
+  
+  // First load tracking to show hints/instructions only on initial page load
+  const isFirstLoadRef = useRef(true);
+  
+  // Selection cooldown to prevent rapid state changes
+  const cooldownActiveRef = useRef(false);
+  const cooldownTimerRef = useRef<number | null>(null);
+  
   // Swipe tracking state for MOGS overlay
   const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0);
   
   // Inactivity hint system
   const [showHints, setShowHints] = useState(false);
-  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const inactivityTimerRef = useRef<number | null>(null);
   
   // Ref for programmatic swiping
   const cardRef = useRef<TinderCardRef>(null);
@@ -76,14 +86,14 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   // Timer management functions
   const startInactivityTimer = useCallback(() => {
     clearInactivityTimer();
-    inactivityTimerRef.current = setTimeout(() => {
+    inactivityTimerRef.current = window.setTimeout(() => {
       setShowHints(true);
     }, 5000); // 5 seconds
   }, []);
 
   const clearInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
+      window.clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
     }
   }, []);
@@ -93,26 +103,76 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     startInactivityTimer();
   }, [startInactivityTimer]);
 
+  // Cooldown timer management
+  const startSelectionCooldown = useCallback(() => {
+    cooldownActiveRef.current = true;
+    if (cooldownTimerRef.current) {
+      window.clearTimeout(cooldownTimerRef.current);
+    }
+    cooldownTimerRef.current = window.setTimeout(() => {
+      cooldownActiveRef.current = false;
+      cooldownTimerRef.current = null;
+    }, 200); // 200ms cooldown
+  }, []);
+
+  // Helper to dismiss instructions with proper state tracking
+  const dismissInstructions = useCallback(() => {
+    console.log('📋 Dismissing instructions');
+    instructionsVisibleRef.current = false;
+    setShowInstructions(false);
+    startSelectionCooldown();
+  }, [startSelectionCooldown]);
+
+  // Sync ref state with useState on component mount and state changes
+  useEffect(() => {
+    instructionsVisibleRef.current = showInstructions;
+  }, [showInstructions]);
+
   // Start timer when component mounts and shouldShowCard becomes true
   useEffect(() => {
     if (shouldShowCard && !disabled) {
+      // Show hints immediately only on first load
+      if (isFirstLoadRef.current) {
+        setShowHints(true);
+        isFirstLoadRef.current = false; // Mark that we've shown the first load hints
+      }
       startInactivityTimer();
     } else {
       clearInactivityTimer();
       setShowHints(false);
     }
     
-    return () => clearInactivityTimer();
+    return () => {
+      clearInactivityTimer();
+      if (cooldownTimerRef.current) {
+        window.clearTimeout(cooldownTimerRef.current);
+      }
+    };
   }, [shouldShowCard, disabled, startInactivityTimer, clearInactivityTimer]);
 
   // Handle swipe completion
   const handleSwipe = useCallback((direction: string) => {
+    console.log('🔄 handleSwipe called:', direction, 'instructionsVisible (ref):', instructionsVisibleRef.current, 'cooldown (ref):', cooldownActiveRef.current);
+    
     if (disabled) return;
     
     // Reset inactivity timer on interaction
     resetInactivityTimer();
 
-    console.log('Swiped:', direction);
+    // If instructions are showing (use ref for immediate state), dismiss them instead of processing swipe
+    if (instructionsVisibleRef.current) {
+      console.log('📋 Instructions visible - dismissing only');
+      dismissInstructions();
+      return;
+    }
+
+    // If in cooldown period, ignore the interaction
+    if (cooldownActiveRef.current) {
+      console.log('⏱️ In cooldown period - ignoring swipe');
+      return;
+    }
+
+    console.log('✅ Processing swipe:', direction);
 
     switch (direction) {
       case 'up':
@@ -129,7 +189,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         console.log('Skip disabled - ignoring left/right swipe');
         break;
     }
-  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer]);
+  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer, dismissInstructions]);
 
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
@@ -143,11 +203,32 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
 
   // Handle direct tap selection
-  const handleDirectSelection = useCallback((winner: Photo, loser: Photo) => {
+  const handleDirectSelection = useCallback((event: React.MouseEvent, winner: Photo, loser: Photo) => {
+    console.log('👆 handleDirectSelection called, instructionsVisible (ref):', instructionsVisibleRef.current, 'cooldown (ref):', cooldownActiveRef.current);
+    
     if (disabled) return;
     
     // Reset inactivity timer on interaction
     resetInactivityTimer();
+
+    // If instructions are showing (use ref for immediate state), first tap should only dismiss instructions
+    if (instructionsVisibleRef.current) {
+      console.log('📋 Direct tap - instructions visible, dismissing only');
+      event.preventDefault();
+      event.stopPropagation();
+      dismissInstructions();
+      return;
+    }
+
+    // If in cooldown period, ignore the interaction
+    if (cooldownActiveRef.current) {
+      console.log('⏱️ In cooldown period - ignoring tap');
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    console.log('✅ Direct tap - processing selection:', winner.id);
 
     // Add haptic feedback if available
     if (navigator.vibrate) {
@@ -167,7 +248,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         cardRef.current.swipe(swipeDirection);
       }
     }, 150); // 150ms delay for user to see their selection
-  }, [disabled, onSelection, topPhoto.id, resetInactivityTimer]);
+  }, [disabled, onSelection, topPhoto.id, resetInactivityTimer, dismissInstructions]);
 
   // Handle real-time drag movement for MOGS overlay
   const handleDragMove = useCallback((dragState: DragState) => {
@@ -213,7 +294,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         onCardLeftScreen={handleCardLeftScreen}
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
-        preventSwipe={disabled ? ['up', 'down', 'left', 'right'] : ['left', 'right']}
+        preventSwipe={disabled || instructionsVisibleRef.current ? ['up', 'down', 'left', 'right'] : ['left', 'right']}
         swipeRequirementType="velocity"
         swipeThreshold={300}
         flickOnSwipe={true}
@@ -222,7 +303,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         <div className="flex flex-col h-full gap-2 p-4 bg-gray-900 rounded-xl shadow-2xl">
           {/* Top Photo */}
           <button
-            onClick={() => handleDirectSelection(topPhoto, bottomPhoto)}
+            onClick={(event) => handleDirectSelection(event, topPhoto, bottomPhoto)}
             className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
             disabled={disabled}
           >
@@ -292,7 +373,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
           {/* Bottom Photo */}
           <button
-            onClick={() => handleDirectSelection(bottomPhoto, topPhoto)}
+            onClick={(event) => handleDirectSelection(event, bottomPhoto, topPhoto)}
             className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
             disabled={disabled}
           >
@@ -368,7 +449,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
           <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 text-center relative pointer-events-auto">
             {/* Close button */}
             <button
-              onClick={() => setShowInstructions(false)}
+              onClick={dismissInstructions}
               className="absolute top-2 right-2 w-6 h-6 bg-gray-600/80 hover:bg-gray-500/80 rounded-full flex items-center justify-center text-white text-sm transition-colors"
               aria-label="Close instructions"
             >

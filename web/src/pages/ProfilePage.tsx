@@ -62,8 +62,6 @@ export const ProfilePage: React.FC = () => {
   const { user, logout, updateUserName, updateUserPhoto, updateProfile, refreshUser } = useAuth();
   
   // Debug: Log user profilePhoto value
-  console.log('ProfilePage - user.profilePhoto:', user?.profilePhoto);
-  console.log('ProfilePage - full user object:', user);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [isUpdatingName, setIsUpdatingName] = useState(false);
@@ -73,9 +71,6 @@ export const ProfilePage: React.FC = () => {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
-  const [matchingPercentile, setMatchingPercentile] = useState(20);
-  const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
   
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -91,7 +86,6 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       fetchUserStats();
-      fetchUserPreferences();
       // Refresh user data to get latest height/weight info
       refreshUser();
     }
@@ -102,36 +96,20 @@ export const ProfilePage: React.FC = () => {
 
     try {
       setIsLoadingStats(true);
-      setStatsError(null);
       
       const response = await apiRequest(`/api/rankings/my-stats?userId=${user.id}`);
       const data = await response.json();
       
       if (data.success) {
         setUserStats(data.stats);
-      } else {
-        setStatsError(data.error || 'Failed to load stats');
       }
     } catch (error) {
       console.error('Failed to fetch user stats:', error);
-      setStatsError('Failed to load stats');
     } finally {
       setIsLoadingStats(false);
     }
   };
 
-  const fetchUserPreferences = async () => {
-    if (!user?.id) return;
-
-    try {
-      // For now, we'll use a simple approach and assume the default is 20
-      // In a real implementation, you might want a separate API endpoint
-      // or include this in the user profile data
-      setMatchingPercentile(20); // Default value
-    } catch (error) {
-      console.error('Failed to fetch user preferences:', error);
-    }
-  };
 
   const handleEditName = () => {
     setIsEditingName(true);
@@ -199,7 +177,6 @@ export const ProfilePage: React.FC = () => {
       };
 
       const success = await updateUserPhoto(photoData);
-      console.log('success', success);
       
       if (success) {
         setShowPhotoCapture(false);
@@ -220,35 +197,6 @@ export const ProfilePage: React.FC = () => {
     setPhotoError(error);
   };
 
-  const handleMatchingPreferenceChange = async (newPercentile: number) => {
-    try {
-      setIsUpdatingPreference(true);
-
-      const response = await apiRequest('/api/matches/update-preference', {
-        method: 'PUT',
-        body: JSON.stringify({
-          userId: user?.id,
-          matchingPercentile: newPercentile,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update matching preference');
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setMatchingPercentile(newPercentile);
-      } else {
-        throw new Error(data.error || 'Failed to update preference');
-      }
-    } catch (error) {
-      console.error('Failed to update matching preference:', error);
-    } finally {
-      setIsUpdatingPreference(false);
-    }
-  };
 
   // Profile editing functions
   const handleEditProfile = () => {
