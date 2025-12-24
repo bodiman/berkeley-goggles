@@ -504,8 +504,10 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           url: finalUrl,
           thumbnailUrl: finalThumbnailUrl,
           userId: photo.userId,
-          userAge: photo.user.age,
-          userGender: photo.user.gender,
+          age: photo.user.age,
+          height: photo.user.height,
+          weight: photo.user.weight,
+          gender: photo.user.gender,
           type: 'user',
         };
       } else {
@@ -532,8 +534,8 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           url: finalUrl,
           thumbnailUrl: finalThumbnailUrl,
           userId: 'sample',
-          userAge: photo.estimatedAge,
-          userGender: photo.gender,
+          age: photo.estimatedAge,
+          gender: photo.gender,
           type: 'sample',
         };
       }

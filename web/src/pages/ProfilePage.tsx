@@ -2,6 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
 import { apiRequest } from '../config/api';
+// League types defined locally to avoid import issues
+interface League {
+  id: string;
+  name: string;
+  tier: number;
+  category: 'cooked' | 'chopped' | 'chuzz' | 'mid' | 'huzz' | 'ultimate';
+  minElo: number;
+  maxElo: number;
+  color: string;
+  description: string;
+}
+
+interface LeagueProgression {
+  currentLeague: League;
+  nextLeague?: League;
+  previousLeague?: League;
+  progressToNext: number; // 0-100 percentage
+  eloToNextLeague?: number;
+  eloFromPreviousLeague: number;
+}
 
 interface CameraCapture {
   blob: Blob;
@@ -26,6 +46,7 @@ interface UserStats {
     losses: number;
     winRate: number;
     currentPercentile: number;
+    bradleyTerryScore: number;
     confidence: 'low' | 'medium' | 'high';
     trend: 'up' | 'down' | 'stable';
     lastUpdated: string;
@@ -34,10 +55,11 @@ interface UserStats {
     totalRankedPhotos: number;
     rankPosition: number;
   };
+  league: LeagueProgression;
 }
 
 export const ProfilePage: React.FC = () => {
-  const { user, logout, updateUserName, updateUserPhoto } = useAuth();
+  const { user, logout, updateUserName, updateUserPhoto, updateProfile, refreshUser } = useAuth();
   
   // Debug: Log user profilePhoto value
   console.log('ProfilePage - user.profilePhoto:', user?.profilePhoto);
@@ -54,12 +76,24 @@ export const ProfilePage: React.FC = () => {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [matchingPercentile, setMatchingPercentile] = useState(20);
   const [isUpdatingPreference, setIsUpdatingPreference] = useState(false);
+  
+  // Profile editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editedAge, setEditedAge] = useState<number>(18);
+  const [editedGender, setEditedGender] = useState<'male' | 'female'>('male');
+  const [editedHeightFeet, setEditedHeightFeet] = useState<number>(5);
+  const [editedHeightInches, setEditedHeightInches] = useState<number>(0);
+  const [editedWeight, setEditedWeight] = useState<number>(120);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   // Fetch user stats and preferences on component mount
   useEffect(() => {
     if (user?.id) {
       fetchUserStats();
       fetchUserPreferences();
+      // Refresh user data to get latest height/weight info
+      refreshUser();
     }
   }, [user?.id]);
 
@@ -216,6 +250,86 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  // Profile editing functions
+  const handleEditProfile = () => {
+    setIsEditingProfile(true);
+    setProfileError(null);
+    
+    // Initialize values based on current user data
+    setEditedAge(user?.age || 18);
+    setEditedGender(user?.gender || 'male');
+    
+    if (user?.height) {
+      setEditedHeightFeet(Math.floor(user.height / 12));
+      setEditedHeightInches(user.height % 12);
+    } else {
+      setEditedHeightFeet(5);
+      setEditedHeightInches(8); // Default to 5'8"
+    }
+    
+    if (user?.weight) {
+      setEditedWeight(user.weight);
+    } else {
+      setEditedWeight(130); // Default weight
+    }
+  };
+
+  const handleCancelProfileEdit = () => {
+    setIsEditingProfile(false);
+    setProfileError(null);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    setIsUpdatingProfile(true);
+    setProfileError(null);
+
+    try {
+      const profileData: { age?: number; gender?: 'male' | 'female'; height?: number; weight?: number } = {};
+      
+      // Validate and add age
+      if (editedAge < 18 || editedAge > 99) {
+        setProfileError('Age must be between 18 and 99');
+        return;
+      }
+      profileData.age = editedAge;
+      profileData.gender = editedGender;
+      
+      // Add height for males or if user wants to update it
+      if (editedGender === 'male') {
+        const totalInches = editedHeightFeet * 12 + editedHeightInches;
+        if (totalInches < 60 || totalInches > 84) {
+          setProfileError('Height must be between 5\'0" and 7\'0"');
+          return;
+        }
+        profileData.height = totalInches;
+      }
+      
+      // Add weight for females or if user wants to update it
+      if (editedGender === 'female') {
+        if (editedWeight < 80 || editedWeight > 300) {
+          setProfileError('Weight must be between 80 and 300 lbs');
+          return;
+        }
+        profileData.weight = editedWeight;
+      }
+      
+      const success = await updateProfile(profileData);
+      
+      if (success) {
+        setIsEditingProfile(false);
+      } else {
+        setProfileError('Failed to update profile. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      setProfileError('Failed to update profile. Please try again.');
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -319,139 +433,410 @@ export const ProfilePage: React.FC = () => {
             {user.email && (
               <p className="text-gray-400 text-sm">{user.email}</p>
             )}
+            
+            {/* Profile Information Display/Edit */}
+            {isEditingProfile ? (
+              <div className="space-y-4">
+                {/* Profile editing form */}
+                <div className="bg-gray-800 rounded-lg p-4 space-y-4">
+                  {/* Age input */}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      min="18"
+                      max="99"
+                      value={editedAge}
+                      onChange={(e) => setEditedAge(parseInt(e.target.value))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Gender selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Gender
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditedGender('male')}
+                        className={`py-2 px-4 rounded-lg font-medium transition-colors ${
+                          editedGender === 'male'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        Male
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditedGender('female')}
+                        className={`py-2 px-4 rounded-lg font-medium transition-colors ${
+                          editedGender === 'female'
+                            ? 'bg-pink-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        Female
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {editedGender === 'male' && (
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Height
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          value={editedHeightFeet}
+                          onChange={(e) => setEditedHeightFeet(parseInt(e.target.value))}
+                          className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {[5, 6, 7].map(feet => (
+                            <option key={feet} value={feet}>{feet} ft</option>
+                          ))}
+                        </select>
+                        <select
+                          value={editedHeightInches}
+                          onChange={(e) => setEditedHeightInches(parseInt(e.target.value))}
+                          className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i} value={i}>{i} in</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {editedGender === 'female' && (
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Weight (lbs)
+                      </label>
+                      <input
+                        type="number"
+                        min="80"
+                        max="300"
+                        value={editedWeight}
+                        onChange={(e) => setEditedWeight(parseInt(e.target.value))}
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+                  
+                  {profileError && (
+                    <p className="text-red-400 text-sm text-center">{profileError}</p>
+                  )}
+                  
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={isUpdatingProfile}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                    >
+                      {isUpdatingProfile ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={handleCancelProfileEdit}
+                      disabled={isUpdatingProfile}
+                      className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {/* Add edit button for all profile info */}
+                <div className="text-center mb-2">
+                  <button
+                    onClick={handleEditProfile}
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
+                
+                {user.gender === 'male' && (
+                  <div className="flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v18m-3-9h6" />
+                    </svg>
+                    {user.height ? (
+                      <p className="text-gray-400 text-sm">
+                        Height: {Math.floor(user.height / 12)}'{user.height % 12}"
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 text-sm italic">
+                        Height not provided
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {user.gender === 'female' && (
+                  <div className="flex items-center justify-center">
+                    <svg className="w-4 h-4 text-pink-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    {user.weight ? (
+                      <p className="text-gray-400 text-sm">
+                        Weight: {user.weight} lbs
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 text-sm italic">
+                        Weight not provided
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {user.gender && (
+                  <div className="flex items-center justify-center">
+                    <svg className="w-4 h-4 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <p className="text-gray-400 text-sm capitalize">
+                      {user.gender}
+                    </p>
+                  </div>
+                )}
+                
+                {user.age && (
+                  <div className="flex items-center justify-center">
+                    <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-gray-400 text-sm">
+                      {user.age} years old
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="mt-2 flex items-center justify-center text-xs text-gray-500">
               <span>Member since {user.createdAt.toLocaleDateString()}</span>
             </div>
           </div>
 
-          {/* Profile Status */}
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-white mb-3">Profile Status</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400">Profile Complete</span>
-                <div className={`flex items-center space-x-2 ${user.profileComplete ? 'text-green-400' : 'text-yellow-400'}`}>
-                  <span>{user.profileComplete ? '✓' : '⚠'}</span>
-                  <span className="text-sm font-medium">
-                    {user.profileComplete ? 'Complete' : 'Incomplete'}
-                  </span>
+          {/* League Information */}
+          {userStats && (
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-white mb-4">Current League</h3>
+              
+              <div className="space-y-4">
+                {/* League Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div 
+                      className="w-12 h-12 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: userStats.league.currentLeague.color }}
+                    >
+                      <span className="text-white font-bold text-lg">
+                        {userStats.league.currentLeague.tier}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-white font-semibold">
+                        {userStats.league.currentLeague.name}
+                      </h4>
+                      <p className="text-gray-400 text-sm">
+                        {userStats.league.currentLeague.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-white font-bold">
+                      {Math.round(userStats.performance.bradleyTerryScore)}
+                    </div>
+                    <div className="text-gray-400 text-xs">Elo Rating</div>
+                  </div>
                 </div>
+
+                {/* Elo Range Display */}
+                <div className="text-center text-sm text-gray-400">
+                  {userStats.league.currentLeague.id === 'ultimate-champion' ? (
+                    <span>Elite tier - {userStats.league.currentLeague.minElo}+ Elo</span>
+                  ) : (
+                    <span>{userStats.league.currentLeague.minElo} - {userStats.league.currentLeague.maxElo} Elo</span>
+                  )}
+                </div>
+
+                {/* Progress to Next League */}
+                {userStats.league.nextLeague && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Progress to {userStats.league.nextLeague.name}</span>
+                      <span className="text-white">{userStats.league.progressToNext.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${userStats.league.progressToNext}%`,
+                          backgroundColor: userStats.league.nextLeague.color
+                        }}
+                      />
+                    </div>
+                    {userStats.league.eloToNextLeague && (
+                      <div className="text-center text-xs text-gray-400">
+                        {userStats.league.eloToNextLeague} Elo to next league
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Ultimate Champion Display */}
+                {userStats.league.currentLeague.id === 'ultimate-champion' && (
+                  <div className="text-center py-2">
+                    <span className="text-purple-400 font-bold">🏆 Ultimate Champion 🏆</span>
+                    <p className="text-gray-400 text-sm mt-1">You've reached the highest league!</p>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Stats Display */}
+          {/* Rating Distribution */}
           <div className="bg-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-semibold text-white mb-3">Your Stats</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Rating Distribution</h3>
             
             {isLoadingStats ? (
               <div className="text-center py-6">
                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                 <p className="text-gray-400 text-sm">Loading stats...</p>
               </div>
-            ) : statsError ? (
-              <div className="text-center py-6">
-                <p className="text-red-400 text-sm mb-3">{statsError}</p>
-                <button
-                  onClick={fetchUserStats}
-                  className="text-blue-400 hover:text-blue-300 text-sm underline"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : !userStats ? (
-              <div className="text-center py-6">
-                <div className="text-4xl mb-3">📊</div>
-                <h4 className="text-white font-medium mb-2">No Stats Yet</h4>
-                <p className="text-gray-400 text-sm mb-4">
-                  Upload a profile photo and start comparing to see your ranking stats.
-                </p>
-                {!user?.profilePhoto && (
-                  <button
-                    onClick={handlePhotoClick}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Upload Photo
-                  </button>
-                )}
-              </div>
             ) : (
-              <div className="text-center space-y-2">
-                <div className="text-2xl font-bold text-blue-400">
-                  {userStats.performance.winRate}% win rate
-                </div>
-                <div className="text-gray-400 text-sm">
-                  on {userStats.performance.totalComparisons} comparison{userStats.performance.totalComparisons !== 1 ? 's' : ''}
-                </div>
-                <div className="text-lg text-white mt-3">
-                  {Math.round(userStats.performance.currentPercentile)}th percentile
-                </div>
-                
-                {/* Additional stats */}
-                <div className="mt-4 pt-3 border-t border-gray-700">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Confidence:</span>
-                    <span className={`font-medium ${
-                      userStats.performance.confidence === 'high' ? 'text-green-400' :
-                      userStats.performance.confidence === 'medium' ? 'text-yellow-400' : 'text-red-400'
-                    }`}>
-                      {userStats.performance.confidence.charAt(0).toUpperCase() + userStats.performance.confidence.slice(1)}
-                    </span>
+              <div className="space-y-4">
+                {/* Your Rating Display */}
+                <div className="text-center">
+                  <div className="text-green-400 font-semibold text-lg mb-2">
+                    Your rating ({userStats ? Math.round(userStats.performance.bradleyTerryScore) : 1000})
                   </div>
-                  <div className="flex justify-between text-sm mt-1">
-                    <span className="text-gray-400">Trend:</span>
-                    <span className={`font-medium ${
-                      userStats.performance.trend === 'up' ? 'text-green-400' :
-                      userStats.performance.trend === 'down' ? 'text-red-400' : 'text-gray-300'
-                    }`}>
-                      {userStats.performance.trend === 'up' ? '↗ Rising' :
-                       userStats.performance.trend === 'down' ? '↘ Falling' : '→ Stable'}
-                    </span>
+                </div>
+
+                {/* Distribution Chart */}
+                <div className="relative h-64 bg-gray-900 rounded-lg p-4 overflow-hidden">
+                  <svg viewBox="0 0 400 200" className="w-full h-full">
+                    {/* Grid lines */}
+                    <defs>
+                      <pattern id="grid" width="40" height="25" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 25" fill="none" stroke="#374151" strokeWidth="0.5"/>
+                      </pattern>
+                    </defs>
+                    <rect width="400" height="200" fill="url(#grid)" />
+                    
+                    {/* Y-axis labels (Players) */}
+                    <text x="15" y="20" fill="#9CA3AF" fontSize="8" textAnchor="end">8,000</text>
+                    <text x="15" y="45" fill="#9CA3AF" fontSize="8" textAnchor="end">7,000</text>
+                    <text x="15" y="70" fill="#9CA3AF" fontSize="8" textAnchor="end">6,000</text>
+                    <text x="15" y="95" fill="#9CA3AF" fontSize="8" textAnchor="end">5,000</text>
+                    <text x="15" y="120" fill="#9CA3AF" fontSize="8" textAnchor="end">4,000</text>
+                    <text x="15" y="145" fill="#9CA3AF" fontSize="8" textAnchor="end">3,000</text>
+                    <text x="15" y="170" fill="#9CA3AF" fontSize="8" textAnchor="end">2,000</text>
+                    <text x="15" y="195" fill="#9CA3AF" fontSize="8" textAnchor="end">1,000</text>
+                    
+                    {/* X-axis labels (Rating) */}
+                    <text x="40" y="195" fill="#9CA3AF" fontSize="8" textAnchor="middle">200</text>
+                    <text x="120" y="195" fill="#9CA3AF" fontSize="8" textAnchor="middle">600</text>
+                    <text x="200" y="195" fill="#9CA3AF" fontSize="8" textAnchor="middle">1000</text>
+                    <text x="280" y="195" fill="#9CA3AF" fontSize="8" textAnchor="middle">1400</text>
+                    <text x="360" y="195" fill="#9CA3AF" fontSize="8" textAnchor="middle">1800</text>
+                    
+                    {/* Right Y-axis labels (Cumulative %) */}
+                    <text x="385" y="20" fill="#9CA3AF" fontSize="8" textAnchor="start">100.0%</text>
+                    <text x="385" y="45" fill="#9CA3AF" fontSize="8" textAnchor="start">90.0%</text>
+                    <text x="385" y="70" fill="#9CA3AF" fontSize="8" textAnchor="start">80.0%</text>
+                    <text x="385" y="95" fill="#9CA3AF" fontSize="8" textAnchor="start">70.0%</text>
+                    <text x="385" y="120" fill="#9CA3AF" fontSize="8" textAnchor="start">60.0%</text>
+                    <text x="385" y="145" fill="#9CA3AF" fontSize="8" textAnchor="start">50.0%</text>
+                    <text x="385" y="170" fill="#9CA3AF" fontSize="8" textAnchor="start">40.0%</text>
+                    <text x="385" y="195" fill="#9CA3AF" fontSize="8" textAnchor="start">30.0%</text>
+                    
+                    {/* Bell curve (histogram) */}
+                    <path
+                      d="M 40 180 Q 50 175 60 170 Q 80 160 100 140 Q 120 120 140 100 Q 160 80 180 70 Q 200 65 220 70 Q 240 80 260 100 Q 280 120 300 140 Q 320 160 340 170 Q 350 175 360 180"
+                      fill="none"
+                      stroke="#60A5FA"
+                      strokeWidth="2"
+                    />
+                    
+                    {/* Fill under curve */}
+                    <path
+                      d="M 40 180 Q 50 175 60 170 Q 80 160 100 140 Q 120 120 140 100 Q 160 80 180 70 Q 200 65 220 70 Q 240 80 260 100 Q 280 120 300 140 Q 320 160 340 170 Q 350 175 360 180 L 360 180 L 40 180 Z"
+                      fill="rgba(96, 165, 250, 0.3)"
+                    />
+                    
+                    {/* Cumulative percentage curve (yellow) */}
+                    <path
+                      d="M 40 180 Q 80 170 120 150 Q 160 120 200 80 Q 240 40 280 25 Q 320 15 360 20"
+                      fill="none"
+                      stroke="#FDE047"
+                      strokeWidth="2"
+                    />
+                    
+                    {/* User rating line (green dashed) */}
+                    {userStats && (
+                      <>
+                        <line
+                          x1={40 + ((userStats.performance.bradleyTerryScore - 200) / 1600) * 320}
+                          y1="15"
+                          x2={40 + ((userStats.performance.bradleyTerryScore - 200) / 1600) * 320}
+                          y2="180"
+                          stroke="#10B981"
+                          strokeWidth="2"
+                          strokeDasharray="4,4"
+                        />
+                        <circle
+                          cx={40 + ((userStats.performance.bradleyTerryScore - 200) / 1600) * 320}
+                          cy="180"
+                          r="4"
+                          fill="#10B981"
+                        />
+                      </>
+                    )}
+                  </svg>
+                  
+                  {/* Axis labels */}
+                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-gray-400 text-xs">
+                    Bradley-Terry rating
                   </div>
-                  {userStats.context.totalRankedPhotos > 0 && (
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-gray-400">Rank:</span>
-                      <span className="text-white font-medium">
-                        #{userStats.context.rankPosition} of {userStats.context.totalRankedPhotos}
-                      </span>
+                  <div className="absolute left-1 top-1/2 transform -translate-y-1/2 -rotate-90 text-gray-400 text-xs">
+                    Players
+                  </div>
+                  <div className="absolute right-1 top-1/2 transform -translate-y-1/2 rotate-90 text-gray-400 text-xs">
+                    Cumulative
+                  </div>
+                </div>
+
+                {/* Stats summary */}
+                {userStats && (
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-blue-400">
+                        {Math.round(userStats.performance.currentPercentile)}th
+                      </div>
+                      <div className="text-gray-400 text-sm">percentile</div>
                     </div>
-                  )}
-                </div>
+                    <div>
+                      <div className="text-2xl font-bold text-white">
+                        {userStats.performance.totalComparisons}
+                      </div>
+                      <div className="text-gray-400 text-sm">comparisons</div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Matching Settings */}
-          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Matching Preferences</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">
-                  Match me with people in my top {matchingPercentile}%
-                </label>
-                <input
-                  type="range"
-                  min="5"
-                  max="100"
-                  step="5"
-                  value={matchingPercentile}
-                  onChange={(e) => {
-                    const newValue = parseInt(e.target.value);
-                    setMatchingPercentile(newValue);
-                    handleMatchingPreferenceChange(newValue);
-                  }}
-                  disabled={isUpdatingPreference}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed slider"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Top 5%</span>
-                  <span>Top 50%</span>
-                  <span>Top 100%</span>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Actions */}
           <div className="space-y-3">

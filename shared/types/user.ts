@@ -14,6 +14,8 @@ export interface User {
 export interface UserProfile {
   age: number;
   gender: 'male' | 'female';
+  height?: number; // Height in inches (for males)
+  weight?: number; // Weight in pounds (for females)
   location: Location;
   photos: any[]; // Will be typed as Photo[] when imported
   bio?: string;
@@ -119,6 +121,8 @@ export interface UserProfileSetup {
   name: string;
   age: number;
   gender: 'male' | 'female';
+  height?: number; // Height in inches (for males)
+  weight?: number; // Weight in pounds (for females)
   photo?: File | Blob;
   agreedToTerms: boolean;
   agreedToPrivacy: boolean;
@@ -135,6 +139,9 @@ export interface AuthUser {
   name: string;
   email?: string;
   profilePhoto?: string;
+  height?: number; // Height in inches (for males)
+  weight?: number; // Weight in pounds (for females)
+  gender?: 'male' | 'female';
   profileComplete: boolean;
   createdAt: Date;
   lastActive: Date;

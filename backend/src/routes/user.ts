@@ -29,14 +29,33 @@ const profileSetupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   age: z.number().int().min(18, 'Must be at least 18 years old'),
   gender: z.enum(['male', 'female']),
+  height: z.number().int().min(60).max(84).optional(), // Height in inches (5'0" to 7'0")
+  weight: z.number().int().min(80).max(300).optional(), // Weight in pounds (80-300 lbs)
+}).refine((data) => {
+  // Males must provide height
+  if (data.gender === 'male' && !data.height) {
+    return false;
+  }
+  // Females must provide weight
+  if (data.gender === 'female' && !data.weight) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Height is required for males and weight is required for females',
+  path: ['height', 'weight'], // This will show the error on both fields
 });
 
 const profileUpdateSchema = z.object({
   name: z.string().min(2).optional(),
+  age: z.number().int().min(18).max(99).optional(),
+  gender: z.enum(['male', 'female']).optional(),
   bio: z.string().max(500).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   country: z.string().optional(),
+  height: z.number().int().min(60).max(84).optional(), // Height in inches (5'0" to 7'0")
+  weight: z.number().int().min(80).max(300).optional(), // Weight in pounds (80-300 lbs)
 });
 
 // POST /api/user/setup - Setup user profile (initial onboarding)
@@ -153,6 +172,17 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
       photoId = photo.id;
     }
     
+    // Validate profile completion requirements
+    const isProfileComplete = Boolean(
+      validatedData.name &&
+      validatedData.age &&
+      validatedData.gender &&
+      (
+        (validatedData.gender === 'male' && validatedData.height) ||
+        (validatedData.gender === 'female' && validatedData.weight)
+      )
+    );
+    
     // Update user in database (store relative path)
     const updatedUser = await prisma.user.update({
       where: { id: userId },
@@ -160,7 +190,9 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         name: validatedData.name,
         age: validatedData.age,
         gender: validatedData.gender,
-        profileComplete: true,
+        height: validatedData.height,
+        weight: validatedData.weight,
+        profileComplete: isProfileComplete,
         profilePhotoUrl: photoId ? relativePhotoUrl : null,
         lastActive: new Date(),
       },
@@ -193,35 +225,44 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
 
 // GET /api/user/profile
 userRoutes.get('/profile', asyncHandler(async (req, res) => {
-  // TODO: Get user ID from auth middleware
-  const mockUserId = 'user_123';
-  
-  // TODO: Query database for user profile
-  res.json({ 
-    success: true,
-    user: {
-      id: mockUserId,
-      name: 'Demo User',
-      email: 'demo@berkeleygoggles.app',
-      profileComplete: true,
-      createdAt: new Date('2024-01-01'),
-      lastActive: new Date(),
-      profile: {
-        age: 25,
-        gender: 'male',
-        bio: 'Demo user profile',
-        photos: [],
-      },
-      stats: {
-        totalVotes: 0,
-        comparisonsGiven: 0,
-        streak: 0,
-        weeklyChange: 0,
-        achievements: [],
-      }
-    },
-    timestamp: new Date().toISOString()
-  });
+  try {
+    // TODO: Get user ID from auth middleware
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+    
+    // Query database for user profile with all fields including height/weight
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+    
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+    
+    res.json({ 
+      success: true,
+      user: userWithoutPassword,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user profile',
+    });
+  }
 }));
 
 // PUT /api/user/profile

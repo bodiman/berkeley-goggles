@@ -7,6 +7,7 @@ import { ProfileSetupPage } from './pages/ProfileSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ComparisonPage } from './pages/ComparisonPage';
 import { MatchedPage } from './pages/MatchedPage';
+import { LeaguePage } from './pages/LeaguePage';
 import { BottomNavigation } from './components/BottomNavigation';
 import './index.css';
 
@@ -40,15 +41,7 @@ const AppContent: React.FC = () => {
   // Authenticated with complete profile - show main app
   return (
     <div className="min-h-screen bg-black">
-      {navigationState.currentTab === 'league' && (
-        <div className="min-h-screen bg-black flex items-center justify-center">
-          <div className="text-white text-center">
-            <div className="text-6xl mb-4">🏆</div>
-            <h2 className="text-2xl font-bold mb-2">League Coming Soon</h2>
-            <p className="text-gray-400">Compete with other players in ranked leagues!</p>
-          </div>
-        </div>
-      )}
+      {navigationState.currentTab === 'league' && <LeaguePage />}
       {navigationState.currentTab === 'profile' && <ProfilePage />}
       {navigationState.currentTab === 'play' && <ComparisonPage />}
       {navigationState.currentTab === 'matched' && <MatchedPage />}

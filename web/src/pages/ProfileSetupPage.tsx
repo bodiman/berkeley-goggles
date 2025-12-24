@@ -7,6 +7,8 @@ interface UserProfileSetup {
   name: string;
   age: number;
   gender: 'male' | 'female';
+  height?: number; // Height in inches (for males)
+  weight?: number; // Weight in pounds (for females)
   photo?: File | Blob;
   photoUrl?: string; // R2 CDN URL if already uploaded
 }
@@ -49,6 +51,20 @@ export const ProfileSetupPage: React.FC = () => {
       setError('You must be at least 18 years old');
       return;
     }
+    
+    // Validate height/weight based on gender
+    if (formData.gender === 'male') {
+      if (!formData.height || formData.height < 60 || formData.height > 84) {
+        setError('Height is required for males and must be between 5\'0" and 7\'0"');
+        return;
+      }
+    } else if (formData.gender === 'female') {
+      if (!formData.weight || formData.weight < 80 || formData.weight > 300) {
+        setError('Weight is required for females and must be between 80 and 300 lbs');
+        return;
+      }
+    }
+    
     setError(null);
     setCurrentStep('photo');
   };
@@ -226,7 +242,7 @@ export const ProfileSetupPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, gender: 'male' }))}
+                    onClick={() => setFormData(prev => ({ ...prev, gender: 'male', weight: undefined }))}
                     className={`py-3 px-4 rounded-lg font-medium transition-colors ${
                       formData.gender === 'male'
                         ? 'bg-blue-600 text-white'
@@ -237,7 +253,7 @@ export const ProfileSetupPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, gender: 'female' }))}
+                    onClick={() => setFormData(prev => ({ ...prev, gender: 'female', height: undefined }))}
                     className={`py-3 px-4 rounded-lg font-medium transition-colors ${
                       formData.gender === 'female'
                         ? 'bg-blue-600 text-white'
@@ -248,6 +264,67 @@ export const ProfileSetupPage: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Height input for males */}
+              {formData.gender === 'male' && (
+                <div>
+                  <label htmlFor="height" className="block text-sm font-medium text-white mb-2">
+                    Height <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={Math.floor((formData.height || 70) / 12)}
+                      onChange={(e) => {
+                        const feet = parseInt(e.target.value);
+                        const inches = (formData.height || 70) % 12;
+                        setFormData(prev => ({ ...prev, height: feet * 12 + inches }));
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {Array.from({ length: 3 }, (_, i) => i + 5).map(feet => (
+                        <option key={feet} value={feet}>{feet} ft</option>
+                      ))}
+                    </select>
+                    <select
+                      value={(formData.height || 70) % 12}
+                      onChange={(e) => {
+                        const feet = Math.floor((formData.height || 70) / 12);
+                        const inches = parseInt(e.target.value);
+                        setFormData(prev => ({ ...prev, height: feet * 12 + inches }));
+                      }}
+                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i).map(inches => (
+                        <option key={inches} value={inches}>{inches} in</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Height will be displayed in photo comparisons</p>
+                </div>
+              )}
+
+              {/* Weight input for females */}
+              {formData.gender === 'female' && (
+                <div>
+                  <label htmlFor="weight" className="block text-sm font-medium text-white mb-2">
+                    Weight <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      id="weight"
+                      min="80"
+                      max="300"
+                      value={formData.weight || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, weight: parseInt(e.target.value) || undefined }))}
+                      placeholder="Enter weight"
+                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">lbs</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Weight will be displayed in photo comparisons</p>
+                </div>
+              )}
 
               {error && (
                 <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">

@@ -45,8 +45,8 @@ export class BradleyTerryService {
     learningRate: 0.1,
     convergenceThreshold: 1e-6,
     maxIterations: 1000,
-    minScore: 0.01,  // Prevent scores from hitting exactly 0
-    maxScore: 10.0,  // Reasonable upper bound
+    minScore: 200,  // Minimum elo rating
+    maxScore: 2800,  // Maximum elo rating
     normalizeScores: true,
   };
 
@@ -111,7 +111,7 @@ export class BradleyTerryService {
     }
     
     for (const itemId of allItemIds) {
-      const initialScore = initialRatings.get(itemId) || 1.0; // Standard initial rating
+      const initialScore = initialRatings.get(itemId) || 1000; // Standard initial rating (1000 elo)
       ratings.set(itemId, {
         id: itemId,
         score: initialScore,
@@ -315,7 +315,7 @@ export class BradleyTerryService {
     
     // Calculate current mean
     const currentMean = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const targetMean = 1.0; // Standard Bradley-Terry mean
+    const targetMean = 1000; // Target elo mean
     
     // Adjust all scores proportionally
     const scaleFactor = targetMean / currentMean;

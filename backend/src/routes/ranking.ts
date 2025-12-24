@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
+import { LeagueService } from '../services/leagueService';
 
 export const rankingRoutes = Router();
 
@@ -89,6 +90,10 @@ rankingRoutes.get('/my-stats', asyncHandler(async (req, res) => {
       },
     });
 
+    // Calculate league information
+    const currentElo = ranking?.bradleyTerryScore || 1000;
+    const leagueProgression = LeagueService.getLeagueProgression(currentElo);
+
     const stats = {
       photo: {
         id: photo.id,
@@ -101,6 +106,7 @@ rankingRoutes.get('/my-stats', asyncHandler(async (req, res) => {
         losses,
         winRate: Math.round(winRate * 10) / 10,
         currentPercentile: ranking?.currentPercentile || 50,
+        bradleyTerryScore: ranking?.bradleyTerryScore || 1000,
         confidence,
         trend,
         lastUpdated: ranking?.lastUpdated,
@@ -109,6 +115,7 @@ rankingRoutes.get('/my-stats', asyncHandler(async (req, res) => {
         totalRankedPhotos,
         rankPosition: Math.ceil((ranking?.currentPercentile || 50) * totalRankedPhotos / 100),
       },
+      league: leagueProgression,
       history: ranking?.history || [],
     };
 
@@ -300,6 +307,119 @@ rankingRoutes.get('/leaderboard', asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get leaderboard',
+    });
+  }
+}));
+
+// GET /api/rankings/league-leaderboard - Get leaderboard for a specific league
+rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    const leagueId = req.query.leagueId as string;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+
+    if (!leagueId) {
+      return res.status(400).json({
+        success: false,
+        error: 'League ID required',
+      });
+    }
+
+    // Get the league information
+    const league = LeagueService.getLeagueById(leagueId);
+    if (!league) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid league ID',
+      });
+    }
+
+    // Get players in the specified league
+    const leagueRankings = await prisma.photoRanking.findMany({
+      where: {
+        photo: { status: 'approved' },
+        user: { optOutOfLeaderboards: false },
+        totalComparisons: { gte: 5 }, // Minimum comparisons for league leaderboard
+        bradleyTerryScore: {
+          gte: league.minElo,
+          lt: league.maxElo === Infinity ? undefined : league.maxElo,
+        },
+      },
+      include: {
+        photo: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            age: true,
+            city: true,
+            state: true,
+            profilePhotoUrl: true,
+            height: true,
+            weight: true,
+            gender: true,
+          },
+        },
+      },
+      orderBy: { bradleyTerryScore: 'desc' },
+      take: limit,
+    });
+
+    const leaderboard = leagueRankings.map((ranking, index) => ({
+      rank: index + 1,
+      user: {
+        id: ranking.user.id,
+        name: ranking.user.name,
+        age: ranking.user.age,
+        location: ranking.user.city && ranking.user.state 
+          ? `${ranking.user.city}, ${ranking.user.state}` 
+          : null,
+        profilePhotoUrl: ranking.user.profilePhotoUrl,
+        height: ranking.user.height,
+        weight: ranking.user.weight,
+        gender: ranking.user.gender,
+      },
+      photo: {
+        id: ranking.photo.id,
+        url: ranking.photo.thumbnailUrl || ranking.photo.url,
+      },
+      stats: {
+        elo: Math.round(ranking.bradleyTerryScore * 10) / 10,
+        percentile: ranking.currentPercentile,
+        totalComparisons: ranking.totalComparisons,
+        winRate: ranking.totalComparisons > 0 
+          ? Math.round((ranking.wins / ranking.totalComparisons) * 1000) / 10
+          : 0,
+      },
+      isCurrentUser: ranking.user.id === userId,
+    }));
+
+    res.json({ 
+      success: true, 
+      leaderboard,
+      league: {
+        id: league.id,
+        name: league.name,
+        tier: league.tier,
+        category: league.category,
+        minElo: league.minElo,
+        maxElo: league.maxElo,
+        color: league.color,
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Get league leaderboard error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get league leaderboard',
     });
   }
 }));

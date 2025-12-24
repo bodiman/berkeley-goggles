@@ -6,6 +6,9 @@ interface AuthUser {
   name: string;
   email?: string;
   profilePhoto?: string;
+  height?: number; // Height in inches (for males)
+  weight?: number; // Weight in pounds (for females)
+  gender?: 'male' | 'female';
   profileComplete: boolean;
   createdAt: Date;
   lastActive: Date;
@@ -21,7 +24,21 @@ interface UserProfileSetup {
   name: string;
   age: number;
   gender: 'male' | 'female';
+  height?: number; // Height in inches (for males)
+  weight?: number; // Weight in pounds (for females)
   photo?: File | Blob;
+}
+
+interface UserProfileData {
+  name?: string;
+  age?: number;
+  gender?: 'male' | 'female';
+  bio?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  height?: number; // Height in inches
+  weight?: number; // Weight in pounds
 }
 
 interface AuthContextType {
@@ -35,6 +52,8 @@ interface AuthContextType {
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
   updateUserName: (name: string) => Promise<boolean>;
   updateUserPhoto: (photoData: { blob?: Blob; r2Url?: string; r2ThumbnailUrl?: string }) => Promise<boolean>;
+  updateProfile: (profileData: UserProfileData) => Promise<boolean>;
+  refreshUser: () => Promise<boolean>;
   updateNavigationTab: (tab: 'league' | 'play' | 'matched' | 'profile') => void;
 }
 
@@ -425,6 +444,71 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }));
   };
 
+  const updateProfile = async (profileData: UserProfileData): Promise<boolean> => {
+    try {
+      if (!user?.id) return false;
+
+      const response = await apiRequest('/api/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          userId: user.id,
+          ...profileData,
+        }),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      if (data.success && data.user) {
+        const updatedUser: AuthUser = {
+          ...data.user,
+          profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
+          createdAt: new Date(data.user.createdAt),
+          lastActive: new Date(data.user.lastActive),
+        };
+        
+        setUser(updatedUser);
+        localStorage.setItem('elo-check-user', JSON.stringify(updatedUser));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      return false;
+    }
+  };
+
+  const refreshUser = async (): Promise<boolean> => {
+    try {
+      if (!user?.id) return false;
+
+      const response = await apiRequest(`/api/user/profile?userId=${user.id}`);
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+      if (data.success && data.user) {
+        const refreshedUser: AuthUser = {
+          ...data.user,
+          profilePhoto: data.user.profilePhotoUrl, // Map backend field to frontend field
+          createdAt: new Date(data.user.createdAt),
+          lastActive: new Date(data.user.lastActive),
+        };
+        
+        setUser(refreshedUser);
+        localStorage.setItem('elo-check-user', JSON.stringify(refreshedUser));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -437,6 +521,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setupProfile,
       updateUserName,
       updateUserPhoto,
+      updateProfile,
+      refreshUser,
       updateNavigationTab,
     }}>
       {children}
