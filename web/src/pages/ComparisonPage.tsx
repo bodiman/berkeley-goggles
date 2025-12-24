@@ -278,7 +278,22 @@ export const ComparisonPage: React.FC = () => {
     );
   }
 
-  // No pairs available
+  // Show loading if still preparing data
+  if (!currentPair && (isBuffering || !isCurrentPairReady())) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Preparing next pair...</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {isBuffering ? 'Loading new pairs...' : 'Loading images...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // No pairs available (only show this when genuinely done)
   if (!currentPair) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6 safe-area-inset">

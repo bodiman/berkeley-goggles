@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useImperativeHandle, forwardRef } from 'react';
+import { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import TinderCard from './TinderCard';
 import type { DragState, TinderCardRef } from './TinderCard';
 
@@ -57,6 +57,10 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0);
   
+  // Inactivity hint system
+  const [showHints, setShowHints] = useState(false);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Ref for programmatic swiping
   const cardRef = useRef<TinderCardRef>(null);
 
@@ -69,9 +73,44 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     }
   }));
 
+  // Timer management functions
+  const startInactivityTimer = useCallback(() => {
+    clearInactivityTimer();
+    inactivityTimerRef.current = setTimeout(() => {
+      setShowHints(true);
+    }, 5000); // 5 seconds
+  }, []);
+
+  const clearInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    setShowHints(false);
+    startInactivityTimer();
+  }, [startInactivityTimer]);
+
+  // Start timer when component mounts and shouldShowCard becomes true
+  useEffect(() => {
+    if (shouldShowCard && !disabled) {
+      startInactivityTimer();
+    } else {
+      clearInactivityTimer();
+      setShowHints(false);
+    }
+    
+    return () => clearInactivityTimer();
+  }, [shouldShowCard, disabled, startInactivityTimer, clearInactivityTimer]);
+
   // Handle swipe completion
   const handleSwipe = useCallback((direction: string) => {
     if (disabled) return;
+    
+    // Reset inactivity timer on interaction
+    resetInactivityTimer();
 
     console.log('Swiped:', direction);
 
@@ -90,7 +129,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         console.log('Skip disabled - ignoring left/right swipe');
         break;
     }
-  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id]);
+  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer]);
 
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
@@ -106,6 +145,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   // Handle direct tap selection
   const handleDirectSelection = useCallback((winner: Photo, loser: Photo) => {
     if (disabled) return;
+    
+    // Reset inactivity timer on interaction
+    resetInactivityTimer();
 
     // Add haptic feedback if available
     if (navigator.vibrate) {
@@ -125,10 +167,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         cardRef.current.swipe(swipeDirection);
       }
     }, 150); // 150ms delay for user to see their selection
-  }, [disabled, onSelection, topPhoto.id]);
+  }, [disabled, onSelection, topPhoto.id, resetInactivityTimer]);
 
   // Handle real-time drag movement for MOGS overlay
   const handleDragMove = useCallback((dragState: DragState) => {
+    // Reset inactivity timer on drag interaction
+    resetInactivityTimer();
+    
     // Only track up/down for MOGS overlay
     if (dragState.direction === 'up' || dragState.direction === 'down') {
       setSwipeDirection(dragState.direction);
@@ -137,7 +182,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       setSwipeDirection(null);
       setSwipeProgress(0);
     }
-  }, []);
+  }, [resetInactivityTimer]);
 
   // Handle drag end - reset overlay
   const handleDragEnd = useCallback(() => {
@@ -213,6 +258,18 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
+            {/* Inactivity Hint Overlay for Top Photo */}
+            {showHints && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity duration-300 ease-in-out">
+                <div className="text-white">
+                  <svg className="w-16 h-16 mx-auto animate-bounce" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-center mt-2 font-semibold text-lg">Tap or Swipe Up</p>
+                </div>
+              </div>
+            )}
+            
             {/* MOGS Overlay for Top Photo */}
             {swipeDirection === 'up' && (
               <div 
@@ -268,6 +325,18 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             {(bottomPhoto.gender === 'female' && bottomPhoto.weight) && (
               <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-medium">
                 {bottomPhoto.weight} lbs
+              </div>
+            )}
+            
+            {/* Inactivity Hint Overlay for Bottom Photo */}
+            {showHints && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity duration-300 ease-in-out">
+                <div className="text-white">
+                  <svg className="w-16 h-16 mx-auto animate-bounce" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-center mt-2 font-semibold text-lg">Tap or Swipe Down</p>
+                </div>
               </div>
             )}
             

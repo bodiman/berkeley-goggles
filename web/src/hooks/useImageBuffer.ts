@@ -56,7 +56,7 @@ export const useImageBuffer = ({
 }: UseImageBufferOptions) => {
   const [buffer, setBuffer] = useState<BufferedPair[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true to show loading state initially
   const [isBuffering, setIsBuffering] = useState(false);
   
   const imageCache = useRef<ImageCache>({});

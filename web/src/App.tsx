@@ -41,10 +41,19 @@ const AppContent: React.FC = () => {
   // Authenticated with complete profile - show main app
   return (
     <div className="min-h-screen bg-black">
-      {navigationState.currentTab === 'league' && <LeaguePage />}
-      {navigationState.currentTab === 'profile' && <ProfilePage />}
-      {navigationState.currentTab === 'play' && <ComparisonPage />}
-      {navigationState.currentTab === 'matched' && <MatchedPage />}
+      {/* Keep all tab components mounted to preserve state */}
+      <div className={navigationState.currentTab === 'league' ? 'block' : 'hidden'}>
+        <LeaguePage />
+      </div>
+      <div className={navigationState.currentTab === 'profile' ? 'block' : 'hidden'}>
+        <ProfilePage />
+      </div>
+      <div className={navigationState.currentTab === 'play' ? 'block' : 'hidden'}>
+        <ComparisonPage />
+      </div>
+      <div className={navigationState.currentTab === 'matched' ? 'block' : 'hidden'}>
+        <MatchedPage />
+      </div>
       <BottomNavigation />
     </div>
   );
