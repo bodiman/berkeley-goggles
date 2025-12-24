@@ -185,7 +185,7 @@ export const useImageBuffer = ({
         resolve();
       };
 
-      img.onerror = (error) => {
+      img.onerror = () => {
         imageCache.current[url] = { loaded: false, error: true };
         reject(new Error(`Failed to load image: ${url}`));
       };
@@ -205,9 +205,7 @@ export const useImageBuffer = ({
     ].filter(Boolean);
 
     try {
-      const results = await Promise.allSettled(urls.map(url => preloadImage(url)));
-      const successes = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results.filter(r => r.status === 'rejected').length;
+      await Promise.allSettled(urls.map(url => preloadImage(url)));
     } catch (error) {
       console.warn('Some images failed to preload for pair:', pair.sessionId, error);
     }

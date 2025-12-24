@@ -55,10 +55,6 @@ export const ComparisonPage: React.FC = () => {
   
   const currentPair = getCurrentPair();
   
-  // Debug logging for shouldShowCard
-  const hasCurrentPair = !!currentPair;
-  const pairReady = isCurrentPairReady();
-  const shouldShow = hasCurrentPair && !isTransitioning && pairReady;
   
   // Control card visibility - only show when we have a pair, not transitioning, and images are ready
   const shouldShowCard = Boolean(currentPair && !isTransitioning && isCurrentPairReady());
