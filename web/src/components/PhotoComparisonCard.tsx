@@ -69,6 +69,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   
   // Inactivity hint system
   const [showHints, setShowHints] = useState(false);
+  const showHintsRef = useRef(false);
   const inactivityTimerRef = useRef<number | null>(null);
   
   // Ref for programmatic swiping
@@ -87,7 +88,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   const startInactivityTimer = useCallback(() => {
     clearInactivityTimer();
     inactivityTimerRef.current = window.setTimeout(() => {
+      console.log('⏰ Inactivity timer fired - showing hints and updating ref');
       setShowHints(true);
+      showHintsRef.current = true; // Update ref immediately
     }, 5000); // 5 seconds
   }, []);
 
@@ -99,9 +102,17 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   }, []);
 
   const resetInactivityTimer = useCallback(() => {
-    setShowHints(false);
+    console.log('🔄 resetInactivityTimer - starting new timer (hints will be hidden after interaction)');
+    // Don't hide hints immediately - let the interaction handlers check the current state first
     startInactivityTimer();
   }, [startInactivityTimer]);
+
+  // Function to hide hints after interaction is processed
+  const hideHintsAfterInteraction = useCallback(() => {
+    console.log('🔄 hideHintsAfterInteraction - hiding hints and updating ref');
+    setShowHints(false);
+    showHintsRef.current = false;
+  }, []);
 
   // Cooldown timer management
   const startSelectionCooldown = useCallback(() => {
@@ -123,23 +134,58 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     startSelectionCooldown();
   }, [startSelectionCooldown]);
 
+
+  // Unified dismissal function for any visible UI elements
+  const dismissVisibleElements = useCallback(() => {
+    console.log('👋 Dismissing visible elements - instructions:', instructionsVisibleRef.current, 'hints:', showHintsRef.current);
+    
+    const hadVisibleElements = instructionsVisibleRef.current || showHintsRef.current;
+    
+    // Start cooldown IMMEDIATELY if any elements were visible
+    if (hadVisibleElements) {
+      cooldownActiveRef.current = true; // Set cooldown ref immediately
+      startSelectionCooldown();
+    }
+    
+    // Then clear the UI elements
+    if (instructionsVisibleRef.current) {
+      instructionsVisibleRef.current = false;
+      setShowInstructions(false);
+    }
+    
+    if (showHintsRef.current) {
+      showHintsRef.current = false;
+      setShowHints(false);
+    }
+    
+    // Hide hints after processing to ensure clean state for next interaction
+    hideHintsAfterInteraction();
+  }, [startSelectionCooldown, hideHintsAfterInteraction]);
+
   // Sync ref state with useState on component mount and state changes
   useEffect(() => {
     instructionsVisibleRef.current = showInstructions;
   }, [showInstructions]);
 
+
   // Start timer when component mounts and shouldShowCard becomes true
   useEffect(() => {
+    console.log('🔄 useEffect - shouldShowCard:', shouldShowCard, 'disabled:', disabled, 'isFirstLoad:', isFirstLoadRef.current);
+    
     if (shouldShowCard && !disabled) {
       // Show hints immediately only on first load
       if (isFirstLoadRef.current) {
+        console.log('💡 First load - showing hints and updating ref');
         setShowHints(true);
+        showHintsRef.current = true; // Update ref immediately
         isFirstLoadRef.current = false; // Mark that we've shown the first load hints
       }
       startInactivityTimer();
     } else {
+      console.log('💡 Hiding hints and updating ref');
       clearInactivityTimer();
       setShowHints(false);
+      showHintsRef.current = false; // Update ref immediately
     }
     
     return () => {
@@ -152,17 +198,16 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
   // Handle swipe completion
   const handleSwipe = useCallback((direction: string) => {
-    console.log('🔄 handleSwipe called:', direction, 'instructionsVisible (ref):', instructionsVisibleRef.current, 'cooldown (ref):', cooldownActiveRef.current);
+    console.log('🔄 handleSwipe called:', direction, 'instructionsVisible (ref):', instructionsVisibleRef.current, 'hintsVisible (ref):', showHintsRef.current, 'cooldown (ref):', cooldownActiveRef.current);
     
     if (disabled) return;
-    
-    // Reset inactivity timer on interaction
-    resetInactivityTimer();
 
-    // If instructions are showing (use ref for immediate state), dismiss them instead of processing swipe
-    if (instructionsVisibleRef.current) {
-      console.log('📋 Instructions visible - dismissing only');
-      dismissInstructions();
+    // If instructions or hints are showing, dismiss them instead of processing swipe
+    if (instructionsVisibleRef.current || showHintsRef.current) {
+      console.log('📋💡 UI elements visible - dismissing only');
+      dismissVisibleElements();
+      // Reset timer after dismissing to start fresh countdown
+      resetInactivityTimer();
       return;
     }
 
@@ -171,6 +216,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       console.log('⏱️ In cooldown period - ignoring swipe');
       return;
     }
+    
+    // Reset inactivity timer on successful interaction
+    resetInactivityTimer();
 
     console.log('✅ Processing swipe:', direction);
 
@@ -189,7 +237,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         console.log('Skip disabled - ignoring left/right swipe');
         break;
     }
-  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer, dismissInstructions]);
+  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer, dismissVisibleElements]);
 
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
@@ -204,19 +252,18 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
   // Handle direct tap selection
   const handleDirectSelection = useCallback((event: React.MouseEvent, winner: Photo, loser: Photo) => {
-    console.log('👆 handleDirectSelection called, instructionsVisible (ref):', instructionsVisibleRef.current, 'cooldown (ref):', cooldownActiveRef.current);
+    console.log('👆 handleDirectSelection called, instructionsVisible (ref):', instructionsVisibleRef.current, 'hintsVisible (ref):', showHintsRef.current, 'cooldown (ref):', cooldownActiveRef.current);
     
     if (disabled) return;
-    
-    // Reset inactivity timer on interaction
-    resetInactivityTimer();
 
-    // If instructions are showing (use ref for immediate state), first tap should only dismiss instructions
-    if (instructionsVisibleRef.current) {
-      console.log('📋 Direct tap - instructions visible, dismissing only');
+    // If instructions or hints are showing, first tap should only dismiss them
+    if (instructionsVisibleRef.current || showHintsRef.current) {
+      console.log('📋💡 Direct tap - UI elements visible, dismissing only');
       event.preventDefault();
       event.stopPropagation();
-      dismissInstructions();
+      dismissVisibleElements();
+      // Reset timer after dismissing to start fresh countdown
+      resetInactivityTimer();
       return;
     }
 
@@ -229,6 +276,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     }
 
     console.log('✅ Direct tap - processing selection:', winner.id);
+    
+    // Reset inactivity timer on successful interaction
+    resetInactivityTimer();
 
     // Add haptic feedback if available
     if (navigator.vibrate) {
@@ -248,7 +298,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         cardRef.current.swipe(swipeDirection);
       }
     }, 150); // 150ms delay for user to see their selection
-  }, [disabled, onSelection, topPhoto.id, resetInactivityTimer, dismissInstructions]);
+  }, [disabled, onSelection, topPhoto.id, resetInactivityTimer, dismissVisibleElements]);
 
   // Handle real-time drag movement for MOGS overlay
   const handleDragMove = useCallback((dragState: DragState) => {
