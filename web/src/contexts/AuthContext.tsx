@@ -6,6 +6,7 @@ interface AuthUser {
   name: string;
   email?: string;
   profilePhoto?: string;
+  age?: number;
   height?: number; // Height in inches (for males)
   weight?: number; // Weight in pounds (for females)
   gender?: 'male' | 'female';

@@ -431,7 +431,7 @@ export const ProfilePage: React.FC = () => {
               </div>
             )}
             {user.email && (
-              <p className="text-gray-400 text-sm">{user.email}</p>
+              <p className="text-gray-400 text-sm mb-3">{user.email}</p>
             )}
             
             {/* Profile Information Display/Edit */}
@@ -441,7 +441,7 @@ export const ProfilePage: React.FC = () => {
                 <div className="bg-gray-800 rounded-lg p-4 space-y-4">
                   {/* Age input */}
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-white mb-2 text-left">
                       Age
                     </label>
                     <input
@@ -456,7 +456,7 @@ export const ProfilePage: React.FC = () => {
                   
                   {/* Gender selector */}
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">
+                    <label className="block text-sm font-medium text-white mb-2 text-left">
                       Gender
                     </label>
                     <div className="grid grid-cols-2 gap-3">
@@ -487,7 +487,7 @@ export const ProfilePage: React.FC = () => {
                   
                   {editedGender === 'male' && (
                     <div>
-                      <label className="block text-sm font-medium text-white mb-2">
+                      <label className="block text-sm font-medium text-white mb-2 text-left">
                         Height
                       </label>
                       <div className="flex gap-2">
@@ -510,12 +510,17 @@ export const ProfilePage: React.FC = () => {
                           ))}
                         </select>
                       </div>
+                      {(editedHeightFeet * 12 + editedHeightInches) < 72 && (
+                        <p className="text-red-400 text-sm mt-2 text-left">
+                          You are kind of short. Have you considered lying?
+                        </p>
+                      )}
                     </div>
                   )}
                   
                   {editedGender === 'female' && (
                     <div>
-                      <label className="block text-sm font-medium text-white mb-2">
+                      <label className="block text-sm font-medium text-white mb-2 text-left">
                         Weight (lbs)
                       </label>
                       <input
@@ -526,6 +531,11 @@ export const ProfilePage: React.FC = () => {
                         onChange={(e) => setEditedWeight(parseInt(e.target.value))}
                         className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
+                      {editedWeight > 130 && (
+                        <p className="text-red-400 text-sm mt-2 text-left">
+                          You are kind of heavy, have you considered lying?
+                        </p>
+                      )}
                     </div>
                   )}
                   
@@ -552,9 +562,9 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-3">
                 {/* Add edit button for all profile info */}
-                <div className="text-center mb-2">
+                <div className="text-center mb-4">
                   <button
                     onClick={handleEditProfile}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
@@ -563,8 +573,30 @@ export const ProfilePage: React.FC = () => {
                   </button>
                 </div>
                 
+                {user.age && (
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-gray-400 text-sm">
+                      {user.age} years old
+                    </p>
+                  </div>
+                )}
+                
+                {user.gender && (
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <p className="text-gray-400 text-sm capitalize">
+                      {user.gender}
+                    </p>
+                  </div>
+                )}
+                
                 {user.gender === 'male' && (
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center">
                     <svg className="w-4 h-4 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v18m-3-9h6" />
                     </svg>
@@ -581,7 +613,7 @@ export const ProfilePage: React.FC = () => {
                 )}
                 
                 {user.gender === 'female' && (
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center">
                     <svg className="w-4 h-4 text-pink-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -594,28 +626,6 @@ export const ProfilePage: React.FC = () => {
                         Weight not provided
                       </p>
                     )}
-                  </div>
-                )}
-                
-                {user.gender && (
-                  <div className="flex items-center justify-center">
-                    <svg className="w-4 h-4 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <p className="text-gray-400 text-sm capitalize">
-                      {user.gender}
-                    </p>
-                  </div>
-                )}
-                
-                {user.age && (
-                  <div className="flex items-center justify-center">
-                    <svg className="w-4 h-4 text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-gray-400 text-sm">
-                      {user.age} years old
-                    </p>
                   </div>
                 )}
               </div>
