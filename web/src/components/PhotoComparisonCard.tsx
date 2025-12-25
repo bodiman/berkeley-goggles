@@ -302,6 +302,12 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
   // Handle real-time drag movement for MOGS overlay
   const handleDragMove = useCallback((dragState: DragState) => {
+    // If hints are showing, dismiss them when drag begins (consistent with tap/swipe behavior)
+    if (showHintsRef.current) {
+      dismissVisibleElements();
+      return; // Early return after dismissing, like handleSwipe and handleDirectSelection
+    }
+    
     // Reset inactivity timer on drag interaction
     resetInactivityTimer();
     
@@ -313,7 +319,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       setSwipeDirection(null);
       setSwipeProgress(0);
     }
-  }, [resetInactivityTimer]);
+  }, [resetInactivityTimer, dismissVisibleElements]);
 
   // Handle drag end - reset overlay
   const handleDragEnd = useCallback(() => {
