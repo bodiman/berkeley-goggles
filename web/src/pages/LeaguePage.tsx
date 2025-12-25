@@ -163,7 +163,7 @@ export const LeaguePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black safe-area-inset flex flex-col">
+    <div className="h-full bg-black safe-area-inset flex flex-col">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <h1 className="text-2xl font-bold text-white">League</h1>
@@ -173,6 +173,7 @@ export const LeaguePage: React.FC = () => {
       <div className="px-6">
         <div className="flex bg-gray-800 rounded-lg p-1">
           <button
+            type="button"
             onClick={() => setActiveTab('my-league')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'my-league'
@@ -183,6 +184,7 @@ export const LeaguePage: React.FC = () => {
             My League
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('info')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'info'
@@ -196,9 +198,11 @@ export const LeaguePage: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 px-6 py-4 overflow-y-auto pb-20" style={{
+      <main className="px-6 py-4 overflow-y-auto pb-52" style={{
         WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y'
+        touchAction: 'pan-y',
+        height: '100vh',
+        scrollbarColor: 'rgba(100, 116, 139, 0) transparent'
       }}>
         <div className="max-w-md mx-auto space-y-6">
           
@@ -248,6 +252,7 @@ export const LeaguePage: React.FC = () => {
                   <div className="space-y-3">
                     {leagueLeaderboard.map((entry) => (
                       <button
+                        type="button"
                         key={entry.user.id}
                         onClick={() => setSelectedPlayer(entry)}
                         className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all hover:bg-gray-700/70 ${
@@ -383,8 +388,10 @@ export const LeaguePage: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-white">Player Profile</h3>
                 <button
+                  type="button"
                   onClick={() => setSelectedPlayer(null)}
                   className="text-gray-400 hover:text-white transition-colors"
+                  title="Close player profile"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

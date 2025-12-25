@@ -287,25 +287,30 @@ export const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black safe-area-inset flex flex-col">
+    <div className="h-full bg-black safe-area-inset flex flex-col">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <h1 className="text-2xl font-bold text-white">Profile</h1>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 px-6 py-4 overflow-y-auto pb-20" style={{
+      <main className="px-6 py-4 overflow-y-auto pb-52" style={{
         WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y'
+        touchAction: 'pan-y',
+        overscrollBehavior: 'contain',
+        height: '100vh',
+        scrollbarColor: 'rgba(100, 116, 139, 0) transparent',
       }}>
         <div className="max-w-md mx-auto space-y-6">
           {/* Profile Photo */}
           <div className="flex justify-center">
             <div className="relative">
               <button
+                type="button"
                 onClick={handlePhotoClick}
                 className="relative group focus:outline-none"
                 disabled={isUpdatingPhoto}
+                title="Change profile photo"
               >
                 {user.profilePhoto ? (
                   <img
@@ -353,6 +358,7 @@ export const ProfilePage: React.FC = () => {
                 )}
                 <div className="flex justify-center gap-3">
                   <button
+                    type="button"
                     onClick={handleSaveName}
                     disabled={isUpdatingName}
                     className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
@@ -360,6 +366,7 @@ export const ProfilePage: React.FC = () => {
                     {isUpdatingName ? 'Saving...' : 'Save'}
                   </button>
                   <button
+                    type="button"
                     onClick={handleCancelNameEdit}
                     disabled={isUpdatingName}
                     className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
@@ -399,6 +406,9 @@ export const ProfilePage: React.FC = () => {
                       value={editedAge}
                       onChange={(e) => setEditedAge(parseInt(e.target.value))}
                       className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      id="age-input"
+                      aria-label="Age"
+                      title="Enter your age (18-99)"
                     />
                   </div>
                   
@@ -443,6 +453,9 @@ export const ProfilePage: React.FC = () => {
                           value={editedHeightFeet}
                           onChange={(e) => setEditedHeightFeet(parseInt(e.target.value))}
                           className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          id="height-feet"
+                          aria-label="Height in feet"
+                          title="Select feet"
                         >
                           {[5, 6, 7].map(feet => (
                             <option key={feet} value={feet}>{feet} ft</option>
@@ -452,6 +465,9 @@ export const ProfilePage: React.FC = () => {
                           value={editedHeightInches}
                           onChange={(e) => setEditedHeightInches(parseInt(e.target.value))}
                           className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          id="height-inches"
+                          aria-label="Height in inches"
+                          title="Select inches"
                         >
                           {Array.from({ length: 12 }, (_, i) => (
                             <option key={i} value={i}>{i} in</option>
@@ -478,6 +494,9 @@ export const ProfilePage: React.FC = () => {
                         value={editedWeight}
                         onChange={(e) => setEditedWeight(parseInt(e.target.value))}
                         className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        id="weight-input"
+                        aria-label="Weight in pounds"
+                        title="Enter your weight (80-300 lbs)"
                       />
                       {editedWeight > 130 && (
                         <p className="text-red-400 text-sm mt-2 text-left">
@@ -493,6 +512,7 @@ export const ProfilePage: React.FC = () => {
                   
                   <div className="flex justify-center gap-3">
                     <button
+                      type="button"
                       onClick={handleSaveProfile}
                       disabled={isUpdatingProfile}
                       className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
@@ -500,6 +520,7 @@ export const ProfilePage: React.FC = () => {
                       {isUpdatingProfile ? 'Saving...' : 'Save'}
                     </button>
                     <button
+                      type="button"
                       onClick={handleCancelProfileEdit}
                       disabled={isUpdatingProfile}
                       className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
@@ -514,6 +535,7 @@ export const ProfilePage: React.FC = () => {
                 {/* Add edit button for all profile info */}
                 <div className="text-center mb-4">
                   <button
+                    type="button"
                     onClick={handleEditProfile}
                     className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
                   >
@@ -799,6 +821,7 @@ export const ProfilePage: React.FC = () => {
           {/* Actions */}
           <div className="space-y-3">
             <button
+              type="button"
               onClick={logout}
               className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 py-3 px-4 rounded-lg font-medium transition-colors border border-red-600/30"
             >
@@ -824,9 +847,11 @@ export const ProfilePage: React.FC = () => {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-white">Update Profile Photo</h3>
                 <button
+                  type="button"
                   onClick={() => setShowPhotoCapture(false)}
                   disabled={isUpdatingPhoto}
                   className="text-gray-400 hover:text-white transition-colors disabled:cursor-not-allowed"
+                  title="Close photo capture modal"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -80,9 +80,9 @@ export const MatchedPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="h-full bg-black text-white flex flex-col">
       {/* Header */}
-      <header className="bg-gray-900/95 backdrop-blur border-b border-gray-800 sticky top-0 z-10">
+      <header className="bg-gray-900/95 backdrop-blur border-b border-gray-800 flex-shrink-0">
         <div className="px-6 py-4">
           <h1 className="text-xl font-bold">Your Matches</h1>
           <p className="text-sm text-gray-400 mt-1">
@@ -92,11 +92,17 @@ export const MatchedPage: React.FC = () => {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 px-6 py-4 pb-20">
+      <main className="px-6 py-4 overflow-y-auto pb-52" style={{
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        height: '100vh',
+        scrollbarColor: 'rgba(100, 116, 139, 0) transparent'
+      }}>
         {error && (
           <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
             <p className="text-red-400">{error}</p>
             <button
+              type="button"
               onClick={fetchMatches}
               className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
             >
@@ -181,7 +187,10 @@ export const MatchedPage: React.FC = () => {
                   </div>
                   
                   {/* Action Button */}
-                  <button className="mt-4 w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-medium">
+                  <button 
+                    type="button"
+                    className="mt-4 w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-medium"
+                  >
                     View Profile
                   </button>
                 </div>
