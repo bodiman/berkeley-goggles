@@ -58,14 +58,15 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
                   <span className="text-gray-300">Signing in with Google...</span>
                 </div>
               ) : (
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  size="large"
-                  text="signin"
-                  theme="outline"
-                  style={{width: '100%'}}
-                />
+                <div style={{width: '100%'}}>
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    size="large"
+                    text="signin"
+                    theme="outline"
+                  />
+                </div>
               )}
             </div>
             
