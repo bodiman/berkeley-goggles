@@ -1,4 +1,4 @@
-import { League, LeagueProgression, LeagueStats } from '../../../shared/types/ranking';
+import { League, LeagueProgression, LeagueStats } from '@shared/types/ranking';
 
 export class LeagueService {
   private static readonly LEAGUES: League[] = [
