@@ -63,8 +63,8 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
                   onError={handleGoogleError}
                   size="large"
                   text="signin"
-                  width="100%"
                   theme="outline"
+                  style={{width: '100%'}}
                 />
               )}
             </div>
