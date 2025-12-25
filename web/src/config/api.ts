@@ -5,12 +5,14 @@ const baseURL = import.meta.env.VITE_API_BASE_URL ||
                   : 'http://localhost:3001');
 
 // Debug logging to help troubleshoot API connection issues
-
-  import.meta.env.VITE_API_BASE_URL,
-  import.meta.env.MODE,
-  import.meta.env.DEV,
-  import.meta.env.PROD,
-  import.meta.env
+console.log('🔧 API Configuration Debug:', {
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  MODE: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+  PROD: import.meta.env.PROD,
+  baseURL: baseURL,
+  allEnvVars: import.meta.env
+});
 
 export const API_CONFIG = {
   baseURL,

@@ -41,21 +41,63 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-// Security middleware
+// Security middleware with OAuth-friendly configuration
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "unsafe-none" }, // Allow OAuth popups
+  crossOriginEmbedderPolicy: false, // Disable for OAuth compatibility
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://apis.google.com"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "https:", "data:"],
+    },
+  },
 }));
+// CORS configuration with debugging
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      process.env.FRONTEND_URL, 
+      'https://elocheck.vercel.app',
+      'https://berkeley-goggles-git-main-bodimans-projects.vercel.app',
+      'https://www.berkeleygoggles.net'
+    ].filter(Boolean) as string[]
+  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:19006'];
+
+logger.info('🔐 CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        process.env.FRONTEND_URL, 
-        'https://elocheck.vercel.app',
-        'https://berkeley-goggles-git-main-bodimans-projects.vercel.app',
-        'https://www.berkeleygoggles.net'
-      ].filter(Boolean) as string[]
-    : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:19006'],
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    // Log the origin for debugging
+    logger.info(`📡 CORS request from origin: ${origin}`);
+    
+    if (allowedOrigins.includes(origin)) {
+      logger.info(`✅ CORS allowed for origin: ${origin}`);
+      callback(null, true);
+    } else {
+      logger.warn(`❌ CORS blocked for origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  optionsSuccessStatus: 200, // Some legacy browsers choke on 204
 }));
+
+// Explicit preflight handler for complex requests
+app.options('*', (req, res) => {
+  logger.info(`✈️  OPTIONS preflight request from ${req.get('Origin')} for ${req.path}`);
+  res.status(200).end();
+});
 
 // Request logging middleware to monitor usage patterns
 app.use((req, res, next) => {
