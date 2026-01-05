@@ -28,6 +28,7 @@ interface UserProfileSetup {
   height?: number; // Height in inches (for males)
   weight?: number; // Weight in pounds (for females)
   photo?: File | Blob;
+  photoUrl?: string; // R2 CDN URL if already uploaded
 }
 
 interface UserProfileData {
@@ -263,6 +264,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: profileData.name,
         age: profileData.age,
         gender: profileData.gender,
+        height: profileData.height,
+        weight: profileData.weight,
       }));
       
       if (profileData.photo) {
