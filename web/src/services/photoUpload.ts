@@ -84,10 +84,8 @@ class PhotoUploadService {
       formData.append('userId', userId);
     }
 
-    const fullUrl = `${API_CONFIG.baseURL}/api/photos/webcam`;
-    console.log('📡 PhotoUpload Debug (FETCH):', {
+    console.log('📡 PhotoUpload Debug (API_REQUEST):', {
       'API_CONFIG.baseURL': API_CONFIG.baseURL,
-      'Full URL': fullUrl,
       'Current location': window.location.href,
       'Env MODE': import.meta.env.MODE,
       'Env PROD': import.meta.env.PROD,
@@ -96,12 +94,12 @@ class PhotoUploadService {
     });
 
     try {
-      console.log('🚀 About to fetch with URL:', fullUrl);
+      console.log('🚀 About to make API request to: /api/photos/webcam');
       
-      const response = await fetch(fullUrl, {
+      const response = await apiRequest('/api/photos/webcam', {
         method: 'POST',
         body: formData,
-        // Don't set Content-Type for FormData - browser will set it with boundary
+        headers: {}, // Clear headers to let browser set Content-Type for FormData
       });
 
       console.log('📡 Fetch Response:', {

@@ -10,13 +10,14 @@ console.log('🔧 API Configuration Debug:', {
   MODE: import.meta.env.MODE,
   DEV: import.meta.env.DEV,
   PROD: import.meta.env.PROD,
+  hostname: window.location.hostname,
   baseURL: baseURL,
   allEnvVars: import.meta.env
 });
 
 export const API_CONFIG = {
   baseURL,
-  timeout: 10000,
+  timeout: 30000, // Increased from 10s to 30s to handle optimized but still heavy operations
 } as const;
 
 // Create API fetch helper with proper configuration

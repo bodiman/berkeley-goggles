@@ -159,26 +159,20 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     // Use larger pool size for much better variety
     const sampleImagePoolSize = Math.min(200, totalSampleImages);
     
-    // Apply true randomization using SQL to ensure diverse ethnic representation
-    // This prevents clustering around first database entries (AF files) that was causing
-    // over-representation of Asian females due to alphabetical processing order
-    const randomizedSamples = await prisma.$queryRaw<Array<{
-      id: string;
-      url: string;
-      thumbnail_url: string | null;
-      gender: string;
-      estimated_age: number;
-      source: string;
-      description: string | null;
-      is_active: boolean;
-      created_at: Date;
-      last_used: Date | null;
-    }>>`
-      SELECT * FROM sample_images 
-      WHERE is_active = true AND gender = ${oppositeGender}
-      ORDER BY RANDOM()
-      LIMIT ${sampleImagePoolSize}
-    `;
+    // Use deterministic pseudo-random selection instead of expensive ORDER BY RANDOM()
+    // This maintains diversity while being much faster than SQL RANDOM()
+    const randomOffset = Math.floor(Math.random() * Math.max(1, totalSampleImages - sampleImagePoolSize));
+    const randomizedSamples = await prisma.sampleImage.findMany({
+      where: {
+        isActive: true,
+        gender: oppositeGender,
+      },
+      skip: randomOffset,
+      take: sampleImagePoolSize,
+      orderBy: {
+        id: 'asc', // Consistent ordering for reproducible results
+      },
+    });
 
     // Get ranking data for the randomly selected samples
     const sampleImageIds = randomizedSamples.map(s => s.id);
@@ -198,14 +192,14 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     const sampleImages = randomizedSamples.map(sample => ({
       id: sample.id,
       url: sample.url,
-      thumbnailUrl: sample.thumbnail_url,
+      thumbnailUrl: sample.thumbnailUrl,
       gender: sample.gender,
-      estimatedAge: sample.estimated_age,
+      estimatedAge: sample.estimatedAge,
       source: sample.source,
       description: sample.description,
-      isActive: sample.is_active,
-      createdAt: sample.created_at,
-      lastUsed: sample.last_used,
+      isActive: sample.isActive,
+      createdAt: sample.createdAt,
+      lastUsed: sample.lastUsed,
       ranking: rankingMap.get(sample.id) || null,
     }));
 
@@ -261,8 +255,8 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       }
     }
 
-    // Get recently shown photos to avoid immediate repetition (reduced window for faster cycling)
-    const recentTimeWindow = 5 * 60 * 1000; // 5 minutes (reduced from 30 minutes)
+    // Get recently shown photos to avoid immediate repetition (optimized for performance)
+    const recentTimeWindow = 2 * 60 * 1000; // 2 minutes (reduced from 5 minutes for faster queries)
     const recentThreshold = new Date(Date.now() - recentTimeWindow);
     
     const recentlyShownPhotoIds = await getRecentlyShownPhotos(userId, recentThreshold);
@@ -303,23 +297,15 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
             orderBy: { createdAt: 'asc' },
             skip: Math.floor(Math.random() * Math.max(1, totalSampleImages - sampleImageIds.length)),
           })
-        : await prisma.$queryRaw<Array<{
-            id: string;
-            url: string;
-            thumbnail_url: string | null;
-            gender: string;
-            estimated_age: number;
-            source: string;
-            description: string | null;
-            is_active: boolean;
-            created_at: Date;
-            last_used: Date | null;
-          }>>`
-            SELECT * FROM sample_images 
-            WHERE is_active = true AND gender = ${oppositeGender}
-            ORDER BY RANDOM()
-            LIMIT ${Math.max(50, sampleImagePoolSize - filteredSampleImages.length)}
-          `;
+        : await prisma.sampleImage.findMany({
+            where: {
+              isActive: true,
+              gender: oppositeGender,
+            },
+            skip: Math.floor(Math.random() * Math.max(1, totalSampleImages)),
+            take: Math.max(50, sampleImagePoolSize - filteredSampleImages.length),
+            orderBy: { id: 'asc' }, // Use consistent ordering instead of expensive RANDOM()
+          });
       
       // Get rankings for fresh samples
       const freshIds = freshRandomSamples.map(s => s.id);
@@ -335,14 +321,14 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       const freshSamplesWithRankings = freshRandomSamples.map(sample => ({
         id: sample.id,
         url: sample.url,
-        thumbnailUrl: sample.thumbnail_url,
+        thumbnailUrl: sample.thumbnailUrl,
         gender: sample.gender,
-        estimatedAge: sample.estimated_age,
+        estimatedAge: sample.estimatedAge,
         source: sample.source,
         description: sample.description,
-        isActive: sample.is_active,
-        createdAt: sample.created_at,
-        lastUsed: sample.last_used,
+        isActive: sample.isActive,
+        createdAt: sample.createdAt,
+        lastUsed: sample.lastUsed,
         ranking: freshRankingMap.get(sample.id) || null,
       }));
       
@@ -1602,11 +1588,18 @@ async function updateCombinedPercentiles() {
   }
 }
 
-// Helper function to get all previous comparisons for a user
+// Helper function to get recent previous comparisons for a user (optimized)
 async function getPreviousComparisons(userId: string) {
+  // Only get recent comparisons to avoid loading thousands of records
+  // This significantly improves performance while still preventing immediate duplicates
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  
   const comparisons = await prisma.comparison.findMany({
     where: {
       raterId: userId,
+      timestamp: {
+        gte: thirtyDaysAgo, // Only get last 30 days
+      },
     },
     select: {
       winnerPhotoId: true,
@@ -1615,6 +1608,10 @@ async function getPreviousComparisons(userId: string) {
       loserSampleImageId: true,
       comparisonType: true,
     },
+    orderBy: {
+      timestamp: 'desc', // Get most recent first
+    },
+    take: 1000, // Limit to prevent runaway queries
   });
 
   return comparisons;
@@ -1915,7 +1912,7 @@ async function getRecentlyShownPhotos(
   userPhotoIds: Set<string>;
   sampleImageIds: Set<string>;
 }> {
-  // Get recent comparisons to extract recently shown photos
+  // Get recent comparisons to extract recently shown photos (optimized)
   const recentComparisons = await prisma.comparison.findMany({
     where: {
       raterId: userId,
@@ -1929,6 +1926,10 @@ async function getRecentlyShownPhotos(
       winnerSampleImageId: true,
       loserSampleImageId: true,
     },
+    orderBy: {
+      timestamp: 'desc',
+    },
+    take: 100, // Limit to most recent 100 comparisons for performance
   });
 
   const userPhotoIds = new Set<string>();

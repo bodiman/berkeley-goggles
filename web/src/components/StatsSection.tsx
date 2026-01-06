@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiRequest } from '../config/api';
 
 interface PhotoStats {
   photo: {
@@ -41,7 +42,7 @@ export const StatsSection: React.FC<StatsSectionProps> = ({ className = '' }) =>
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/rankings/my-stats?userId=${user.id}`);
+        const response = await apiRequest(`/api/rankings/my-stats?userId=${user.id}`);
         const data = await response.json();
 
         if (data.success) {

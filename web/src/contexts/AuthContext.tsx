@@ -316,11 +316,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (!user) return false;
 
-      const response = await fetch('/api/user/profile', {
+      const response = await apiRequest('/api/user/profile', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: user.id,
           name: name.trim(),
