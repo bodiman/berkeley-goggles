@@ -90,9 +90,9 @@ rankingRoutes.get('/my-stats', asyncHandler(async (req, res) => {
       },
     });
 
-    // Calculate league information
-    const currentElo = ranking?.bradleyTerryScore || 1000;
-    const leagueProgression = LeagueService.getLeagueProgression(currentElo);
+    // Calculate league information using trophy score
+    const currentTrophy = ranking?.trophyScore || 0;
+    const leagueProgression = LeagueService.getLeagueProgression(currentTrophy);
 
     const stats = {
       photo: {
@@ -106,7 +106,8 @@ rankingRoutes.get('/my-stats', asyncHandler(async (req, res) => {
         losses,
         winRate: Math.round(winRate * 10) / 10,
         currentPercentile: ranking?.currentPercentile || 50,
-        bradleyTerryScore: ranking?.bradleyTerryScore || 1000,
+        trophyScore: ranking?.trophyScore || 0,
+        targetTrophyScore: ranking?.targetTrophyScore,
         confidence,
         trend,
         lastUpdated: ranking?.lastUpdated,
@@ -341,13 +342,13 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
       });
     }
 
-    // Get players in the specified league
+    // Get players in the specified league based on trophy scores
     const leagueRankings = await prisma.photoRanking.findMany({
       where: {
         photo: { status: 'approved' },
         user: { optOutOfLeaderboards: false },
         totalComparisons: { gte: 5 }, // Minimum comparisons for league leaderboard
-        bradleyTerryScore: {
+        trophyScore: {
           gte: league.minElo,
           lt: league.maxElo === Infinity ? undefined : league.maxElo,
         },
@@ -368,7 +369,7 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
           },
         },
       },
-      orderBy: { bradleyTerryScore: 'desc' },
+      orderBy: { trophyScore: 'desc' },
       take: limit,
     });
 
@@ -391,7 +392,8 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
         url: ranking.photo.thumbnailUrl || ranking.photo.url,
       },
       stats: {
-        elo: Math.round(ranking.bradleyTerryScore * 10) / 10,
+        trophyScore: Math.round(ranking.trophyScore * 10) / 10,
+        targetTrophyScore: ranking.targetTrophyScore ? Math.round(ranking.targetTrophyScore * 10) / 10 : null,
         percentile: ranking.currentPercentile,
         totalComparisons: ranking.totalComparisons,
         winRate: ranking.totalComparisons > 0 

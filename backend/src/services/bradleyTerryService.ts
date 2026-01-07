@@ -467,6 +467,174 @@ export class BradleyTerryService {
     const avgComparisons = 2 / (1 / Math.max(minComparisons, comparisonsA) + 1 / Math.max(minComparisons, comparisonsB));
     return 1 / Math.sqrt(avgComparisons + 1);
   }
+
+  // =====================================
+  // Trophy System Methods (from ranking_system_concept.py)
+  // =====================================
+
+  /**
+   * Calculate target trophy scores based on Bradley-Terry percentile rankings
+   * Maps percentile → Normal(1500, 430) distribution
+   * Based on target_trophies() function from ranking_system_concept.py (lines 59-63)
+   */
+  public calculateTargetTrophies(
+    theta: number[], 
+    targetMean: number = 1500, 
+    targetStd: number = 430
+  ): number[] {
+    // Get ranks (0-based indices sorted by theta values)
+    const sortedIndices = theta
+      .map((value, index) => ({ value, index }))
+      .sort((a, b) => a.value - b.value)
+      .map(item => item.index);
+
+    // Calculate percentile positions (0 to 1)
+    const percentiles = new Array(theta.length);
+    for (let i = 0; i < sortedIndices.length; i++) {
+      const rank = i + 1; // 1-based rank
+      const p = rank / (theta.length + 1); // Percentile position
+      percentiles[sortedIndices[i]] = p;
+    }
+
+    // Map percentiles to Normal(targetMean, targetStd) using inverse normal CDF
+    return percentiles.map(p => {
+      // Simple approximation of inverse normal CDF (Box-Muller transformation variant)
+      const z = this.inverseNormalCDF(p);
+      return targetMean + targetStd * z;
+    });
+  }
+
+  /**
+   * Simple approximation of inverse normal CDF for percentile mapping
+   * Used in calculateTargetTrophies to convert percentiles to normal distribution
+   */
+  private inverseNormalCDF(p: number): number {
+    // Clamp p to avoid edge cases
+    p = Math.max(0.0001, Math.min(0.9999, p));
+    
+    // Beasley-Springer-Moro approximation for inverse normal CDF
+    const a0 = 2.50662823884;
+    const a1 = -18.61500062529;
+    const a2 = 41.39119773534;
+    const a3 = -25.44106049637;
+    const b1 = -8.47351093090;
+    const b2 = 23.08336743743;
+    const b3 = -21.06224101826;
+    const b4 = 3.13082909833;
+    const c0 = 0.3374754822726147;
+    const c1 = 0.9761690190917186;
+    const c2 = 0.1607979714918209;
+    const c3 = 0.0276438810333863;
+    const c4 = 0.0038405729373609;
+    const c5 = 0.0003951896511919;
+    const c6 = 0.0000321767881768;
+    const c7 = 0.0000002888167364;
+    const c8 = 0.0000003960315187;
+
+    const u = p - 0.5;
+    
+    if (Math.abs(u) < 0.42) {
+      // Central region
+      const r = u * u;
+      return u * (((a3 * r + a2) * r + a1) * r + a0) / 
+             ((((b4 * r + b3) * r + b2) * r + b1) * r + 1);
+    } else {
+      // Tail regions
+      const r = p < 0.5 ? p : 1 - p;
+      const t = Math.sqrt(-Math.log(r));
+      
+      let x;
+      if (t < 5) {
+        x = c0 + t * (c1 + t * (c2 + t * (c3 + t * c4)));
+      } else {
+        x = c5 + t * (c6 + t * (c7 + t * c8));
+      }
+      
+      return p < 0.5 ? -x : x;
+    }
+  }
+
+  /**
+   * Calculate trophy score update for a single player
+   * Based on trophy_step() function from ranking_system_concept.py (lines 101-113)
+   */
+  public calculateTrophyStep(
+    currentTrophy: number,
+    targetTrophy: number,
+    win: boolean,
+    winGain: number = 35,
+    lossPenalty: number = 25,
+    fadeWidth: number = 300
+  ): number {
+    // Calculate gap between target and current trophy score
+    const gap = targetTrophy - currentTrophy;
+    
+    // Scale factor based on distance from target (closer to target = smaller adjustments)
+    const scale = Math.max(0, Math.min(1, gap / fadeWidth));
+    
+    // Apply scaled win/loss adjustments
+    const adjustment = win 
+      ? winGain * scale 
+      : -lossPenalty * scale;
+    
+    const newTrophy = currentTrophy + adjustment;
+    
+    // Ensure trophy score never goes below 0 (line 113 in script)
+    return Math.max(0, newTrophy);
+  }
+
+  /**
+   * Update trophy scores for both players in a comparison
+   * Implements the dual-layer system from the script
+   */
+  public updateTrophyScores(
+    winnerTrophy: number,
+    loserTrophy: number,
+    winnerTarget: number,
+    loserTarget: number,
+    trophyConfig = {
+      winGain: 35,
+      lossPenalty: 25,
+      fadeWidth: 300
+    }
+  ): { newWinnerTrophy: number; newLoserTrophy: number } {
+    const newWinnerTrophy = this.calculateTrophyStep(
+      winnerTrophy,
+      winnerTarget,
+      true, // winner
+      trophyConfig.winGain,
+      trophyConfig.lossPenalty,
+      trophyConfig.fadeWidth
+    );
+
+    const newLoserTrophy = this.calculateTrophyStep(
+      loserTrophy,
+      loserTarget,
+      false, // loser
+      trophyConfig.winGain,
+      trophyConfig.lossPenalty,
+      trophyConfig.fadeWidth
+    );
+
+    return {
+      newWinnerTrophy,
+      newLoserTrophy
+    };
+  }
+
+  /**
+   * Get default trophy configuration constants from ranking_system_concept.py
+   */
+  public getDefaultTrophyConfig() {
+    return {
+      winGain: 35,        // WIN_GAIN
+      lossPenalty: 25,    // LOSS_PENALTY
+      targetMean: 1500,   // TARGET_MEAN
+      targetStd: 430,     // TARGET_STD
+      fadeWidth: 300,     // FADE_WIDTH
+      learningRate: 0.05  // K_BT
+    };
+  }
 }
 
 // Export singleton instance

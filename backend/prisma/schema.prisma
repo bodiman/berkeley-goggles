@@ -100,6 +100,10 @@ model PhotoRanking {
   wins               Int      @default(0)
   losses             Int      @default(0)
   bradleyTerryScore  Float    @default(0.5) @map("bradley_terry_score")
+  // Trophy system fields
+  trophyScore        Float    @default(0) @map("trophy_score")
+  hiddenBradleyTerryScore Float @default(0) @map("hidden_bradley_terry_score")
+  targetTrophyScore  Float?   @map("target_trophy_score")
   confidence         Float    @default(0.0)
   lastUpdated        DateTime @default(now()) @map("last_updated")
   
@@ -236,6 +240,10 @@ model SampleImageRanking {
   wins               Int         @default(0)
   losses             Int         @default(0)
   bradleyTerryScore  Float       @default(0.5) @map("bradley_terry_score")
+  // Trophy system fields
+  trophyScore        Float       @default(0) @map("trophy_score")
+  hiddenBradleyTerryScore Float  @default(0) @map("hidden_bradley_terry_score")
+  targetTrophyScore  Float?      @map("target_trophy_score")
   confidence         Float       @default(0.0)
   lastUpdated        DateTime    @default(now()) @map("last_updated")
   
@@ -257,6 +265,10 @@ model CombinedRanking {
   wins                  Int      @default(0)
   losses                Int      @default(0)
   bradleyTerryScore     Float    @default(0.5) @map("bradley_terry_score")
+  // Trophy system fields
+  trophyScore           Float    @default(0) @map("trophy_score")
+  hiddenBradleyTerryScore Float  @default(0) @map("hidden_bradley_terry_score")
+  targetTrophyScore     Float?   @map("target_trophy_score")
   confidence            Float    @default(0.0)
   lastUpdated           DateTime @default(now()) @map("last_updated")
   
@@ -283,4 +295,22 @@ model CombinedRankingHistory {
   combinedRanking   CombinedRanking @relation(fields: [combinedRankingId], references: [id], onDelete: Cascade)
   
   @@map("combined_ranking_history")
+}
+
+model TrophyConfig {
+  id              String   @id @default(cuid())
+  configName      String   @unique // "default", allows for future config variations
+  
+  // Trophy system constants (from ranking_system_concept.py)
+  winGain         Float    @default(35) @map("win_gain")           // WIN_GAIN
+  lossPenalty     Float    @default(25) @map("loss_penalty")       // LOSS_PENALTY
+  targetMean      Float    @default(1500) @map("target_mean")       // TARGET_MEAN
+  targetStd       Float    @default(430) @map("target_std")         // TARGET_STD
+  fadeWidth       Float    @default(300) @map("fade_width")         // FADE_WIDTH
+  learningRate    Float    @default(0.05) @map("learning_rate")    // K_BT
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@map("trophy_config")
 }

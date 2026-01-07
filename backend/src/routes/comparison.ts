@@ -1286,7 +1286,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
   }
 }));
 
-// Helper function to update photo ratings using corrected Bradley-Terry algorithm
+// Helper function to update photo ratings using dual-layer trophy system
 // Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
 async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
   try {
@@ -1301,39 +1301,42 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
       return;
     }
 
-    // Use the corrected Bradley-Terry service
-    const update = bradleyTerryService.updateRatings(
-      winnerRanking.bradleyTerryScore,
-      loserRanking.bradleyTerryScore,
-      { learningRate: 0.1 }
+    // ---- Truth Layer: Update hidden Bradley-Terry scores ----
+    const hiddenUpdate = bradleyTerryService.updateRatings(
+      winnerRanking.hiddenBradleyTerryScore || 0,
+      loserRanking.hiddenBradleyTerryScore || 0,
+      { learningRate: 0.05 } // K_BT from script
     );
-    
-    // Update only Bradley-Terry scores (counts already updated in main flow)
+
+    // Update hidden scores first
     await Promise.all([
       prisma.photoRanking.update({
         where: { photoId: winnerPhotoId },
         data: {
-          bradleyTerryScore: update.newWinnerScore,
+          hiddenBradleyTerryScore: hiddenUpdate.newWinnerScore,
           lastUpdated: new Date(),
         },
       }),
       prisma.photoRanking.update({
         where: { photoId: loserPhotoId },
         data: {
-          bradleyTerryScore: update.newLoserScore,
+          hiddenBradleyTerryScore: hiddenUpdate.newLoserScore,
           lastUpdated: new Date(),
         },
       }),
     ]);
 
-    // Update percentiles based on new scores
+    // ---- Product Layer: Calculate target trophies and update trophy scores ----
+    await updateSpecificTrophyScores(winnerPhotoId, loserPhotoId, 'photo');
+
+    // Update percentiles based on trophy scores (for display)
     await updatePercentiles();
   } catch (error) {
     console.error('Error updating photo ratings:', error);
   }
 }
 
-// Helper function to update sample image ratings using corrected Bradley-Terry algorithm
+// Helper function to update sample image ratings using dual-layer trophy system
 // Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
 async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: string) {
   try {
@@ -1348,30 +1351,33 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
       return;
     }
 
-    // Use the corrected Bradley-Terry service
-    const update = bradleyTerryService.updateRatings(
-      winnerRanking.bradleyTerryScore,
-      loserRanking.bradleyTerryScore,
-      { learningRate: 0.1 }
+    // ---- Truth Layer: Update hidden Bradley-Terry scores ----
+    const hiddenUpdate = bradleyTerryService.updateRatings(
+      winnerRanking.hiddenBradleyTerryScore || 0,
+      loserRanking.hiddenBradleyTerryScore || 0,
+      { learningRate: 0.05 } // K_BT from script
     );
-    
-    // Update only Bradley-Terry scores (counts already updated in main flow)
+
+    // Update hidden scores first
     await Promise.all([
       prisma.sampleImageRanking.update({
         where: { sampleImageId: winnerSampleId },
         data: {
-          bradleyTerryScore: update.newWinnerScore,
+          hiddenBradleyTerryScore: hiddenUpdate.newWinnerScore,
           lastUpdated: new Date(),
         },
       }),
       prisma.sampleImageRanking.update({
         where: { sampleImageId: loserSampleId },
         data: {
-          bradleyTerryScore: update.newLoserScore,
+          hiddenBradleyTerryScore: hiddenUpdate.newLoserScore,
           lastUpdated: new Date(),
         },
       }),
     ]);
+
+    // ---- Product Layer: Calculate target trophies and update trophy scores ----
+    await updateSpecificTrophyScores(winnerSampleId, loserSampleId, 'sample');
 
     // Update percentiles for sample images
     await updateSampleImagePercentiles();
@@ -1585,6 +1591,195 @@ async function updateCombinedPercentiles() {
     `;
   } catch (error) {
     console.error('Error updating combined percentiles:', error);
+  }
+}
+
+// Helper function to update trophy scores using the dual-layer system from ranking_system_concept.py
+async function updateTrophyScores(rankingType: 'photo' | 'sample' | 'combined') {
+  try {
+    // Get trophy config (use defaults from script if not in database)
+    const trophyConfig = bradleyTerryService.getDefaultTrophyConfig();
+
+    let allRankings: any[] = [];
+
+    // Fetch all rankings of the specified type
+    if (rankingType === 'photo') {
+      allRankings = await prisma.photoRanking.findMany({
+        where: { totalComparisons: { gt: 0 } },
+        select: {
+          id: true,
+          photoId: true,
+          hiddenBradleyTerryScore: true,
+          trophyScore: true,
+          targetTrophyScore: true
+        }
+      });
+    } else if (rankingType === 'sample') {
+      allRankings = await prisma.sampleImageRanking.findMany({
+        where: { totalComparisons: { gt: 0 } },
+        select: {
+          id: true,
+          sampleImageId: true,
+          hiddenBradleyTerryScore: true,
+          trophyScore: true,
+          targetTrophyScore: true
+        }
+      });
+    } else if (rankingType === 'combined') {
+      allRankings = await prisma.combinedRanking.findMany({
+        where: { totalComparisons: { gt: 0 } },
+        select: {
+          id: true,
+          photoId: true,
+          sampleImageId: true,
+          hiddenBradleyTerryScore: true,
+          trophyScore: true,
+          targetTrophyScore: true
+        }
+      });
+    }
+
+    if (allRankings.length === 0) return;
+
+    // Extract hidden Bradley-Terry scores for target calculation
+    const hiddenScores = allRankings.map(r => r.hiddenBradleyTerryScore || 0);
+    
+    // Calculate target trophies based on percentile rankings (lines 99-100 in script)
+    const targetTrophies = bradleyTerryService.calculateTargetTrophies(
+      hiddenScores,
+      trophyConfig.targetMean,
+      trophyConfig.targetStd
+    );
+
+    // Update target trophy scores and trophy scores for each ranking
+    const updatePromises = allRankings.map(async (ranking, index) => {
+      const targetTrophy = targetTrophies[index];
+      const currentTrophy = ranking.trophyScore || 0;
+
+      // For this batch update, we don't have specific win/loss info, so we just update targets
+      // The actual trophy progression happens during individual comparisons
+      if (rankingType === 'photo') {
+        return prisma.photoRanking.update({
+          where: { id: ranking.id },
+          data: {
+            targetTrophyScore: targetTrophy,
+            lastUpdated: new Date(),
+          }
+        });
+      } else if (rankingType === 'sample') {
+        return prisma.sampleImageRanking.update({
+          where: { id: ranking.id },
+          data: {
+            targetTrophyScore: targetTrophy,
+            lastUpdated: new Date(),
+          }
+        });
+      } else if (rankingType === 'combined') {
+        return prisma.combinedRanking.update({
+          where: { id: ranking.id },
+          data: {
+            targetTrophyScore: targetTrophy,
+            lastUpdated: new Date(),
+          }
+        });
+      }
+    });
+
+    await Promise.all(updatePromises);
+    
+    console.log(`Updated ${allRankings.length} ${rankingType} trophy targets`);
+  } catch (error) {
+    console.error(`Error updating ${rankingType} trophy scores:`, error);
+  }
+}
+
+// Helper function to update trophy scores for a specific comparison (implements lines 101-116 from script)
+async function updateSpecificTrophyScores(
+  winnerId: string, 
+  loserId: string, 
+  rankingType: 'photo' | 'sample' | 'combined'
+) {
+  try {
+    // Get trophy config
+    const trophyConfig = bradleyTerryService.getDefaultTrophyConfig();
+
+    // First, update all target trophies based on new hidden Bradley-Terry scores
+    await updateTrophyScores(rankingType);
+
+    // Get updated rankings with targets
+    let winnerRanking: any = null;
+    let loserRanking: any = null;
+
+    if (rankingType === 'photo') {
+      [winnerRanking, loserRanking] = await Promise.all([
+        prisma.photoRanking.findUnique({ where: { photoId: winnerId } }),
+        prisma.photoRanking.findUnique({ where: { photoId: loserId } })
+      ]);
+    } else if (rankingType === 'sample') {
+      [winnerRanking, loserRanking] = await Promise.all([
+        prisma.sampleImageRanking.findUnique({ where: { sampleImageId: winnerId } }),
+        prisma.sampleImageRanking.findUnique({ where: { sampleImageId: loserId } })
+      ]);
+    }
+
+    if (!winnerRanking || !loserRanking) {
+      console.error(`Rankings not found for ${rankingType} trophy update`);
+      return;
+    }
+
+    // Calculate new trophy scores using the trophy progression logic
+    const trophyUpdate = bradleyTerryService.updateTrophyScores(
+      winnerRanking.trophyScore || 0,
+      loserRanking.trophyScore || 0,
+      winnerRanking.targetTrophyScore || trophyConfig.targetMean,
+      loserRanking.targetTrophyScore || trophyConfig.targetMean,
+      {
+        winGain: trophyConfig.winGain,
+        lossPenalty: trophyConfig.lossPenalty,
+        fadeWidth: trophyConfig.fadeWidth
+      }
+    );
+
+    // Update trophy scores in database
+    if (rankingType === 'photo') {
+      await Promise.all([
+        prisma.photoRanking.update({
+          where: { photoId: winnerId },
+          data: {
+            trophyScore: trophyUpdate.newWinnerTrophy,
+            lastUpdated: new Date(),
+          }
+        }),
+        prisma.photoRanking.update({
+          where: { photoId: loserId },
+          data: {
+            trophyScore: trophyUpdate.newLoserTrophy,
+            lastUpdated: new Date(),
+          }
+        })
+      ]);
+    } else if (rankingType === 'sample') {
+      await Promise.all([
+        prisma.sampleImageRanking.update({
+          where: { sampleImageId: winnerId },
+          data: {
+            trophyScore: trophyUpdate.newWinnerTrophy,
+            lastUpdated: new Date(),
+          }
+        }),
+        prisma.sampleImageRanking.update({
+          where: { sampleImageId: loserId },
+          data: {
+            trophyScore: trophyUpdate.newLoserTrophy,
+            lastUpdated: new Date(),
+          }
+        })
+      ]);
+    }
+
+    console.log(`Updated ${rankingType} trophies - Winner: ${trophyUpdate.newWinnerTrophy.toFixed(1)}, Loser: ${trophyUpdate.newLoserTrophy.toFixed(1)}`);
+  } catch (error) {
+    console.error(`Error updating specific ${rankingType} trophy scores:`, error);
   }
 }
 

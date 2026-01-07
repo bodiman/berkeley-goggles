@@ -3,8 +3,8 @@ export interface League {
   name: string;
   tier: number;
   category: 'cooked' | 'chopped' | 'chuzz' | 'mid' | 'huzz' | 'ultimate';
-  minElo: number;
-  maxElo: number;
+  minElo: number; // Backend still uses minElo/maxElo for trophy ranges
+  maxElo: number; // Backend still uses minElo/maxElo for trophy ranges
   color: string;
   description: string;
 }
@@ -14,17 +14,17 @@ export interface LeagueProgression {
   nextLeague?: League;
   previousLeague?: League;
   progressToNext: number; // 0-100 percentage
-  eloToNextLeague?: number;
-  eloFromPreviousLeague: number;
+  eloToNextLeague?: number; // Backend still returns eloToNextLeague for trophy ranges
+  eloFromPreviousLeague: number; // Backend still returns eloFromPreviousLeague for trophy ranges
 }
 
 export interface LeagueStats {
   league: League;
   playerCount: number;
-  averageElo: number;
+  averageElo: number; // Backend still returns averageElo for trophy averages
   topPlayer?: {
     userId: string;
-    elo: number;
+    elo: number; // Backend still returns elo for trophy scores
     rank: number;
   };
 }

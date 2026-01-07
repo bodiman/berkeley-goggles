@@ -7,8 +7,8 @@ interface League {
   name: string;
   tier: number;
   category: 'cooked' | 'chopped' | 'chuzz' | 'mid' | 'huzz' | 'ultimate';
-  minElo: number;
-  maxElo: number;
+  minTrophy: number;
+  maxTrophy: number;
   color: string;
   description: string;
 }
@@ -18,8 +18,8 @@ interface LeagueProgression {
   nextLeague?: League;
   previousLeague?: League;
   progressToNext: number; // 0-100 percentage
-  eloToNextLeague?: number;
-  eloFromPreviousLeague: number;
+  trophyToNextLeague?: number;
+  trophyFromPreviousLeague: number;
 }
 
 
@@ -41,7 +41,7 @@ interface LeagueLeaderboardEntry {
     url: string;
   };
   stats: {
-    elo: number;
+    trophyScore: number;
     percentile: number;
     totalComparisons: number;
     winRate: number;
@@ -57,8 +57,8 @@ interface LeagueLeaderboardResponse {
     name: string;
     tier: number;
     category: string;
-    minElo: number;
-    maxElo: number;
+    minTrophy: number;
+    maxTrophy: number;
     color: string;
   };
   timestamp: string;
@@ -70,7 +70,7 @@ interface UserStatsResponse {
   stats: {
     league: LeagueProgression;
     performance: {
-      bradleyTerryScore: number;
+      trophyScore: number;
       currentPercentile: number;
       totalComparisons: number;
     };
@@ -136,22 +136,22 @@ export const LeaguePage: React.FC = () => {
   };
 
   const allLeagues: League[] = [
-    { id: 'cooked-1', name: 'Cooked 1', tier: 1, category: 'cooked', minElo: 0, maxElo: 156.25, color: '#7F1D1D', description: 'Starting your journey' },
-    { id: 'cooked-2', name: 'Cooked 2', tier: 2, category: 'cooked', minElo: 156.25, maxElo: 312.5, color: '#991B1B', description: 'Building fundamentals' },
-    { id: 'cooked-3', name: 'Cooked 3', tier: 3, category: 'cooked', minElo: 312.5, maxElo: 468.75, color: '#B91C1C', description: 'Finding your style' },
-    { id: 'chopped-1', name: 'Chopped 1', tier: 1, category: 'chopped', minElo: 468.75, maxElo: 625, color: '#C2410C', description: 'Getting competitive' },
-    { id: 'chopped-2', name: 'Chopped 2', tier: 2, category: 'chopped', minElo: 625, maxElo: 781.25, color: '#EA580C', description: 'Rising through ranks' },
-    { id: 'chopped-3', name: 'Chopped 3', tier: 3, category: 'chopped', minElo: 781.25, maxElo: 937.5, color: '#F97316', description: 'Proving your worth' },
-    { id: 'chuzz-1', name: 'Chuzz 1', tier: 1, category: 'chuzz', minElo: 937.5, maxElo: 1093.75, color: '#A16207', description: 'Above average' },
-    { id: 'chuzz-2', name: 'Chuzz 2', tier: 2, category: 'chuzz', minElo: 1093.75, maxElo: 1250, color: '#CA8A04', description: 'Standing out' },
-    { id: 'chuzz-3', name: 'Chuzz 3', tier: 3, category: 'chuzz', minElo: 1250, maxElo: 1406.25, color: '#EAB308', description: 'Making waves' },
-    { id: 'mid-1', name: 'Mid 1', tier: 1, category: 'mid', minElo: 1406.25, maxElo: 1562.5, color: '#16A34A', description: 'Solid performance' },
-    { id: 'mid-2', name: 'Mid 2', tier: 2, category: 'mid', minElo: 1562.5, maxElo: 1718.75, color: '#22C55E', description: 'Consistently strong' },
-    { id: 'mid-3', name: 'Mid 3', tier: 3, category: 'mid', minElo: 1718.75, maxElo: 1875, color: '#4ADE80', description: 'Approaching excellence' },
-    { id: 'huzz-1', name: 'Huzz 1', tier: 1, category: 'huzz', minElo: 1875, maxElo: 2031.25, color: '#0EA5E9', description: 'Elite territory' },
-    { id: 'huzz-2', name: 'Huzz 2', tier: 2, category: 'huzz', minElo: 2031.25, maxElo: 2187.5, color: '#3B82F6', description: 'Top tier competitor' },
-    { id: 'huzz-3', name: 'Huzz 3', tier: 3, category: 'huzz', minElo: 2187.5, maxElo: 2343.75, color: '#6366F1', description: 'Nearing legendary status' },
-    { id: 'ultimate-champion', name: 'Ultimate Champion', tier: 1, category: 'ultimate', minElo: 2500, maxElo: Infinity, color: '#9333EA', description: 'The pinnacle of achievement' },
+    { id: 'cooked-1', name: 'Cooked 1', tier: 1, category: 'cooked', minTrophy: 0, maxTrophy: 160, color: '#7F1D1D', description: 'Starting your journey' },
+    { id: 'cooked-2', name: 'Cooked 2', tier: 2, category: 'cooked', minTrophy: 160, maxTrophy: 320, color: '#991B1B', description: 'Building fundamentals' },
+    { id: 'cooked-3', name: 'Cooked 3', tier: 3, category: 'cooked', minTrophy: 320, maxTrophy: 480, color: '#B91C1C', description: 'Finding your style' },
+    { id: 'chopped-1', name: 'Chopped 1', tier: 1, category: 'chopped', minTrophy: 480, maxTrophy: 640, color: '#C2410C', description: 'Getting competitive' },
+    { id: 'chopped-2', name: 'Chopped 2', tier: 2, category: 'chopped', minTrophy: 640, maxTrophy: 800, color: '#EA580C', description: 'Rising through ranks' },
+    { id: 'chopped-3', name: 'Chopped 3', tier: 3, category: 'chopped', minTrophy: 800, maxTrophy: 960, color: '#F97316', description: 'Proving your worth' },
+    { id: 'chuzz-1', name: 'Chuzz 1', tier: 1, category: 'chuzz', minTrophy: 960, maxTrophy: 1120, color: '#A16207', description: 'Above average' },
+    { id: 'chuzz-2', name: 'Chuzz 2', tier: 2, category: 'chuzz', minTrophy: 1120, maxTrophy: 1280, color: '#CA8A04', description: 'Standing out' },
+    { id: 'chuzz-3', name: 'Chuzz 3', tier: 3, category: 'chuzz', minTrophy: 1280, maxTrophy: 1440, color: '#EAB308', description: 'Making waves' },
+    { id: 'mid-1', name: 'Mid 1', tier: 1, category: 'mid', minTrophy: 1440, maxTrophy: 1600, color: '#16A34A', description: 'Solid performance' },
+    { id: 'mid-2', name: 'Mid 2', tier: 2, category: 'mid', minTrophy: 1600, maxTrophy: 1760, color: '#22C55E', description: 'Consistently strong' },
+    { id: 'mid-3', name: 'Mid 3', tier: 3, category: 'mid', minTrophy: 1760, maxTrophy: 1920, color: '#4ADE80', description: 'Approaching excellence' },
+    { id: 'huzz-1', name: 'Huzz 1', tier: 1, category: 'huzz', minTrophy: 1920, maxTrophy: 2080, color: '#0EA5E9', description: 'Elite territory' },
+    { id: 'huzz-2', name: 'Huzz 2', tier: 2, category: 'huzz', minTrophy: 2080, maxTrophy: 2240, color: '#3B82F6', description: 'Top tier competitor' },
+    { id: 'huzz-3', name: 'Huzz 3', tier: 3, category: 'huzz', minTrophy: 2240, maxTrophy: 2400, color: '#6366F1', description: 'Nearing legendary status' },
+    { id: 'ultimate-champion', name: 'Ultimate Champion', tier: 1, category: 'ultimate', minTrophy: 2400, maxTrophy: Infinity, color: '#9333EA', description: 'The pinnacle of achievement' },
   ];
 
   if (!user) {
@@ -229,8 +229,8 @@ export const LeaguePage: React.FC = () => {
                   </h3>
                   <p className="text-gray-400 text-sm">
                     {userLeague.currentLeague.id === 'ultimate-champion' 
-                      ? `${userLeague.currentLeague.minElo}+ Elo` 
-                      : `${userLeague.currentLeague.minElo} - ${userLeague.currentLeague.maxElo} Elo`}
+                      ? `${userLeague.currentLeague.minTrophy}+ Trophies` 
+                      : `${userLeague.currentLeague.minTrophy} - ${userLeague.currentLeague.maxTrophy} Trophies`}
                   </p>
                 </div>
               ) : (
@@ -307,7 +307,7 @@ export const LeaguePage: React.FC = () => {
                         {/* Stats */}
                         <div className="text-right flex-shrink-0">
                           <div className="text-white font-bold">
-                            {entry.stats.elo}
+                            {entry.stats.trophyScore}
                           </div>
                           <div className="text-gray-400 text-sm">
                             {entry.stats.winRate}% WR
@@ -359,7 +359,7 @@ export const LeaguePage: React.FC = () => {
                           )}
                         </div>
                         <p className="text-gray-400 text-sm">
-                          {league.id === 'ultimate-champion' ? `${league.minElo}+ Elo` : `${league.minElo} - ${league.maxElo} Elo`}
+                          {league.id === 'ultimate-champion' ? `${league.minTrophy}+ Trophies` : `${league.minTrophy} - ${league.maxTrophy} Trophies`}
                         </p>
                       </div>
                     </div>
@@ -450,9 +450,9 @@ export const LeaguePage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-800 rounded-lg p-3">
                     <div className="text-lg font-bold text-blue-400">
-                      {selectedPlayer.stats.elo}
+                      {selectedPlayer.stats.trophyScore}
                     </div>
-                    <div className="text-gray-400 text-sm">Elo Rating</div>
+                    <div className="text-gray-400 text-sm">Trophy Score</div>
                   </div>
                   <div className="bg-gray-800 rounded-lg p-3">
                     <div className="text-lg font-bold text-green-400">

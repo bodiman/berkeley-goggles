@@ -46,7 +46,8 @@ interface UserStats {
     losses: number;
     winRate: number;
     currentPercentile: number;
-    bradleyTerryScore: number;
+    trophyScore: number;
+    targetTrophyScore?: number;
     confidence: 'low' | 'medium' | 'high';
     trend: 'up' | 'down' | 'stable';
     lastUpdated: string;
@@ -634,9 +635,9 @@ export const ProfilePage: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-white font-bold">
-                      {Math.round(userStats.performance.bradleyTerryScore)}
+                      {Math.round(userStats.performance.trophyScore || 0)}
                     </div>
-                    <div className="text-gray-400 text-xs">Elo Rating</div>
+                    <div className="text-gray-400 text-xs">Trophy Score</div>
                   </div>
                 </div>
 
@@ -698,7 +699,7 @@ export const ProfilePage: React.FC = () => {
                 {/* Your Rating Display */}
                 <div className="text-center">
                   <div className="text-green-400 font-semibold text-lg mb-2">
-                    Your rating ({userStats ? Math.round(userStats.performance.bradleyTerryScore) : 1000})
+                    Your trophy score ({userStats ? Math.round(userStats.performance.trophyScore || 0) : 0})
                   </div>
                 </div>
 
@@ -763,19 +764,19 @@ export const ProfilePage: React.FC = () => {
                     />
                     
                     {/* User rating line (green dashed) */}
-                    {userStats && (
+                    {userStats && userStats.performance.trophyScore !== undefined && (
                       <>
                         <line
-                          x1={40 + ((userStats.performance.bradleyTerryScore - 200) / 1600) * 320}
+                          x1={40 + ((userStats.performance.trophyScore - 200) / 1600) * 320}
                           y1="15"
-                          x2={40 + ((userStats.performance.bradleyTerryScore - 200) / 1600) * 320}
+                          x2={40 + ((userStats.performance.trophyScore - 200) / 1600) * 320}
                           y2="180"
                           stroke="#10B981"
                           strokeWidth="2"
                           strokeDasharray="4,4"
                         />
                         <circle
-                          cx={40 + ((userStats.performance.bradleyTerryScore - 200) / 1600) * 320}
+                          cx={40 + ((userStats.performance.trophyScore - 200) / 1600) * 320}
                           cy="180"
                           r="4"
                           fill="#10B981"
