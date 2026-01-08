@@ -123,6 +123,9 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
             age: true,
             gender: true,
             profilePhotoUrl: true,
+            bio: true,
+            height: true,
+            weight: true,
           },
         },
         ranking: true,
@@ -490,10 +493,11 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           url: finalUrl,
           thumbnailUrl: finalThumbnailUrl,
           userId: photo.userId,
-          age: photo.user.age,
+          userAge: photo.user.age,
           height: photo.user.height,
           weight: photo.user.weight,
           gender: photo.user.gender,
+          bio: photo.user.bio,
           type: 'user',
         };
       } else {

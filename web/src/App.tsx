@@ -36,18 +36,18 @@ const AppContent: React.FC = () => {
 
   // Authenticated with complete profile - show main app
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="relative w-full h-screen h-dvh bg-black overflow-hidden">
       {/* Keep all tab components mounted to preserve state */}
-      <div className={`flex-1 ${navigationState.currentTab === 'league' ? 'block' : 'hidden'}`}>
+      <div className={`absolute inset-0 ${navigationState.currentTab === 'league' ? 'block' : 'hidden'}`}>
         <LeaguePage />
       </div>
-      <div className={`flex-1 ${navigationState.currentTab === 'profile' ? 'block' : 'hidden'}`}>
+      <div className={`absolute inset-0 ${navigationState.currentTab === 'profile' ? 'block' : 'hidden'}`}>
         <ProfilePage />
       </div>
-      <div className={`flex-1 ${navigationState.currentTab === 'play' ? 'block' : 'hidden'}`}>
+      <div className={`absolute inset-0 ${navigationState.currentTab === 'play' ? 'block' : 'hidden'}`}>
         <ComparisonPage />
       </div>
-      <div className={`flex-1 ${navigationState.currentTab === 'matched' ? 'block' : 'hidden'}`}>
+      <div className={`absolute inset-0 ${navigationState.currentTab === 'matched' ? 'block' : 'hidden'}`}>
         <MatchedPage />
       </div>
       <BottomNavigation />
@@ -58,8 +58,19 @@ const AppContent: React.FC = () => {
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   
+  // Debug: Log the client ID to console
+  console.log('🔍 Google Client ID Debug:', {
+    clientId: googleClientId || 'NOT SET',
+    clientIdLength: googleClientId?.length || 0,
+    envVar: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+    allEnvVars: Object.keys(import.meta.env).filter(key => key.includes('GOOGLE') || key.includes('CLIENT'))
+  });
+  
   if (!googleClientId) {
-    console.warn('VITE_GOOGLE_CLIENT_ID not found in environment variables');
+    console.warn('⚠️ VITE_GOOGLE_CLIENT_ID not found in environment variables');
+    console.warn('💡 Make sure you have web/.env.local file with VITE_GOOGLE_CLIENT_ID set');
+  } else {
+    console.log('✅ Google Client ID loaded:', googleClientId.substring(0, 20) + '...');
   }
 
   return (

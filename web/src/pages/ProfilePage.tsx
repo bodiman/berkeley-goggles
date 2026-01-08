@@ -281,26 +281,42 @@ export const ProfilePage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <p className="text-white">Loading...</p>
+      <div className="absolute inset-0 flex items-center justify-center" style={{
+        background: '#4A90E2', // Solid blueish-yellow background
+      }}>
+        <div className="text-white text-center">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="drop-shadow-lg" style={{
+            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+          }}>Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-black safe-area-inset flex flex-col">
+    <div className="absolute inset-0 flex flex-col" style={{
+      background: '#4A90E2', // Solid blueish-yellow background
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '100vh',
+      height: '100dvh',
+    }}>
       {/* Header */}
-      <header className="px-6 py-4 flex-shrink-0">
-        <h1 className="text-2xl font-bold text-white">Profile</h1>
+      <header className="bg-white/10 backdrop-blur-sm border-b border-white/20 px-6 py-4 flex-shrink-0">
+        <h1 className="text-3xl font-bold text-white drop-shadow-lg" style={{
+          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+        }}>Profile</h1>
       </header>
 
       {/* Main Content */}
-      <main className="px-6 py-4 overflow-y-auto pb-52" style={{
+      <main className="flex-1 overflow-y-auto px-6 py-4" style={{
         WebkitOverflowScrolling: 'touch',
         touchAction: 'pan-y',
-        overscrollBehavior: 'contain',
-        height: '100vh',
-        scrollbarColor: 'rgba(100, 116, 139, 0) transparent',
+        minHeight: 0,
+        paddingBottom: '80px', // Space for bottom navigation
       }}>
         <div className="max-w-md mx-auto space-y-6">
           {/* Profile Photo */}
@@ -394,7 +410,7 @@ export const ProfilePage: React.FC = () => {
             {isEditingProfile ? (
               <div className="space-y-4">
                 {/* Profile editing form */}
-                <div className="bg-gray-800 rounded-lg p-4 space-y-4">
+                <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30 space-y-4">
                   {/* Age input */}
                   <div>
                     <label className="block text-sm font-medium text-white mb-2 text-left">
@@ -609,7 +625,7 @@ export const ProfilePage: React.FC = () => {
 
           {/* League Information */}
           {userStats && (
-            <div className="bg-gray-800 rounded-lg p-4">
+            <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
               <h3 className="text-lg font-semibold text-white mb-4">Current League</h3>
               
               <div className="space-y-4">
@@ -686,7 +702,7 @@ export const ProfilePage: React.FC = () => {
           )}
 
           {/* Rating Distribution */}
-          <div className="bg-gray-800 rounded-lg p-4">
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30">
             <h3 className="text-lg font-semibold text-white mb-4">Rating Distribution</h3>
             
             {isLoadingStats ? (

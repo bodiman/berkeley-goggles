@@ -220,11 +220,17 @@ export const ComparisonPage: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center safe-area-inset">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Loading photos...</p>
-          <p className="text-gray-400 text-sm mt-2">Preparing buffer...</p>
+      <div className="absolute inset-0 flex items-center justify-center" style={{
+        background: '#4A90E2', // Solid blueish-yellow background
+      }}>
+        <div className="text-white text-center">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="drop-shadow-lg" style={{
+            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+          }}>Loading photos...</p>
+          <p className="text-white/80 text-sm mt-2 drop-shadow" style={{
+            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+          }}>Preparing buffer...</p>
         </div>
       </div>
     );
@@ -291,7 +297,15 @@ export const ComparisonPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset overflow-hidden">
+    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{
+      background: '#4A90E2', // Solid blueish-yellow background
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: '100vh',
+      height: '100dvh',
+    }}>
       {/* Header */}
       <header className="px-6 py-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -338,6 +352,10 @@ export const ComparisonPage: React.FC = () => {
                 : `http://localhost:3001/api/user/photo/${currentPair.leftPhoto.url.split('/').pop()}`,
               userId: currentPair.leftPhoto.userId,
               age: currentPair.leftPhoto.userAge,
+              height: currentPair.leftPhoto.height,
+              weight: currentPair.leftPhoto.weight,
+              gender: currentPair.leftPhoto.gender,
+              bio: currentPair.leftPhoto.bio,
               type: currentPair.leftPhoto.type,
             }}
             bottomPhoto={{
@@ -347,6 +365,10 @@ export const ComparisonPage: React.FC = () => {
                 : `http://localhost:3001/api/user/photo/${currentPair.rightPhoto.url.split('/').pop()}`,
               userId: currentPair.rightPhoto.userId,
               age: currentPair.rightPhoto.userAge,
+              height: currentPair.rightPhoto.height,
+              weight: currentPair.rightPhoto.weight,
+              gender: currentPair.rightPhoto.gender,
+              bio: currentPair.rightPhoto.bio,
               type: currentPair.rightPhoto.type,
             }}
             onSelection={handleSelection}

@@ -10,6 +10,7 @@ interface Photo {
   height?: number; // Height in inches (for males)
   weight?: number; // Weight in pounds (for females)
   gender?: 'male' | 'female';
+  bio?: string;
   type?: 'user' | 'sample';
 }
 
@@ -394,6 +395,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
                 {topPhoto.weight} lbs
               </div>
             )}
+
+            {/* Bio Display */}
+            {topPhoto.bio && (
+              <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-medium max-w-[calc(100%-6rem)]">
+                {topPhoto.bio}
+              </div>
+            )}
             
             {/* Inactivity Hint Overlay for Top Photo */}
             {showHints && (
@@ -462,6 +470,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             {(bottomPhoto.gender === 'female' && bottomPhoto.weight) && (
               <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-medium">
                 {bottomPhoto.weight} lbs
+              </div>
+            )}
+
+            {/* Bio Display */}
+            {bottomPhoto.bio && (
+              <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-medium max-w-[calc(100%-6rem)]">
+                {bottomPhoto.bio}
               </div>
             )}
             
