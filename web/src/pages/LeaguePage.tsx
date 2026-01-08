@@ -7,8 +7,8 @@ interface League {
   name: string;
   tier: number;
   category: 'cooked' | 'chopped' | 'chuzz' | 'mid' | 'huzz' | 'ultimate';
-  minTrophy: number;
-  maxTrophy: number;
+  minElo: number;
+  maxElo: number;
   color: string;
   description: string;
 }
@@ -18,11 +18,9 @@ interface LeagueProgression {
   nextLeague?: League;
   previousLeague?: League;
   progressToNext: number; // 0-100 percentage
-  trophyToNextLeague?: number;
-  trophyFromPreviousLeague: number;
+  eloToNextLeague?: number;
+  eloFromPreviousLeague: number;
 }
-
-
 
 interface LeagueLeaderboardEntry {
   rank: number;
@@ -57,8 +55,8 @@ interface LeagueLeaderboardResponse {
     name: string;
     tier: number;
     category: string;
-    minTrophy: number;
-    maxTrophy: number;
+    minElo: number;
+    maxElo: number;
     color: string;
   };
   timestamp: string;
@@ -82,7 +80,7 @@ export const LeaguePage: React.FC = () => {
   const [userLeague, setUserLeague] = useState<LeagueProgression | null>(null);
   const [leagueLeaderboard, setLeagueLeaderboard] = useState<LeagueLeaderboardEntry[]>([]);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const [isLoadingLeagueLeaderboard, setIsLoadingLeagueLeaderboard] = useState(true);
+  const [isLoadingLeagueLeaderboard, setIsLoadingLeagueLeaderboard] = useState(false);
   const [activeTab, setActiveTab] = useState<'my-league' | 'info'>('my-league');
   const [selectedPlayer, setSelectedPlayer] = useState<LeagueLeaderboardEntry | null>(null);
 
@@ -93,7 +91,7 @@ export const LeaguePage: React.FC = () => {
   }, [user?.id]);
 
   useEffect(() => {
-    if (user?.id && userLeague?.currentLeague.id) {
+    if (user?.id) {
       fetchLeagueLeaderboard();
     }
   }, [user?.id, userLeague?.currentLeague.id]);
@@ -108,6 +106,14 @@ export const LeaguePage: React.FC = () => {
       
       if (data.success && data.stats) {
         setUserLeague(data.stats.league);
+      } else {
+        // Default to first league for new users
+        setUserLeague({
+          currentLeague: allLeagues[0],
+          progressToNext: 0,
+          eloFromPreviousLeague: 0,
+          eloToNextLeague: allLeagues[0].maxElo
+        });
       }
     } catch (error) {
       console.error('Failed to fetch user league:', error);
@@ -118,11 +124,13 @@ export const LeaguePage: React.FC = () => {
 
 
   const fetchLeagueLeaderboard = async () => {
-    if (!user?.id || !userLeague?.currentLeague.id) return;
+    if (!user?.id) return;
+    
+    const leagueId = userLeague?.currentLeague.id || allLeagues[0].id;
 
     try {
       setIsLoadingLeagueLeaderboard(true);
-      const response = await apiRequest(`/api/rankings/league-leaderboard?userId=${user.id}&leagueId=${userLeague.currentLeague.id}&limit=20`);
+      const response = await apiRequest(`/api/rankings/league-leaderboard?userId=${user.id}&leagueId=${leagueId}&limit=20`);
       const data: LeagueLeaderboardResponse = await response.json();
       
       if (data.success) {
@@ -136,22 +144,17 @@ export const LeaguePage: React.FC = () => {
   };
 
   const allLeagues: League[] = [
-    { id: 'cooked-1', name: 'Cooked 1', tier: 1, category: 'cooked', minTrophy: 0, maxTrophy: 160, color: '#7F1D1D', description: 'Starting your journey' },
-    { id: 'cooked-2', name: 'Cooked 2', tier: 2, category: 'cooked', minTrophy: 160, maxTrophy: 320, color: '#991B1B', description: 'Building fundamentals' },
-    { id: 'cooked-3', name: 'Cooked 3', tier: 3, category: 'cooked', minTrophy: 320, maxTrophy: 480, color: '#B91C1C', description: 'Finding your style' },
-    { id: 'chopped-1', name: 'Chopped 1', tier: 1, category: 'chopped', minTrophy: 480, maxTrophy: 640, color: '#C2410C', description: 'Getting competitive' },
-    { id: 'chopped-2', name: 'Chopped 2', tier: 2, category: 'chopped', minTrophy: 640, maxTrophy: 800, color: '#EA580C', description: 'Rising through ranks' },
-    { id: 'chopped-3', name: 'Chopped 3', tier: 3, category: 'chopped', minTrophy: 800, maxTrophy: 960, color: '#F97316', description: 'Proving your worth' },
-    { id: 'chuzz-1', name: 'Chuzz 1', tier: 1, category: 'chuzz', minTrophy: 960, maxTrophy: 1120, color: '#A16207', description: 'Above average' },
-    { id: 'chuzz-2', name: 'Chuzz 2', tier: 2, category: 'chuzz', minTrophy: 1120, maxTrophy: 1280, color: '#CA8A04', description: 'Standing out' },
-    { id: 'chuzz-3', name: 'Chuzz 3', tier: 3, category: 'chuzz', minTrophy: 1280, maxTrophy: 1440, color: '#EAB308', description: 'Making waves' },
-    { id: 'mid-1', name: 'Mid 1', tier: 1, category: 'mid', minTrophy: 1440, maxTrophy: 1600, color: '#16A34A', description: 'Solid performance' },
-    { id: 'mid-2', name: 'Mid 2', tier: 2, category: 'mid', minTrophy: 1600, maxTrophy: 1760, color: '#22C55E', description: 'Consistently strong' },
-    { id: 'mid-3', name: 'Mid 3', tier: 3, category: 'mid', minTrophy: 1760, maxTrophy: 1920, color: '#4ADE80', description: 'Approaching excellence' },
-    { id: 'huzz-1', name: 'Huzz 1', tier: 1, category: 'huzz', minTrophy: 1920, maxTrophy: 2080, color: '#0EA5E9', description: 'Elite territory' },
-    { id: 'huzz-2', name: 'Huzz 2', tier: 2, category: 'huzz', minTrophy: 2080, maxTrophy: 2240, color: '#3B82F6', description: 'Top tier competitor' },
-    { id: 'huzz-3', name: 'Huzz 3', tier: 3, category: 'huzz', minTrophy: 2240, maxTrophy: 2400, color: '#6366F1', description: 'Nearing legendary status' },
-    { id: 'ultimate-champion', name: 'Ultimate Champion', tier: 1, category: 'ultimate', minTrophy: 2400, maxTrophy: Infinity, color: '#9333EA', description: 'The pinnacle of achievement' },
+    { id: 'cooked-1', name: 'Cooked 1', tier: 1, category: 'cooked', minElo: 0, maxElo: 240, color: '#7F1D1D', description: 'Starting your journey' },
+    { id: 'cooked-2', name: 'Cooked 2', tier: 2, category: 'cooked', minElo: 240, maxElo: 480, color: '#B91C1C', description: 'Finding your style' },
+    { id: 'chopped-1', name: 'Chopped 1', tier: 1, category: 'chopped', minElo: 480, maxElo: 720, color: '#C2410C', description: 'Getting competitive' },
+    { id: 'chopped-2', name: 'Chopped 2', tier: 2, category: 'chopped', minElo: 720, maxElo: 960, color: '#F97316', description: 'Proving your worth' },
+    { id: 'chuzz-1', name: 'Chuzz 1', tier: 1, category: 'chuzz', minElo: 960, maxElo: 1200, color: '#A16207', description: 'Above average' },
+    { id: 'chuzz-2', name: 'Chuzz 2', tier: 2, category: 'chuzz', minElo: 1200, maxElo: 1440, color: '#EAB308', description: 'Making waves' },
+    { id: 'mid-1', name: 'Mid 1', tier: 1, category: 'mid', minElo: 1440, maxElo: 1680, color: '#16A34A', description: 'Solid performance' },
+    { id: 'mid-2', name: 'Mid 2', tier: 2, category: 'mid', minElo: 1680, maxElo: 1920, color: '#4ADE80', description: 'Approaching excellence' },
+    { id: 'huzz-1', name: 'Huzz 1', tier: 1, category: 'huzz', minElo: 1920, maxElo: 2160, color: '#0EA5E9', description: 'Elite territory' },
+    { id: 'huzz-2', name: 'Huzz 2', tier: 2, category: 'huzz', minElo: 2160, maxElo: 2400, color: '#6366F1', description: 'Nearing legendary status' },
+    { id: 'ultimate-champion', name: 'Ultimate Champion', tier: 1, category: 'ultimate', minElo: 2400, maxElo: Infinity, color: '#9333EA', description: 'The pinnacle of achievement' },
   ];
 
   if (!user) {
@@ -246,8 +249,8 @@ export const LeaguePage: React.FC = () => {
                   </h3>
                   <p className="text-gray-400 text-sm">
                     {userLeague.currentLeague.id === 'ultimate-champion' 
-                      ? `${userLeague.currentLeague.minTrophy}+ Trophies` 
-                      : `${userLeague.currentLeague.minTrophy} - ${userLeague.currentLeague.maxTrophy} Trophies`}
+                      ? `${userLeague.currentLeague.minElo}+ Trophies` 
+                      : `${userLeague.currentLeague.minElo} - ${userLeague.currentLeague.maxElo} Trophies`}
                   </p>
                 </div>
               ) : (
@@ -376,7 +379,7 @@ export const LeaguePage: React.FC = () => {
                           )}
                         </div>
                         <p className="text-gray-400 text-sm">
-                          {league.id === 'ultimate-champion' ? `${league.minTrophy}+ Trophies` : `${league.minTrophy} - ${league.maxTrophy} Trophies`}
+                          {league.id === 'ultimate-champion' ? `${league.minElo}+ Trophies` : `${league.minElo} - ${league.maxElo} Trophies`}
                         </p>
                       </div>
                     </div>

@@ -2,32 +2,27 @@ import { League, LeagueProgression, LeagueStats } from '@shared/types/ranking';
 
 export class LeagueService {
   private static readonly LEAGUES: League[] = [
-    // Cooked tier (0-480) - Starting levels
-    { id: 'cooked-1', name: 'Cooked 1', tier: 1, category: 'cooked', minElo: 0, maxElo: 160, color: '#7F1D1D', description: 'Starting your journey' },
-    { id: 'cooked-2', name: 'Cooked 2', tier: 2, category: 'cooked', minElo: 160, maxElo: 320, color: '#991B1B', description: 'Building fundamentals' },
-    { id: 'cooked-3', name: 'Cooked 3', tier: 3, category: 'cooked', minElo: 320, maxElo: 480, color: '#B91C1C', description: 'Finding your style' },
+    // Cooked tier (0-480)
+    { id: 'cooked-1', name: 'Cooked 1', tier: 1, category: 'cooked', minElo: 0, maxElo: 240, color: '#7F1D1D', description: 'Starting your journey' },
+    { id: 'cooked-2', name: 'Cooked 2', tier: 2, category: 'cooked', minElo: 240, maxElo: 480, color: '#B91C1C', description: 'Finding your style' },
     
-    // Chopped tier (480-960) - Early progress
-    { id: 'chopped-1', name: 'Chopped 1', tier: 1, category: 'chopped', minElo: 480, maxElo: 640, color: '#C2410C', description: 'Getting competitive' },
-    { id: 'chopped-2', name: 'Chopped 2', tier: 2, category: 'chopped', minElo: 640, maxElo: 800, color: '#EA580C', description: 'Rising through ranks' },
-    { id: 'chopped-3', name: 'Chopped 3', tier: 3, category: 'chopped', minElo: 800, maxElo: 960, color: '#F97316', description: 'Proving your worth' },
+    // Chopped tier (480-960)
+    { id: 'chopped-1', name: 'Chopped 1', tier: 1, category: 'chopped', minElo: 480, maxElo: 720, color: '#C2410C', description: 'Getting competitive' },
+    { id: 'chopped-2', name: 'Chopped 2', tier: 2, category: 'chopped', minElo: 720, maxElo: 960, color: '#F97316', description: 'Proving your worth' },
     
-    // Chuzz tier (960-1440) - Growing stronger  
-    { id: 'chuzz-1', name: 'Chuzz 1', tier: 1, category: 'chuzz', minElo: 960, maxElo: 1120, color: '#A16207', description: 'Above average' },
-    { id: 'chuzz-2', name: 'Chuzz 2', tier: 2, category: 'chuzz', minElo: 1120, maxElo: 1280, color: '#CA8A04', description: 'Standing out' },
-    { id: 'chuzz-3', name: 'Chuzz 3', tier: 3, category: 'chuzz', minElo: 1280, maxElo: 1440, color: '#EAB308', description: 'Making waves' },
+    // Chuzz tier (960-1440)
+    { id: 'chuzz-1', name: 'Chuzz 1', tier: 1, category: 'chuzz', minElo: 960, maxElo: 1200, color: '#A16207', description: 'Above average' },
+    { id: 'chuzz-2', name: 'Chuzz 2', tier: 2, category: 'chuzz', minElo: 1200, maxElo: 1440, color: '#EAB308', description: 'Making waves' },
     
-    // Mid tier (1440-1920) - Around target mean (1500)
-    { id: 'mid-1', name: 'Mid 1', tier: 1, category: 'mid', minElo: 1440, maxElo: 1600, color: '#16A34A', description: 'Solid performance' },
-    { id: 'mid-2', name: 'Mid 2', tier: 2, category: 'mid', minElo: 1600, maxElo: 1760, color: '#22C55E', description: 'Consistently strong' },
-    { id: 'mid-3', name: 'Mid 3', tier: 3, category: 'mid', minElo: 1760, maxElo: 1920, color: '#4ADE80', description: 'Approaching excellence' },
+    // Mid tier (1440-1920)
+    { id: 'mid-1', name: 'Mid 1', tier: 1, category: 'mid', minElo: 1440, maxElo: 1680, color: '#16A34A', description: 'Solid performance' },
+    { id: 'mid-2', name: 'Mid 2', tier: 2, category: 'mid', minElo: 1680, maxElo: 1920, color: '#4ADE80', description: 'Approaching excellence' },
     
-    // Huzz tier (1920-2400) - Elite territory
-    { id: 'huzz-1', name: 'Huzz 1', tier: 1, category: 'huzz', minElo: 1920, maxElo: 2080, color: '#0EA5E9', description: 'Elite territory' },
-    { id: 'huzz-2', name: 'Huzz 2', tier: 2, category: 'huzz', minElo: 2080, maxElo: 2240, color: '#3B82F6', description: 'Top tier competitor' },
-    { id: 'huzz-3', name: 'Huzz 3', tier: 3, category: 'huzz', minElo: 2240, maxElo: 2400, color: '#6366F1', description: 'Nearing legendary status' },
+    // Huzz tier (1920-2400)
+    { id: 'huzz-1', name: 'Huzz 1', tier: 1, category: 'huzz', minElo: 1920, maxElo: 2160, color: '#0EA5E9', description: 'Elite territory' },
+    { id: 'huzz-2', name: 'Huzz 2', tier: 2, category: 'huzz', minElo: 2160, maxElo: 2400, color: '#6366F1', description: 'Nearing legendary status' },
     
-    // Ultimate tier (2400+) - Legendary status
+    // Ultimate tier (2400+)
     { id: 'ultimate-champion', name: 'Ultimate Champion', tier: 1, category: 'ultimate', minElo: 2400, maxElo: Infinity, color: '#9333EA', description: 'The pinnacle of achievement' },
   ];
 

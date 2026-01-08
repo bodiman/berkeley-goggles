@@ -508,7 +508,7 @@ export class BradleyTerryService {
    * Simple approximation of inverse normal CDF for percentile mapping
    * Used in calculateTargetTrophies to convert percentiles to normal distribution
    */
-  private inverseNormalCDF(p: number): number {
+  public inverseNormalCDF(p: number): number {
     // Clamp p to avoid edge cases
     p = Math.max(0.0001, Math.min(0.9999, p));
     

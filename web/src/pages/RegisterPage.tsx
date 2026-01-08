@@ -48,6 +48,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
       return;
     }
 
+    if (!formData.email.toLowerCase().endsWith('@berkeley.edu')) {
+      setError('Registration is restricted to @berkeley.edu email addresses');
+      return;
+    }
+
     if (!formData.password || formData.password.length < 8) {
       setError('Password must be at least 8 characters long');
       return;
@@ -150,10 +155,11 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 id="email"
                 value={formData.email}
                 onChange={handleInputChange('email')}
-                placeholder="Enter your email"
+                placeholder="yourname@berkeley.edu"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 autoComplete="email"
               />
+              <p className="mt-1.5 text-xs text-gray-500">Must be a @berkeley.edu address</p>
             </div>
 
             {/* Password Input */}

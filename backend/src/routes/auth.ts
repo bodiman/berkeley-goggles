@@ -17,7 +17,11 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Validation schemas
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
+  email: z.string()
+    .email('Invalid email address')
+    .refine(email => email.endsWith('@berkeley.edu'), {
+      message: 'Registration requires a @berkeley.edu email address',
+    }),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -151,6 +155,14 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid Google token payload',
+      });
+    }
+
+    // Ensure email is from berkeley.edu
+    if (!payload.email.endsWith('@berkeley.edu')) {
+      return res.status(403).json({
+        success: false,
+        error: 'Only @berkeley.edu email addresses are allowed',
       });
     }
     

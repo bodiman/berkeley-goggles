@@ -860,12 +860,12 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       try {
         if (finalComparisonType === 'user_photos') {
           // Both are user photos - use existing rating update function
-          await updatePhotoRatings(winnerId, loserId);
+          await updatePhotoRatings(winnerId, loserId, comparison.id);
           // Also update combined rankings for cross-comparisons
           await updateCombinedRankings(winnerId, loserId, 'user', 'user');
         } else if (finalComparisonType === 'sample_images') {
           // Both are sample images - use sample image rating update
-          await updateSampleImageRatings(winnerId, loserId);
+          await updateSampleImageRatings(winnerId, loserId, comparison.id);
           // Also update combined rankings
           await updateCombinedRankings(winnerId, loserId, 'sample', 'sample');
         } else if (finalComparisonType === 'mixed') {
@@ -1292,7 +1292,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
 
 // Helper function to update photo ratings using dual-layer trophy system
 // Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
-async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
+async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string, comparisonId?: string) {
   try {
     // Get current rankings for both photos
     const [winnerRanking, loserRanking] = await Promise.all([
@@ -1331,7 +1331,7 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
     ]);
 
     // ---- Product Layer: Calculate target trophies and update trophy scores ----
-    await updateSpecificTrophyScores(winnerPhotoId, loserPhotoId, 'photo');
+    await updateSpecificTrophyScores(winnerPhotoId, loserPhotoId, 'photo', comparisonId);
 
     // Update percentiles based on trophy scores (for display)
     await updatePercentiles();
@@ -1342,7 +1342,7 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string) {
 
 // Helper function to update sample image ratings using dual-layer trophy system
 // Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
-async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: string) {
+async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: string, comparisonId?: string) {
   try {
     // Get current rankings for both sample images
     const [winnerRanking, loserRanking] = await Promise.all([
@@ -1381,7 +1381,7 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
     ]);
 
     // ---- Product Layer: Calculate target trophies and update trophy scores ----
-    await updateSpecificTrophyScores(winnerSampleId, loserSampleId, 'sample');
+    await updateSpecificTrophyScores(winnerSampleId, loserSampleId, 'sample', comparisonId);
 
     // Update percentiles for sample images
     await updateSampleImagePercentiles();
@@ -1598,145 +1598,66 @@ async function updateCombinedPercentiles() {
   }
 }
 
-// Helper function to update trophy scores using the dual-layer system from ranking_system_concept.py
-async function updateTrophyScores(rankingType: 'photo' | 'sample' | 'combined') {
-  try {
-    // Get trophy config (use defaults from script if not in database)
-    const trophyConfig = bradleyTerryService.getDefaultTrophyConfig();
-
-    let allRankings: any[] = [];
-
-    // Fetch all rankings of the specified type
-    if (rankingType === 'photo') {
-      allRankings = await prisma.photoRanking.findMany({
-        where: { totalComparisons: { gt: 0 } },
-        select: {
-          id: true,
-          photoId: true,
-          hiddenBradleyTerryScore: true,
-          trophyScore: true,
-          targetTrophyScore: true
-        }
-      });
-    } else if (rankingType === 'sample') {
-      allRankings = await prisma.sampleImageRanking.findMany({
-        where: { totalComparisons: { gt: 0 } },
-        select: {
-          id: true,
-          sampleImageId: true,
-          hiddenBradleyTerryScore: true,
-          trophyScore: true,
-          targetTrophyScore: true
-        }
-      });
-    } else if (rankingType === 'combined') {
-      allRankings = await prisma.combinedRanking.findMany({
-        where: { totalComparisons: { gt: 0 } },
-        select: {
-          id: true,
-          photoId: true,
-          sampleImageId: true,
-          hiddenBradleyTerryScore: true,
-          trophyScore: true,
-          targetTrophyScore: true
-        }
-      });
-    }
-
-    if (allRankings.length === 0) return;
-
-    // Extract hidden Bradley-Terry scores for target calculation
-    const hiddenScores = allRankings.map(r => r.hiddenBradleyTerryScore || 0);
-    
-    // Calculate target trophies based on percentile rankings (lines 99-100 in script)
-    const targetTrophies = bradleyTerryService.calculateTargetTrophies(
-      hiddenScores,
-      trophyConfig.targetMean,
-      trophyConfig.targetStd
-    );
-
-    // Update target trophy scores and trophy scores for each ranking
-    const updatePromises = allRankings.map(async (ranking, index) => {
-      const targetTrophy = targetTrophies[index];
-      const currentTrophy = ranking.trophyScore || 0;
-
-      // For this batch update, we don't have specific win/loss info, so we just update targets
-      // The actual trophy progression happens during individual comparisons
-      if (rankingType === 'photo') {
-        return prisma.photoRanking.update({
-          where: { id: ranking.id },
-          data: {
-            targetTrophyScore: targetTrophy,
-            lastUpdated: new Date(),
-          }
-        });
-      } else if (rankingType === 'sample') {
-        return prisma.sampleImageRanking.update({
-          where: { id: ranking.id },
-          data: {
-            targetTrophyScore: targetTrophy,
-            lastUpdated: new Date(),
-          }
-        });
-      } else if (rankingType === 'combined') {
-        return prisma.combinedRanking.update({
-          where: { id: ranking.id },
-          data: {
-            targetTrophyScore: targetTrophy,
-            lastUpdated: new Date(),
-          }
-        });
-      }
-    });
-
-    await Promise.all(updatePromises);
-    
-    console.log(`Updated ${allRankings.length} ${rankingType} trophy targets`);
-  } catch (error) {
-    console.error(`Error updating ${rankingType} trophy scores:`, error);
-  }
-}
-
-// Helper function to update trophy scores for a specific comparison (implements lines 101-116 from script)
+// Helper function to update trophy scores for a specific comparison
 async function updateSpecificTrophyScores(
   winnerId: string, 
   loserId: string, 
-  rankingType: 'photo' | 'sample' | 'combined'
+  rankingType: 'photo' | 'sample' | 'combined',
+  comparisonId?: string
 ) {
   try {
-    // Get trophy config
     const trophyConfig = bradleyTerryService.getDefaultTrophyConfig();
 
-    // First, update all target trophies based on new hidden Bradley-Terry scores
-    await updateTrophyScores(rankingType);
-
-    // Get updated rankings with targets
+    // 1. Get total count and current rankings for the two items
     let winnerRanking: any = null;
     let loserRanking: any = null;
+    let totalCount = 0;
 
     if (rankingType === 'photo') {
-      [winnerRanking, loserRanking] = await Promise.all([
+      [winnerRanking, loserRanking, totalCount] = await Promise.all([
         prisma.photoRanking.findUnique({ where: { photoId: winnerId } }),
-        prisma.photoRanking.findUnique({ where: { photoId: loserId } })
+        prisma.photoRanking.findUnique({ where: { photoId: loserId } }),
+        prisma.photoRanking.count({ where: { totalComparisons: { gt: 0 } } })
       ]);
     } else if (rankingType === 'sample') {
-      [winnerRanking, loserRanking] = await Promise.all([
+      [winnerRanking, loserRanking, totalCount] = await Promise.all([
         prisma.sampleImageRanking.findUnique({ where: { sampleImageId: winnerId } }),
-        prisma.sampleImageRanking.findUnique({ where: { sampleImageId: loserId } })
+        prisma.sampleImageRanking.findUnique({ where: { sampleImageId: loserId } }),
+        prisma.sampleImageRanking.count({ where: { totalComparisons: { gt: 0 } } })
       ]);
     }
 
-    if (!winnerRanking || !loserRanking) {
-      console.error(`Rankings not found for ${rankingType} trophy update`);
-      return;
-    }
+    if (!winnerRanking || !loserRanking || totalCount === 0) return;
 
-    // Calculate new trophy scores using the trophy progression logic
+    // 2. Get ranks for winner and loser based on hidden Bradley-Terry scores
+    // This allows us to calculate their target trophies without updating everyone
+    const [winnerRank, loserRank] = await Promise.all([
+      rankingType === 'photo' 
+        ? prisma.photoRanking.count({ where: { hiddenBradleyTerryScore: { lt: winnerRanking.hiddenBradleyTerryScore } } })
+        : prisma.sampleImageRanking.count({ where: { hiddenBradleyTerryScore: { lt: winnerRanking.hiddenBradleyTerryScore } } }),
+      rankingType === 'photo'
+        ? prisma.photoRanking.count({ where: { hiddenBradleyTerryScore: { lt: loserRanking.hiddenBradleyTerryScore } } })
+        : prisma.sampleImageRanking.count({ where: { hiddenBradleyTerryScore: { lt: loserRanking.hiddenBradleyTerryScore } } })
+    ]);
+
+    // 3. Calculate target trophies for just these two (using percentile rank)
+    // p = (rank + 1) / (total + 1) to match the logic in calculateTargetTrophies
+    const winnerP = (winnerRank + 1) / (totalCount + 1);
+    const loserP = (loserRank + 1) / (totalCount + 1);
+    
+    // We can use the service's target trophy logic directly for individual P values
+    const winnerTarget = trophyConfig.targetMean + trophyConfig.targetStd * bradleyTerryService.inverseNormalCDF(winnerP);
+    const loserTarget = trophyConfig.targetMean + trophyConfig.targetStd * bradleyTerryService.inverseNormalCDF(loserP);
+
+    const winnerOldTrophy = winnerRanking.trophyScore || 0;
+    const loserOldTrophy = loserRanking.trophyScore || 0;
+
+    // 4. Calculate new trophy scores using the trophy progression logic
     const trophyUpdate = bradleyTerryService.updateTrophyScores(
-      winnerRanking.trophyScore || 0,
-      loserRanking.trophyScore || 0,
-      winnerRanking.targetTrophyScore || trophyConfig.targetMean,
-      loserRanking.targetTrophyScore || trophyConfig.targetMean,
+      winnerOldTrophy,
+      loserOldTrophy,
+      winnerTarget,
+      loserTarget,
       {
         winGain: trophyConfig.winGain,
         lossPenalty: trophyConfig.lossPenalty,
@@ -1744,13 +1665,17 @@ async function updateSpecificTrophyScores(
       }
     );
 
-    // Update trophy scores in database
+    const winnerDelta = trophyUpdate.newWinnerTrophy - winnerOldTrophy;
+    const loserDelta = trophyUpdate.newLoserTrophy - loserOldTrophy;
+
+    // 5. Update rankings in database
     if (rankingType === 'photo') {
       await Promise.all([
         prisma.photoRanking.update({
           where: { photoId: winnerId },
           data: {
             trophyScore: trophyUpdate.newWinnerTrophy,
+            targetTrophyScore: winnerTarget,
             lastUpdated: new Date(),
           }
         }),
@@ -1758,6 +1683,7 @@ async function updateSpecificTrophyScores(
           where: { photoId: loserId },
           data: {
             trophyScore: trophyUpdate.newLoserTrophy,
+            targetTrophyScore: loserTarget,
             lastUpdated: new Date(),
           }
         })
@@ -1768,6 +1694,7 @@ async function updateSpecificTrophyScores(
           where: { sampleImageId: winnerId },
           data: {
             trophyScore: trophyUpdate.newWinnerTrophy,
+            targetTrophyScore: winnerTarget,
             lastUpdated: new Date(),
           }
         }),
@@ -1775,13 +1702,25 @@ async function updateSpecificTrophyScores(
           where: { sampleImageId: loserId },
           data: {
             trophyScore: trophyUpdate.newLoserTrophy,
+            targetTrophyScore: loserTarget,
             lastUpdated: new Date(),
           }
         })
       ]);
     }
 
-    console.log(`Updated ${rankingType} trophies - Winner: ${trophyUpdate.newWinnerTrophy.toFixed(1)}, Loser: ${trophyUpdate.newLoserTrophy.toFixed(1)}`);
+    // 6. Update comparison record with deltas if ID provided
+    if (comparisonId) {
+      await prisma.comparison.update({
+        where: { id: comparisonId },
+        data: {
+          winnerTrophyDelta: winnerDelta,
+          loserTrophyDelta: loserDelta,
+        }
+      });
+    }
+
+    console.log(`Updated ${rankingType} trophies - Winner: ${trophyUpdate.newWinnerTrophy.toFixed(1)} (+${winnerDelta.toFixed(1)}), Loser: ${trophyUpdate.newLoserTrophy.toFixed(1)} (${loserDelta.toFixed(1)})`);
   } catch (error) {
     console.error(`Error updating specific ${rankingType} trophy scores:`, error);
   }

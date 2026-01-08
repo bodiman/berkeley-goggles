@@ -426,6 +426,103 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
   }
 }));
 
+// GET /api/rankings/battle-log - Get recent comparisons involving the user's active photo
+rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+
+    // Get user and find active profile photo
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || !user.profilePhotoUrl) {
+      return res.json({
+        success: true,
+        log: [],
+        message: 'No profile photo found',
+      });
+    }
+
+    // Find the photo record
+    const photo = await prisma.photo.findFirst({
+      where: {
+        userId: userId,
+        url: user.profilePhotoUrl,
+      },
+    });
+
+    if (!photo) {
+      return res.json({
+        success: true,
+        log: [],
+        message: 'Profile photo not found',
+      });
+    }
+
+    // Get comparisons where this photo was either winner or loser
+    const comparisons = await prisma.comparison.findMany({
+      where: {
+        OR: [
+          { winnerPhotoId: photo.id },
+          { loserPhotoId: photo.id }
+        ],
+      },
+      include: {
+        rater: {
+          select: {
+            id: true,
+            name: true,
+            gender: true,
+            profilePhotoUrl: true,
+          },
+        },
+      },
+      orderBy: {
+        timestamp: 'desc',
+      },
+      take: limit,
+    });
+
+    const log = comparisons.map(comp => {
+      const isWinner = comp.winnerPhotoId === photo.id;
+      const trophyDelta = isWinner ? comp.winnerTrophyDelta : comp.loserTrophyDelta;
+      
+      return {
+        id: comp.id,
+        timestamp: comp.timestamp,
+        isWinner,
+        trophyDelta: trophyDelta ? Math.round(trophyDelta * 10) / 10 : 0,
+        rater: {
+          id: comp.rater.id,
+          name: comp.rater.name.split(' ')[0], // First name only
+          gender: comp.rater.gender,
+          photoUrl: comp.rater.profilePhotoUrl,
+        },
+      };
+    });
+
+    res.json({
+      success: true,
+      log,
+    });
+  } catch (error) {
+    console.error('Get battle log error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get battle log',
+    });
+  }
+}));
+
 // GET /api/rankings/demographics
 rankingRoutes.get('/demographics', asyncHandler(async (req, res) => {
   try {

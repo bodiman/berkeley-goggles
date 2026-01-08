@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { apiRequest } from '../config/api';
 
 interface Match {
   id: string;
@@ -38,8 +37,8 @@ const oskiResponses = [
 export const MatchedPage: React.FC = () => {
   const { user } = useAuth();
   const [yourTurnMatches, setYourTurnMatches] = useState<Match[]>([]);
-  const [theirTurnMatches, setTheirTurnMatches] = useState<Match[]>([]);
-  const [hiddenMatches, setHiddenMatches] = useState<Match[]>([]);
+  const [theirTurnMatches] = useState<Match[]>([]);
+  const [hiddenMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -93,7 +92,7 @@ export const MatchedPage: React.FC = () => {
     }
   }, [selectedMatch, user?.id]);
 
-  const loadChatMessages = async (matchId: string) => {
+  const loadChatMessages = async (_matchId: string) => {
     // TODO: Load actual chat messages from API
     setChatMessages([]);
   };
@@ -168,7 +167,6 @@ export const MatchedPage: React.FC = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        height: '100vh',
         height: '100dvh',
       }}>
         {/* Chat Header */}
@@ -321,7 +319,6 @@ export const MatchedPage: React.FC = () => {
       left: 0,
       right: 0,
       bottom: 0,
-      height: '100vh',
       height: '100dvh',
     }}>
       {/* Header */}

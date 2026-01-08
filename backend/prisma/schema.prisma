@@ -152,6 +152,10 @@ model Comparison {
   devicePlatform   String?  @map("device_platform")
   deviceVersion    String?  @map("device_version")
   
+  // Trophy deltas for battle log
+  winnerTrophyDelta Float?   @map("winner_trophy_delta")
+  loserTrophyDelta  Float?   @map("loser_trophy_delta")
+  
   // Relations
   rater            User     @relation("RaterComparisons", fields: [raterId], references: [id])
   winnerPhoto      Photo?   @relation("WinnerComparisons", fields: [winnerPhotoId], references: [id])

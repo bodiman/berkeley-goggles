@@ -50,7 +50,7 @@ const profileUpdateSchema = z.object({
   name: z.string().min(2).optional(),
   age: z.number().int().min(18).max(99).optional(),
   gender: z.enum(['male', 'female']).optional(),
-  bio: z.string().max(500).optional(),
+  bio: z.string().max(25).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   country: z.string().optional(),

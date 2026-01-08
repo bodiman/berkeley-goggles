@@ -10,6 +10,7 @@ interface AuthUser {
   height?: number; // Height in inches (for males)
   weight?: number; // Weight in pounds (for females)
   gender?: 'male' | 'female';
+  bio?: string;
   profileComplete: boolean;
   createdAt: Date;
   lastActive: Date;

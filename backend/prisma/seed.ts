@@ -483,9 +483,7 @@ async function seedSampleImages() {
       // Only create combined rankings for images that don't already have them
       const sampleImages = await prisma.sampleImage.findMany({
         where: {
-          combinedRankings: {
-            none: {}
-          }
+          combinedRanking: null
         },
         include: { ranking: true }
       });
