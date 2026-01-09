@@ -240,7 +240,6 @@ export const ProfilePage: React.FC = () => {
     setIsEditingProfile(true);
     setProfileError(null);
     setEditedAge(user?.age || 18);
-    setEditedGender(user?.gender || 'male');
     setEditedBio(user?.bio || '');
   };
 
