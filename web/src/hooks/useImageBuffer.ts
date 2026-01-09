@@ -9,6 +9,7 @@ export interface PhotoPair {
     userId: string;
     userAge: number;
     userGender: string;
+    bio?: string;
     type: 'user' | 'sample';
   };
   rightPhoto: {
@@ -18,6 +19,7 @@ export interface PhotoPair {
     userId: string;
     userAge: number;
     userGender: string;
+    bio?: string;
     type: 'user' | 'sample';
   };
 }

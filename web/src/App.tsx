@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomePage } from './pages/WelcomePage';
@@ -8,10 +8,21 @@ import { ComparisonPage } from './pages/ComparisonPage';
 import { MatchedPage } from './pages/MatchedPage';
 import { LeaguePage } from './pages/LeaguePage';
 import { BottomNavigation } from './components/BottomNavigation';
+import { LoadingScreen } from './components/LoadingScreen';
 import './index.css';
 
 const AppContent: React.FC = () => {
   const { user, navigationState, isLoading } = useAuth();
+  const [showLoadingBar, setShowLoadingBar] = useState(false);
+  const [hasShownInitialLoading, setHasShownInitialLoading] = useState(false);
+
+  // Trigger loading screen on successful login
+  useEffect(() => {
+    if (navigationState.isAuthenticated && !hasShownInitialLoading && !isLoading) {
+      setShowLoadingBar(true);
+      setHasShownInitialLoading(true);
+    }
+  }, [navigationState.isAuthenticated, hasShownInitialLoading, isLoading]);
 
   if (isLoading) {
     return (
@@ -22,6 +33,11 @@ const AppContent: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Show artificial loading bar for 5 seconds
+  if (showLoadingBar) {
+    return <LoadingScreen onComplete={() => setShowLoadingBar(false)} />;
   }
 
   // Not authenticated - show authentication flow

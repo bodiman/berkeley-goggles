@@ -363,8 +363,6 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
             city: true,
             state: true,
             profilePhotoUrl: true,
-            height: true,
-            weight: true,
             gender: true,
           },
         },
@@ -383,8 +381,6 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
           ? `${ranking.user.city}, ${ranking.user.state}` 
           : null,
         profilePhotoUrl: ranking.user.profilePhotoUrl,
-        height: ranking.user.height,
-        weight: ranking.user.weight,
         gender: ranking.user.gender,
       },
       photo: {

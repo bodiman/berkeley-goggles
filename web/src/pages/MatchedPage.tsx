@@ -10,7 +10,6 @@ interface Match {
   isYourTurn: boolean;
   isHidden?: boolean;
   age?: number;
-  height?: number; // Height in inches
 }
 
 interface ChatMessage {
@@ -58,17 +57,10 @@ export const MatchedPage: React.FC = () => {
       lastMessageTime: 'Just now',
       isYourTurn: true,
       age: 118, // Oski was created in 1906, so he's quite old!
-      height: 66, // 5'6" - reasonable bear height
     };
     setYourTurnMatches([oskiMatch]);
     setIsLoading(false);
   }, []);
-
-  const formatHeight = (inches: number): string => {
-    const feet = Math.floor(inches / 12);
-    const remainingInches = inches % 12;
-    return `${feet}'${remainingInches}"`;
-  };
 
   // Load chat messages when a match is selected
   useEffect(() => {
@@ -192,25 +184,15 @@ export const MatchedPage: React.FC = () => {
               <h2 className="font-bold text-white drop-shadow-lg" style={{
                 textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
               }}>{selectedMatch.name}</h2>
-              {(selectedMatch.age || selectedMatch.height) && (
-                <span className="text-white/70 drop-shadow" style={{
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
-                }}>•</span>
-              )}
               {selectedMatch.age && (
-                <span className="text-sm text-white/90 drop-shadow" style={{
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
-                }}>{selectedMatch.age}</span>
-              )}
-              {selectedMatch.age && selectedMatch.height && (
-                <span className="text-white/70 drop-shadow" style={{
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
-                }}>•</span>
-              )}
-              {selectedMatch.height && (
-                <span className="text-sm text-white/90 drop-shadow" style={{
-                  textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
-                }}>{formatHeight(selectedMatch.height)}</span>
+                <>
+                  <span className="text-white/70 drop-shadow" style={{
+                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+                  }}>•</span>
+                  <span className="text-sm text-white/90 drop-shadow" style={{
+                    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+                  }}>{selectedMatch.age}</span>
+                </>
               )}
             </div>
           </button>

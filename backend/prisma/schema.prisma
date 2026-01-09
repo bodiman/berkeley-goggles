@@ -17,8 +17,6 @@ model User {
   password    String   // Store hashed password directly
   age         Int?
   gender      String?   // "male" or "female"
-  height      Int?      // Height in inches (for males)
-  weight      Int?      // Weight in pounds (for females)
   city        String?
   state       String?
   country     String?
@@ -63,6 +61,10 @@ model User {
   rankings      PhotoRanking[]
   combinedRankings CombinedRanking[]
   
+  // New Friends relations
+  friendshipsInitiated Friendship[] @relation("FriendshipInitiator")
+  friendshipsReceived  Friendship[] @relation("FriendshipReceiver")
+  
   @@map("users")
 }
 
@@ -88,6 +90,9 @@ model Photo {
   winnerComparisons Comparison[] @relation("WinnerComparisons")
   loserComparisons  Comparison[] @relation("LoserComparisons")
   
+  @@index([userId])
+  @@index([url])
+  @@index([status])
   @@map("photos")
 }
 
@@ -112,6 +117,7 @@ model PhotoRanking {
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   history            PercentileHistory[]
   
+  @@index([trophyScore])
   @@map("photo_rankings")
 }
 
@@ -164,6 +170,11 @@ model Comparison {
   loserSampleImage  SampleImage? @relation("LoserSampleComparisons", fields: [loserSampleImageId], references: [id])
   session          ComparisonSession @relation(fields: [sessionId], references: [id])
   
+  @@index([raterId])
+  @@index([winnerPhotoId])
+  @@index([loserPhotoId])
+  @@index([winnerSampleImageId])
+  @@index([loserSampleImageId])
   @@map("comparisons")
 }
 
@@ -317,4 +328,20 @@ model TrophyConfig {
   updatedAt       DateTime @updatedAt @map("updated_at")
   
   @@map("trophy_config")
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  friendId    String   @map("friend_id")
+  status      String   @default("pending") // "pending", "accepted", "declined", "blocked"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User     @relation("FriendshipInitiator", fields: [userId], references: [id], onDelete: Cascade)
+  friend      User     @relation("FriendshipReceiver", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@map("friendships")
 }

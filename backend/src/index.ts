@@ -32,6 +32,7 @@ import { photoRoutes } from './routes/photo';
 import { comparisonRoutes } from './routes/comparison';
 import { rankingRoutes } from './routes/ranking';
 import { matchesRoutes } from './routes/matches';
+import { friendsRoutes } from './routes/friends';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -187,6 +188,7 @@ app.use('/api/photos', photoRoutes);
 app.use('/api/comparisons', comparisonRoutes);
 app.use('/api/rankings', rankingRoutes);
 app.use('/api/matches', matchesRoutes);
+app.use('/api/friends', friendsRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

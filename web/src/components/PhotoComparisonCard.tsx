@@ -7,8 +7,6 @@ interface Photo {
   url: string;
   userId: string;
   age?: number;
-  height?: number; // Height in inches (for males)
-  weight?: number; // Weight in pounds (for females)
   gender?: 'male' | 'female';
   bio?: string;
   type?: 'user' | 'sample';
@@ -34,13 +32,6 @@ interface PhotoComparisonCardProps {
 export interface PhotoComparisonCardRef {
   swipe: (direction: 'left' | 'right' | 'up' | 'down') => void;
 }
-
-// Helper function to format height from inches to feet'inches"
-const formatHeight = (inches: number): string => {
-  const feet = Math.floor(inches / 12);
-  const remainingInches = inches % 12;
-  return `${feet}'${remainingInches}"`;
-};
 
 export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoComparisonCardProps>(({
   topPhoto,
@@ -384,18 +375,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* Height/Weight Display */}
-            {(topPhoto.gender === 'male' && topPhoto.height) && (
-              <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-medium">
-                {formatHeight(topPhoto.height)}
-              </div>
-            )}
-            {(topPhoto.gender === 'female' && topPhoto.weight) && (
-              <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-medium">
-                {topPhoto.weight} lbs
-              </div>
-            )}
-
             {/* Bio Display */}
             {topPhoto.bio && (
               <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-medium max-w-[calc(100%-6rem)]">
@@ -461,18 +440,6 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* Height/Weight Display */}
-            {(bottomPhoto.gender === 'male' && bottomPhoto.height) && (
-              <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-medium">
-                {formatHeight(bottomPhoto.height)}
-              </div>
-            )}
-            {(bottomPhoto.gender === 'female' && bottomPhoto.weight) && (
-              <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2 py-1 rounded text-sm font-medium">
-                {bottomPhoto.weight} lbs
-              </div>
-            )}
-
             {/* Bio Display */}
             {bottomPhoto.bio && (
               <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-medium max-w-[calc(100%-6rem)]">

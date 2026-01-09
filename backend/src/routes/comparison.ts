@@ -124,8 +124,6 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
             gender: true,
             profilePhotoUrl: true,
             bio: true,
-            height: true,
-            weight: true,
           },
         },
         ranking: true,
@@ -418,17 +416,125 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       }
     }
 
-    // Select random pairs from available options (for buffering)
-    if (availablePairs.length === 0) {
+    // Select pairs from available options (for buffering)
+    const selectedPairs = [];
+    const usedPersonIds = new Set<string>();
+    
+    // Mix and shuffle pools for selection
+    const userPool = [...typedUserPhotos].sort(() => Math.random() - 0.5);
+    const samplePool = [...typedSampleImages].sort(() => Math.random() - 0.5);
+
+    // Phase 1: User-only pairs
+    if (userPool.length >= 2) {
+      for (let i = 0; i < userPool.length - 1 && selectedPairs.length < bufferSize; i++) {
+        for (let j = i + 1; j < userPool.length && selectedPairs.length < bufferSize; j++) {
+          const left = userPool[i];
+          const right = userPool[j];
+          const leftPersonId = getPersonId(left);
+          const rightPersonId = getPersonId(right);
+          
+          if (usedPersonIds.has(leftPersonId) || usedPersonIds.has(rightPersonId)) continue;
+          
+          const pairKey = normalizePair(left.id, right.id);
+          if (!comparedPairs.has(pairKey)) {
+            selectedPairs.push({ left, right, type: 'user_photos' });
+            usedPersonIds.add(leftPersonId);
+            usedPersonIds.add(rightPersonId);
+          }
+        }
+      }
+    }
+
+    // Phase 2: Mixed pairs (User vs Sample)
+    if (selectedPairs.length < bufferSize && userPool.length >= 1 && samplePool.length >= 1) {
+      for (const userPhoto of userPool) {
+        if (selectedPairs.length >= bufferSize) break;
+        const userPersonId = getPersonId(userPhoto);
+        if (usedPersonIds.has(userPersonId)) continue;
+
+        for (const sampleImage of samplePool) {
+          if (selectedPairs.length >= bufferSize) break;
+          const samplePersonId = getPersonId(sampleImage);
+          if (usedPersonIds.has(samplePersonId)) continue;
+
+          const pairKey = normalizePair(`photo_${userPhoto.id}`, `sample_${sampleImage.id}`);
+          if (!comparedPairs.has(pairKey)) {
+            // Randomize side
+            const [left, right] = Math.random() > 0.5 ? [userPhoto, sampleImage] : [sampleImage, userPhoto];
+            selectedPairs.push({ left, right, type: 'mixed' });
+            usedPersonIds.add(userPersonId);
+            usedPersonIds.add(samplePersonId);
+          }
+        }
+      }
+    }
+
+    // Phase 3: Sample-only pairs
+    if (selectedPairs.length < bufferSize && samplePool.length >= 2) {
+      for (let i = 0; i < samplePool.length - 1 && selectedPairs.length < bufferSize; i++) {
+        for (let j = i + 1; j < samplePool.length && selectedPairs.length < bufferSize; j++) {
+          const left = samplePool[i];
+          const right = samplePool[j];
+          const leftPersonId = getPersonId(left);
+          const rightPersonId = getPersonId(right);
+          
+          if (usedPersonIds.has(leftPersonId) || usedPersonIds.has(rightPersonId)) continue;
+
+          const pairKey = normalizePair(left.id, right.id);
+          if (!comparedPairs.has(pairKey)) {
+            selectedPairs.push({ left, right, type: 'sample_images' });
+            usedPersonIds.add(leftPersonId);
+            usedPersonIds.add(rightPersonId);
+          }
+        }
+      }
+    }
+
+    // Fallback: If still not enough pairs, relax person deduplication but keep pair deduplication
+    if (selectedPairs.length < bufferSize) {
+      const allPool = [...userPool.map(p => ({ ...p, type: 'user' })), ...samplePool.map(p => ({ ...p, type: 'sample' }))];
+      
+      for (let i = 0; i < allPool.length - 1 && selectedPairs.length < bufferSize; i++) {
+        for (let j = i + 1; j < allPool.length && selectedPairs.length < bufferSize; j++) {
+          const left = allPool[i];
+          const right = allPool[j];
+          
+          let pairKey: string;
+          if (left.type === 'user' && right.type === 'user') {
+            pairKey = normalizePair(left.id, right.id);
+          } else if (left.type === 'sample' && right.type === 'sample') {
+            pairKey = normalizePair(left.id, right.id);
+          } else {
+            const photoId = left.type === 'user' ? left.id : right.id;
+            const sampleId = left.type === 'sample' ? left.id : right.id;
+            pairKey = normalizePair(`photo_${photoId}`, `sample_${sampleId}`);
+          }
+
+          if (!comparedPairs.has(pairKey)) {
+            // Check if this exact pair (any order) is already in selectedPairs
+            const isAlreadySelected = selectedPairs.some(p => 
+              (p.left.id === left.id && p.right.id === right.id) || 
+              (p.left.id === right.id && p.right.id === left.id)
+            );
+
+            if (!isAlreadySelected) {
+              let type = 'mixed';
+              if (left.type === 'user' && right.type === 'user') type = 'user_photos';
+              if (left.type === 'sample' && right.type === 'sample') type = 'sample_images';
+              
+              selectedPairs.push({ left, right, type });
+            }
+          }
+        }
+      }
+    }
+
+    if (selectedPairs.length === 0) {
       // Provide more detailed error messages to help with debugging
       let message = '';
       
       if (typedUserPhotos.length === 0 && typedSampleImages.length === 0) {
         message = `No ${oppositeGender} photos available for comparison. Please check sample image configuration.`;
-      } else if (typedSampleImages.length === 0) {
-        message = `No sample images available for ${oppositeGender} gender. Please check sample image database.`;
-      } else if (typedUserPhotos.length === 0) {
-        message = `No user photos available. You've compared all available sample combinations!`;
       } else {
         message = `You've compared all available photo combinations! (${typedUserPhotos.length} user photos, ${typedSampleImages.length} sample images)`;
       }
@@ -438,29 +544,14 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         pair: bufferSize === 1 ? null : undefined,
         pairs: bufferSize > 1 ? [] : undefined,
         message,
-        debug: process.env.NODE_ENV === 'development' ? {
-          userPhotosCount: typedUserPhotos.length,
-          sampleImagesCount: typedSampleImages.length,
-          phase,
-          userGender: rater?.gender,
-          oppositeGender,
-        } : undefined,
       });
     }
 
-    // Use intelligent Bradley-Terry sampler to select most informative pairs
-    // while ensuring no person appears more than once in the buffer
-    const selectedPairs = selectInformativePairs(availablePairs, bufferSize);
-    
     // Debug logging for selected pairs
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🎯 Pair Selection Results:`);
-      console.log(`  - Available pairs: ${availablePairs.length}`);
+      console.log(`🎯 Optimized Pair Selection Results:`);
       console.log(`  - Requested buffer size: ${bufferSize}`);
       console.log(`  - Selected pairs: ${selectedPairs.length}`);
-      if (selectedPairs.length > 0) {
-        console.log(`  - Selected pair IDs:`, selectedPairs.map(p => `${p.left.id} vs ${p.right.id}`));
-      }
     }
 
     // Build the response pair objects
@@ -494,8 +585,6 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           thumbnailUrl: finalThumbnailUrl,
           userId: photo.userId,
           userAge: photo.user.age,
-          height: photo.user.height,
-          weight: photo.user.weight,
           gender: photo.user.gender,
           bio: photo.user.bio,
           type: 'user',
@@ -1390,9 +1479,20 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
   }
 }
 
+// Throttling for percentile updates to prevent database overload
+let lastPhotoPercentileUpdate = 0;
+let lastSamplePercentileUpdate = 0;
+const PERCENTILE_UPDATE_INTERVAL = 60 * 1000; // 60 seconds
+
 // Helper function to recalculate percentiles for all photos
 async function updatePercentiles() {
+  const now = Date.now();
+  if (now - lastPhotoPercentileUpdate < PERCENTILE_UPDATE_INTERVAL) {
+    return; // Skip if updated recently
+  }
+  
   try {
+    lastPhotoPercentileUpdate = now;
     // Use CTE approach since window functions aren't allowed in UPDATE
     await prisma.$executeRaw`
       WITH ranked_photos AS (
@@ -1408,6 +1508,7 @@ async function updatePercentiles() {
       FROM ranked_photos 
       WHERE photo_rankings.id = ranked_photos.id
     `;
+    console.log('✅ Global photo percentiles updated');
   } catch (error) {
     console.error('Error updating percentiles:', error);
   }
@@ -1415,7 +1516,13 @@ async function updatePercentiles() {
 
 // Helper function to recalculate percentiles for all sample images
 async function updateSampleImagePercentiles() {
+  const now = Date.now();
+  if (now - lastSamplePercentileUpdate < PERCENTILE_UPDATE_INTERVAL) {
+    return;
+  }
+
   try {
+    lastSamplePercentileUpdate = now;
     // Use CTE approach since window functions aren't allowed in UPDATE
     await prisma.$executeRaw`
       WITH ranked_sample_images AS (
@@ -1431,6 +1538,7 @@ async function updateSampleImagePercentiles() {
       FROM ranked_sample_images 
       WHERE sample_image_rankings.id = ranked_sample_images.id
     `;
+    console.log('✅ Global sample image percentiles updated');
   } catch (error) {
     console.error('Error updating sample image percentiles:', error);
   }

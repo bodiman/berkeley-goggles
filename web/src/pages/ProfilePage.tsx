@@ -74,12 +74,8 @@ interface BattleLogEntry {
 }
 
 export const ProfilePage: React.FC = () => {
-  const { user, logout, updateUserName, updateUserPhoto, updateProfile, refreshUser, updateNavigationTab } = useAuth();
+  const { user, logout, updateUserPhoto, updateProfile, refreshUser, updateNavigationTab } = useAuth();
   
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState('');
-  const [isUpdatingName, setIsUpdatingName] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [isUpdatingPhoto, setIsUpdatingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -87,20 +83,23 @@ export const ProfilePage: React.FC = () => {
   const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
   const [showFullBattleLog, setShowFullBattleLog] = useState(false);
   
+  // Friends state
+  const [showFriendsList, setShowFriendsList] = useState(false);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [isAcceptingFriend, setIsAcceptingFriend] = useState<string | null>(null);
+  
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editedAge, setEditedAge] = useState<number>(18);
-  const [editedGender, setEditedGender] = useState<'male' | 'female'>('male');
   const [editedBio, setEditedBio] = useState('');
-  const [editedHeightFeet, setEditedHeightFeet] = useState<number>(5);
-  const [editedHeightInches, setEditedHeightInches] = useState<number>(0);
-  const [editedWeight, setEditedWeight] = useState<number>(120);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
       fetchUserStats();
+      fetchFriends();
       refreshUser();
     }
   }, [user?.id]);
@@ -124,42 +123,82 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleEditName = () => {
-    setIsEditingName(true);
-    setEditedName(user?.name || '');
-    setNameError(null);
-  };
-
-  const handleCancelNameEdit = () => {
-    setIsEditingName(false);
-    setEditedName('');
-    setNameError(null);
-  };
-
-  const handleSaveName = async () => {
-    if (!editedName.trim()) {
-      setNameError('Name cannot be empty');
-      return;
-    }
-    if (editedName.trim().length < 2) {
-      setNameError('Name must be at least 2 characters');
-      return;
-    }
-    if (editedName.trim() === user?.name) {
-      setIsEditingName(false);
-      return;
-    }
-    setIsUpdatingName(true);
-    setNameError(null);
+  const fetchFriends = async () => {
+    if (!user?.id) return;
     try {
-      const success = await updateUserName(editedName.trim());
-      if (success) setIsEditingName(false);
-      else setNameError('Failed to update name.');
+      const friendsResponse = await apiRequest(`/api/friends/list?userId=${user.id}`);
+      const friendsData = await friendsResponse.json();
+      if (friendsData.success) {
+        setFriends(friendsData.friends);
+      }
+
+      const pendingResponse = await apiRequest(`/api/friends/pending?userId=${user.id}`);
+      const pendingData = await pendingResponse.json();
+      if (pendingData.success) {
+        setPendingRequests(pendingData.pending);
+      }
     } catch (error) {
-      console.error('Failed to update name:', error);
-      setNameError('Failed to update name.');
+      console.error('Failed to fetch friends:', error);
+    }
+  };
+
+  const handleAcceptFriend = async (friendId: string) => {
+    if (!user?.id) return;
+    setIsAcceptingFriend(friendId);
+    try {
+      const response = await apiRequest('/api/friends/accept', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id, friendId }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchFriends();
+      }
+    } catch (error) {
+      console.error('Failed to accept friend:', error);
     } finally {
-      setIsUpdatingName(false);
+      setIsAcceptingFriend(null);
+    }
+  };
+
+  const handleDeclineFriend = async (friendId: string) => {
+    if (!user?.id) return;
+    try {
+      const response = await apiRequest('/api/friends/decline', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id, friendId }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchFriends();
+      }
+    } catch (error) {
+      console.error('Failed to decline friend:', error);
+    }
+  };
+
+  const handleShareInvite = async () => {
+    const inviteUrl = window.location.origin + '/register';
+    const inviteText = `Join me on Berkeley Goggles! See how you rank and challenge me to a MOG battle. ${inviteUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Berkeley Goggles',
+          text: inviteText,
+          url: inviteUrl,
+        });
+      } catch (error) {
+        console.error('Error sharing:', error);
+      }
+    } else {
+      // Fallback: Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(inviteText);
+        alert('Invite link copied to clipboard!');
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
     }
   };
 
@@ -203,15 +242,6 @@ export const ProfilePage: React.FC = () => {
     setEditedAge(user?.age || 18);
     setEditedGender(user?.gender || 'male');
     setEditedBio(user?.bio || '');
-    if (user?.height) {
-      setEditedHeightFeet(Math.floor(user.height / 12));
-      setEditedHeightInches(user.height % 12);
-    } else {
-      setEditedHeightFeet(5);
-      setEditedHeightInches(8);
-    }
-    if (user?.weight) setEditedWeight(user.weight);
-    else setEditedWeight(130);
   };
 
   const handleCancelProfileEdit = () => {
@@ -234,15 +264,8 @@ export const ProfilePage: React.FC = () => {
     try {
       const profileData: any = {
         age: editedAge,
-        gender: editedGender,
         bio: editedBio.trim(),
       };
-      if (editedGender === 'male') {
-        const totalInches = editedHeightFeet * 12 + editedHeightInches;
-        profileData.height = totalInches;
-      } else {
-        profileData.weight = editedWeight;
-      }
       const success = await updateProfile(profileData);
       if (success) setIsEditingProfile(false);
       else setProfileError('Failed to update profile.');
@@ -282,10 +305,23 @@ export const ProfilePage: React.FC = () => {
         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/20 rounded-full blur-[100px]" />
       </div>
 
-      <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-10">
+      <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-10 flex items-center justify-between">
         <h1 className="text-2xl font-black text-white tracking-tighter drop-shadow-md">
           PROFILE
         </h1>
+        <button 
+          onClick={() => setShowFriendsList(true)}
+          className="relative p-2 bg-white/10 rounded-xl border border-white/20 transition-transform hover:scale-110 active:scale-95 group"
+        >
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          {pendingRequests.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#1e3a8a] animate-bounce shadow-lg">
+              {pendingRequests.length}
+            </span>
+          )}
+        </button>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 py-6 relative z-10" style={{
@@ -321,64 +357,72 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div className="mt-4 text-center w-full">
-              {isEditingName ? (
-                <div className="flex flex-col items-center space-y-2">
-                  <input
-                    type="text"
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    className="text-2xl font-black text-white bg-white/10 border-2 border-white/30 rounded-xl px-4 py-2 text-center focus:outline-none focus:border-white/60 backdrop-blur-md w-full"
-                    autoFocus
-                  />
-                  {nameError && <p className="text-red-300 font-bold text-sm">{nameError}</p>}
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handleSaveName} 
-                      disabled={isUpdatingName}
-                      className="bg-white text-blue-700 px-4 py-1.5 rounded-lg font-bold text-sm shadow-md disabled:opacity-50"
-                    >
-                      {isUpdatingName ? '...' : 'Save'}
-                    </button>
-                    <button 
-                      onClick={handleCancelNameEdit} 
-                      disabled={isUpdatingName}
-                      className="bg-black/30 text-white px-4 py-1.5 rounded-lg font-bold text-sm disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+              <div className="flex flex-col items-center">
+                <div className="inline-flex items-center space-x-2">
+                  <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">
+                    {getFirstName(user.name)}
+                  </h2>
+                  
+                  <button 
+                    onClick={() => updateNavigationTab('league')}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg border-2 border-white/40 transition-transform hover:scale-125"
+                    style={{ 
+                      backgroundColor: userStats?.league.currentLeague.color || '#7F1D1D',
+                      boxShadow: `0 0 15px ${userStats?.league.currentLeague.color || '#7F1D1D'}66`
+                    }}
+                    title={`Current League: ${userStats?.league.currentLeague.name || 'Cooked 1'}`}
+                  >
+                    <span className="text-white font-black text-xl drop-shadow-md">
+                      {userStats?.league.currentLeague.tier || 1}
+                    </span>
+                  </button>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <div className="inline-flex items-center space-x-2">
-                    <div className="inline-flex items-center space-x-2 cursor-pointer group transition-transform duration-300 hover:scale-105" onClick={handleEditName}>
-                      <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">
-                        {getFirstName(user.name)}
-                      </h2>
-                      <svg className="w-5 h-5 text-white/50 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                
+                {/* Consolidatied Identity - WAY SMALLER */}
+                <div className="flex items-center space-x-2 mt-1.5 bg-black/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 group cursor-pointer hover:bg-black/30 transition-all" onClick={handleEditProfile}>
+                  <span className="text-[10px] font-black text-blue-100 uppercase tracking-widest">{user.age || '—'} YRS</span>
+                  <span className="text-white/30 text-[10px]">•</span>
+                  <span className="text-[10px] font-black text-blue-100 uppercase tracking-widest">{user.gender || '—'}</span>
+                  <svg className="w-3 h-3 text-white/30 group-hover:text-white/60 transition-colors ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+
+                {isEditingProfile ? (
+                  <div className="mt-4 w-full max-w-[300px] bg-white/10 backdrop-blur-2xl rounded-2xl p-4 border border-white/20 shadow-2xl animate-in fade-in slide-in-from-top-2">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[8px] font-black text-blue-100 uppercase tracking-widest">Bio</label>
+                        <span className="text-[8px] font-black text-blue-100/40">{editedBio.length}/25</span>
+                      </div>
+                      <textarea
+                        value={editedBio}
+                        onChange={(e) => setEditedBio(e.target.value)}
+                        maxLength={25}
+                        className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-bold text-xs focus:outline-none focus:border-white/30 min-h-[50px]"
+                        placeholder="Say something..."
+                      />
+                      <div className="grid grid-cols-1 gap-2">
+                        <input
+                          type="number"
+                          value={editedAge}
+                          onChange={(e) => setEditedAge(parseInt(e.target.value))}
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-white font-bold text-[10px] text-center"
+                        />
+                      </div>
+                      {profileError && <p className="text-red-300 font-bold text-[8px] text-center uppercase">{profileError}</p>}
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={handleSaveProfile} disabled={isUpdatingProfile} className="flex-1 bg-white text-blue-700 py-2 rounded-lg font-black text-[10px] uppercase shadow-md active:scale-95 transition-all">SAVE</button>
+                        <button onClick={handleCancelProfileEdit} disabled={isUpdatingProfile} className="flex-1 bg-black/30 text-white py-2 rounded-lg font-black text-[10px] uppercase active:scale-95 transition-all">CANCEL</button>
+                      </div>
                     </div>
-                    
-                    <button 
-                      onClick={() => updateNavigationTab('league')}
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg border-2 border-white/40 transition-transform hover:scale-125"
-                      style={{ 
-                        backgroundColor: userStats?.league.currentLeague.color || '#7F1D1D',
-                        boxShadow: `0 0 15px ${userStats?.league.currentLeague.color || '#7F1D1D'}66`
-                      }}
-                      title={`Current League: ${userStats?.league.currentLeague.name || 'Cooked 1'}`}
-                    >
-                      <span className="text-white font-black text-xl drop-shadow-md">
-                        {userStats?.league.currentLeague.tier || 1}
-                      </span>
-                    </button>
                   </div>
-                  <p className="text-white/70 font-medium text-base mt-1 italic px-4">
+                ) : (
+                  <p className="text-white/70 font-medium text-xs mt-2 italic px-6 leading-tight max-w-[280px]">
                     {user.bio || "No bio set yet."}
                   </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -437,102 +481,6 @@ export const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Personal Information - Smaller & Grid */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-[2rem] p-6 border border-white/20 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-black text-white tracking-tight uppercase">Identity</h3>
-              <button
-                onClick={handleEditProfile}
-                className="bg-white text-blue-700 px-4 py-1 rounded-lg text-xs font-black transition-all hover:scale-105 uppercase tracking-widest shadow-md"
-              >
-                Edit
-              </button>
-            </div>
-
-            {isEditingProfile ? (
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center ml-1">
-                    <label className="text-[10px] font-black text-blue-100 uppercase tracking-widest">Bio (Required)</label>
-                    <span className={`text-[10px] font-black tracking-widest ${editedBio.length > 25 ? 'text-red-400' : 'text-blue-100/60'}`}>
-                      {editedBio.length}/25
-                    </span>
-                  </div>
-                  <textarea
-                    value={editedBio}
-                    onChange={(e) => setEditedBio(e.target.value)}
-                    maxLength={25}
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-white/40 backdrop-blur-md min-h-[60px] text-sm"
-                    placeholder="Briefly about you..."
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-blue-100 uppercase tracking-widest ml-1">Age</label>
-                    <input
-                      type="number"
-                      value={editedAge}
-                      onChange={(e) => setEditedAge(parseInt(e.target.value))}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-white/40 backdrop-blur-md text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-blue-100 uppercase tracking-widest ml-1">Gender</label>
-                    <select
-                      value={editedGender}
-                      onChange={(e) => setEditedGender(e.target.value as 'male' | 'female')}
-                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-white/40 backdrop-blur-md appearance-none text-sm"
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
-                  </div>
-                </div>
-                {profileError && <p className="text-red-300 font-bold text-center text-xs">{profileError}</p>}
-                <div className="flex gap-3 pt-2">
-                  <button onClick={handleSaveProfile} disabled={isUpdatingProfile} className="flex-1 bg-white text-blue-700 py-3 rounded-xl font-black shadow-md hover:scale-102 transition-transform text-sm disabled:opacity-50">SAVE</button>
-                  <button onClick={handleCancelProfileEdit} disabled={isUpdatingProfile} className="flex-1 bg-black/30 text-white py-3 rounded-xl font-black hover:scale-102 transition-transform text-sm disabled:opacity-50">CANCEL</button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center space-x-3 p-4 bg-white/5 rounded-2xl border border-white/10 transition-transform hover:scale-102">
-                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-xl">🎂</div>
-                  <div>
-                    <div className="text-[8px] font-black text-blue-100 uppercase tracking-widest opacity-60">Age</div>
-                    <div className="text-base font-black text-white">{user.age || '—'} yrs</div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-4 bg-white/5 rounded-2xl border border-white/10 transition-transform hover:scale-102">
-                  <div className={`w-10 h-10 ${user.gender === 'female' ? 'bg-pink-500/20' : 'bg-blue-500/20'} rounded-xl flex items-center justify-center text-xl`}>
-                    {user.gender === 'female' ? '💃' : '🕺'}
-                  </div>
-                  <div>
-                    <div className="text-[8px] font-black text-blue-100 uppercase tracking-widest opacity-60">Gender</div>
-                    <div className="text-base font-black text-white uppercase">{user.gender || '—'}</div>
-                  </div>
-                </div>
-                {user.gender === 'male' ? (
-                  <div className="col-span-2 flex items-center space-x-3 p-4 bg-white/5 rounded-2xl border border-white/10 transition-transform hover:scale-102">
-                    <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center text-xl">📏</div>
-                    <div>
-                      <div className="text-[8px] font-black text-blue-100 uppercase tracking-widest opacity-60">Height</div>
-                      <div className="text-base font-black text-white">{user.height ? `${Math.floor(user.height / 12)}'${user.height % 12}"` : '—'}</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="col-span-2 flex items-center space-x-3 p-4 bg-white/5 rounded-2xl border border-white/10 transition-transform hover:scale-102">
-                    <div className="w-10 h-10 bg-rose-500/20 rounded-xl flex items-center justify-center text-xl">⚖️</div>
-                    <div>
-                      <div className="text-[8px] font-black text-blue-100 uppercase tracking-widest opacity-60">Weight</div>
-                      <div className="text-base font-black text-white">{user.weight ? `${user.weight} lbs` : '—'}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Battle Log Section */}
@@ -682,6 +630,144 @@ export const ProfilePage: React.FC = () => {
                   <p className="text-white/20 font-black uppercase tracking-widest">No battles recorded yet</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Friends List Modal (Social) */}
+      {showFriendsList && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowFriendsList(false); }}
+        >
+          <div className="w-full max-w-md h-[85vh] bg-[#4a5568] rounded-[1.5rem] flex flex-col border-[3px] border-[#2d3748] shadow-[0_0_20px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
+            {/* Supercell Style Header */}
+            <div className="bg-[#2d3748] p-4 flex items-center justify-center relative shadow-lg">
+              <h3 className="text-2xl font-black text-white italic tracking-wider uppercase drop-shadow-[0_2px_0_rgba(0,0,0,1)]">Social</h3>
+              <button 
+                onClick={() => setShowFriendsList(false)}
+                className="absolute right-3 top-3 bg-[#e53e3e] hover:bg-[#c53030] text-white w-8 h-8 rounded-lg flex items-center justify-center border-b-4 border-[#9b2c2c] active:border-b-0 active:translate-y-[2px] shadow-lg transition-all"
+              >
+                <svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#cbd5e0] relative">
+              {/* Online Count */}
+              <div className="text-center">
+                <p className="text-[#38a169] font-black italic uppercase tracking-widest text-xs drop-shadow-[0_1px_0_rgba(0,0,0,0.2)]">
+                  Online: {friends.length > 0 ? '1' : '0'}
+                </p>
+              </div>
+
+              {/* Invite Friend Button */}
+              <button
+                onClick={handleShareInvite}
+                className="w-full bg-gradient-to-b from-[#f6ad55] to-[#ed8936] hover:from-[#ed8936] hover:to-[#dd6b20] text-white py-4 rounded-xl font-black italic uppercase tracking-[0.15em] border-b-[6px] border-[#c05621] active:border-b-0 active:translate-y-[4px] shadow-xl text-lg drop-shadow-[0_2px_0_rgba(0,0,0,0.5)] transition-all"
+              >
+                Invite Friend
+              </button>
+
+              {/* Pending Requests Section (Always shown at top if any) */}
+              {pendingRequests.length > 0 && (
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center space-x-2 py-2">
+                    <div className="flex-1 h-[2px] bg-red-400/30" />
+                    <span className="text-red-600 font-black text-[10px] uppercase tracking-[0.3em] italic">Pending Requests</span>
+                    <div className="flex-1 h-[2px] bg-red-400/30" />
+                  </div>
+                  {pendingRequests.map((request) => (
+                    <div key={request.id} className="bg-white p-4 rounded-2xl border-[3px] border-[#3182ce] shadow-md flex items-center justify-between transition-transform active:scale-[0.98]">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 rounded-xl bg-gray-200 overflow-hidden border-2 border-gray-300">
+                          {request.profilePhotoUrl ? (
+                            <img src={request.profilePhotoUrl} alt={request.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl">👤</div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[#2d3748] font-black italic uppercase text-sm">{request.name}</p>
+                          <p className="text-[#718096] font-bold text-[10px] uppercase italic">Wants to friend you</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button 
+                          onClick={() => handleAcceptFriend(request.id)}
+                          disabled={isAcceptingFriend === request.id}
+                          className="bg-[#48bb78] hover:bg-[#38a169] text-white px-4 py-2 rounded-lg text-[10px] font-black italic uppercase tracking-widest border-b-4 border-[#2f855a] active:border-b-0 active:translate-y-[2px] disabled:opacity-50"
+                        >
+                          {isAcceptingFriend === request.id ? '...' : 'Accept'}
+                        </button>
+                        <button 
+                          onClick={() => handleDeclineFriend(request.id)}
+                          className="bg-[#e53e3e] hover:bg-[#c53030] text-white px-4 py-1 rounded-lg text-[10px] font-black italic uppercase tracking-widest border-b-4 border-[#9b2c2c] active:border-b-0 active:translate-y-[2px]"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Leaderboard Divider */}
+              <div className="flex items-center space-x-2 py-2">
+                <div className="flex-1 h-[2px] bg-[#a0aec0]/50" />
+                <span className="text-[#4a5568] font-black text-[10px] uppercase tracking-[0.3em] italic">Leaderboard</span>
+                <div className="flex-1 h-[2px] bg-[#a0aec0]/50" />
+              </div>
+
+              {/* Friends List */}
+              <div className="space-y-2">
+                {friends.length > 0 ? (
+                  friends.map((friend) => (
+                    <div 
+                      key={friend.id} 
+                      className="bg-gradient-to-b from-[#edf2f7] to-[#e2e8f0] p-3 rounded-2xl border-[3px] border-[#a0aec0] flex items-center justify-between shadow-md transition-transform active:scale-[0.98]"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-full bg-white overflow-hidden border-2 border-[#718096] shadow-inner">
+                            {friend.profilePhotoUrl ? (
+                              <img src={friend.profilePhotoUrl} alt={friend.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl text-[#a0aec0]">👤</div>
+                            )}
+                          </div>
+                          <div className="absolute top-0 left-0 bg-[#48bb78] w-4 h-4 rounded-full border-2 border-white shadow-sm"></div>
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-[#2d3748] font-black italic uppercase text-lg leading-tight tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,1)]">
+                              {friend.name}
+                            </span>
+                          </div>
+                          <p className="text-[#718096] font-bold text-[10px] uppercase tracking-wider italic leading-none">
+                            {friend.age} YRS • MOGGER
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center bg-[#a0aec0]/20 px-3 py-2 rounded-xl border border-[#a0aec0]/30">
+                        <span className="text-xl mr-2 drop-shadow-sm">🏆</span>
+                        <span className="text-[#2d3748] font-black italic text-xl tracking-tighter">
+                          {Math.round(friend.trophyScore || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-20 bg-black/5 rounded-3xl border-4 border-dashed border-[#a0aec0]/30">
+                    <div className="text-5xl mb-4 grayscale opacity-30 drop-shadow-lg">🤝</div>
+                    <p className="text-xs font-black text-[#4a5568]/40 uppercase italic tracking-[0.2em] px-10 leading-relaxed">
+                      No friends yet. Add some to start your climb!
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -7,8 +7,6 @@ interface AuthUser {
   email?: string;
   profilePhoto?: string;
   age?: number;
-  height?: number; // Height in inches (for males)
-  weight?: number; // Weight in pounds (for females)
   gender?: 'male' | 'female';
   bio?: string;
   profileComplete: boolean;
@@ -26,8 +24,6 @@ interface UserProfileSetup {
   name: string;
   age: number;
   gender: 'male' | 'female';
-  height?: number; // Height in inches (for males)
-  weight?: number; // Weight in pounds (for females)
   photo?: File | Blob;
   photoUrl?: string; // R2 CDN URL if already uploaded
 }
@@ -40,8 +36,6 @@ interface UserProfileData {
   city?: string;
   state?: string;
   country?: string;
-  height?: number; // Height in inches
-  weight?: number; // Weight in pounds
 }
 
 interface AuthContextType {
@@ -265,8 +259,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         name: profileData.name,
         age: profileData.age,
         gender: profileData.gender,
-        height: profileData.height,
-        weight: profileData.weight,
+        profilePhotoUrl: profileData.photoUrl, // Include R2 URL if available
       }));
       
       if (profileData.photo) {

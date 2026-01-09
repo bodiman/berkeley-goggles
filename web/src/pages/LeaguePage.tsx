@@ -30,8 +30,6 @@ interface LeagueLeaderboardEntry {
     age: number;
     location: string | null;
     profilePhotoUrl: string | null;
-    height?: number; // Height in inches (for males)
-    weight?: number; // Weight in pounds (for females)
     gender?: 'male' | 'female';
   };
   photo: {
@@ -173,100 +171,110 @@ export const LeaguePage: React.FC = () => {
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{
-      background: '#4A90E2', // Solid blueish-yellow background
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: '100vh',
+    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{
+      background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
       height: '100dvh',
+      width: '100vw',
     }}>
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-blue-400/20 rounded-full blur-[80px]" />
+        <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/20 rounded-full blur-[100px]" />
+      </div>
+
       {/* Header */}
-      <header className="bg-white/10 backdrop-blur-sm border-b border-white/20 px-6 py-4 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-white drop-shadow-lg" style={{
-          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
-        }}>League</h1>
+      <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-10">
+        <h1 className="text-2xl font-black text-white tracking-tighter drop-shadow-md">
+          LEAGUE
+        </h1>
       </header>
 
       {/* Tab Navigation */}
-      <div className="px-6">
-        <div className="flex bg-white/20 backdrop-blur-sm rounded-lg p-1 border border-white/30">
+      <div className="px-6 mt-4 z-10">
+        <div className="flex bg-white/10 backdrop-blur-md rounded-2xl p-1 border border-white/20 shadow-xl">
           <button
             type="button"
             onClick={() => setActiveTab('my-league')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               activeTab === 'my-league'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-white text-blue-700 shadow-lg'
+                : 'text-white/60 hover:text-white'
             }`}
           >
-            My League
+            Leaderboard
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('info')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               activeTab === 'info'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-white'
+                ? 'bg-white text-blue-700 shadow-lg'
+                : 'text-white/60 hover:text-white'
             }`}
           >
-            Info
+            All Leagues
           </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto px-6 py-4" style={{
+      <main className="flex-1 overflow-y-auto px-4 py-6 relative z-10" style={{
         WebkitOverflowScrolling: 'touch',
         touchAction: 'pan-y',
         minHeight: 0,
-        paddingBottom: '80px', // Space for bottom navigation
+        paddingBottom: '100px',
       }}>
         <div className="max-w-md mx-auto space-y-6">
           
           {activeTab === 'my-league' && (
             <>
-              {/* League Header */}
+              {/* League Header Card */}
               {isLoadingUser ? (
-                <div className="text-center py-6">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                  <p className="text-gray-400 text-sm">Loading your league...</p>
+                <div className="bg-white/10 backdrop-blur-xl rounded-[2rem] p-8 border border-white/20 text-center">
+                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-white/60 font-black uppercase tracking-widest text-xs">Identifying League...</p>
                 </div>
               ) : userLeague ? (
-                <div className="text-center mb-4">
+                <div className="bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl rounded-[2rem] p-6 border border-white/30 shadow-2xl text-center transform transition-transform hover:scale-102">
                   <div 
-                    className="w-16 h-16 rounded-lg flex items-center justify-center mx-auto mb-3"
-                    style={{ backgroundColor: userLeague.currentLeague.color }}
+                    className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 border-2 border-white/40 shadow-xl"
+                    style={{ 
+                      backgroundColor: userLeague.currentLeague.color,
+                      boxShadow: `0 0 30px ${userLeague.currentLeague.color}66`
+                    }}
                   >
-                    <span className="text-white font-bold text-2xl">
+                    <span className="text-white font-black text-4xl drop-shadow-lg">
                       {userLeague.currentLeague.tier}
                     </span>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-1">
+                  <h3 className="text-3xl font-black text-white tracking-tight uppercase mb-1">
                     {userLeague.currentLeague.name}
                   </h3>
-                  <p className="text-gray-400 text-sm">
-                    {userLeague.currentLeague.id === 'ultimate-champion' 
-                      ? `${userLeague.currentLeague.minElo}+ Trophies` 
-                      : `${userLeague.currentLeague.minElo} - ${userLeague.currentLeague.maxElo} Trophies`}
-                  </p>
+                  <div className="inline-block px-4 py-1.5 bg-black/20 backdrop-blur-md rounded-full border border-white/10">
+                    <p className="text-blue-100/80 font-black text-[10px] uppercase tracking-[0.2em]">
+                      {userLeague.currentLeague.id === 'ultimate-champion' 
+                        ? `${userLeague.currentLeague.minElo}+ Trophies` 
+                        : `${userLeague.currentLeague.minElo} - ${userLeague.currentLeague.maxElo} Trophies`}
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center py-6">
-                  <p className="text-gray-400">Unable to load league information</p>
+                <div className="bg-red-500/10 backdrop-blur-xl rounded-[2rem] p-8 border border-red-500/20 text-center">
+                  <p className="text-red-300 font-black uppercase tracking-widest text-xs">Failed to load league</p>
                 </div>
               )}
 
-              {/* League Leaderboard */}
-              <div className="bg-gray-800 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-white mb-4">League Leaderboard</h3>
+              {/* Leaderboard List */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/20 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <h3 className="text-lg font-black text-white tracking-tight uppercase">Leaderboard</h3>
+                  <div className="text-[10px] font-black text-blue-100/40 uppercase tracking-widest">Top 20 Players</div>
+                </div>
                 
                 {isLoadingLeagueLeaderboard ? (
-                  <div className="text-center py-6">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-gray-400 text-sm">Loading league rankings...</p>
+                  <div className="py-20 text-center">
+                    <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-white/40 font-black uppercase tracking-widest text-[10px]">Loading rankings...</p>
                   </div>
                 ) : leagueLeaderboard.length > 0 ? (
                   <div className="space-y-3">
@@ -275,70 +283,76 @@ export const LeaguePage: React.FC = () => {
                         type="button"
                         key={entry.user.id}
                         onClick={() => setSelectedPlayer(entry)}
-                        className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all hover:bg-gray-700/70 ${
-                          entry.isCurrentUser ? 'bg-blue-600/20 border border-blue-600/50' : 'bg-gray-700/50'
+                        className={`w-full group flex items-center space-x-4 p-4 rounded-[1.5rem] transition-all duration-300 hover:scale-[1.03] ${
+                          entry.isCurrentUser 
+                            ? 'bg-blue-500/30 border-2 border-white/50 shadow-lg' 
+                            : 'bg-white/5 border border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        {/* Rank */}
-                        <div className="w-8 text-center flex-shrink-0">
-                          <span className={`font-bold ${
-                            entry.rank === 1 ? 'text-yellow-400' : 
-                            entry.rank === 2 ? 'text-gray-300' :
-                            entry.rank === 3 ? 'text-orange-400' :
-                            entry.isCurrentUser ? 'text-blue-400' :
-                            'text-gray-400'
+                        {/* Rank with Badge */}
+                        <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
+                          <span className={`text-xl font-black ${
+                            entry.rank === 1 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : 
+                            entry.rank === 2 ? 'text-gray-300 drop-shadow-[0_0_8px_rgba(209,213,219,0.5)]' :
+                            entry.rank === 3 ? 'text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.5)]' :
+                            'text-white/40'
                           }`}>
                             {entry.rank === 1 ? '🥇' : 
                              entry.rank === 2 ? '🥈' :
                              entry.rank === 3 ? '🥉' :
-                             `#${entry.rank}`}
+                             entry.rank}
                           </span>
                         </div>
 
-                        {/* Photo */}
-                        <img
-                          src={entry.photo.url}
-                          alt={`${entry.user.name}'s photo`}
-                          className="w-12 h-12 rounded-full object-cover border border-gray-600 flex-shrink-0"
-                        />
+                        {/* Bigger Profile Photo */}
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={entry.user.profilePhotoUrl || entry.photo.url}
+                            alt={entry.user.name}
+                            className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 shadow-md group-hover:border-white/40 transition-colors"
+                          />
+                          {entry.isCurrentUser && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-blue-900" />
+                          )}
+                        </div>
 
                         {/* User Info */}
                         <div className="flex-1 min-w-0 text-left">
                           <div className="flex items-center space-x-2">
-                            <h4 className={`font-medium truncate ${
-                              entry.isCurrentUser ? 'text-blue-400' : 'text-white'
+                            <h4 className={`font-black text-base truncate uppercase tracking-tight ${
+                              entry.isCurrentUser ? 'text-white' : 'text-white/90'
                             }`}>
-                              {entry.user.name}
-                              {entry.isCurrentUser && (
-                                <span className="text-xs ml-2">(You)</span>
-                              )}
+                              {entry.user.name.split(' ')[0]}
                             </h4>
-                            <span className="text-gray-400 text-sm flex-shrink-0">
+                            <span className="text-white/40 font-black text-[10px] uppercase">
                               {entry.user.age}
                             </span>
                           </div>
-                          {entry.user.location && (
-                            <p className="text-gray-400 text-sm truncate">
-                              {entry.user.location}
-                            </p>
-                          )}
+                          <div className="flex items-center text-white/40 text-[9px] font-black uppercase tracking-widest mt-0.5">
+                            <span className="truncate">{entry.user.location || 'UC Berkeley'}</span>
+                          </div>
                         </div>
 
-                        {/* Stats */}
+                        {/* Prominent Trophies */}
                         <div className="text-right flex-shrink-0">
-                          <div className="text-white font-bold">
-                            {entry.stats.trophyScore}
+                          <div className="flex items-center justify-end space-x-1">
+                            <span className="text-white font-black text-lg">
+                              {Math.round(entry.stats.trophyScore)}
+                            </span>
+                            <span className="text-lg">🏆</span>
                           </div>
-                          <div className="text-gray-400 text-sm">
-                            {entry.stats.winRate}% WR
+                          <div className={`text-[8px] font-black uppercase tracking-widest ${
+                            entry.stats.winRate > 50 ? 'text-green-400' : 'text-blue-200/40'
+                          }`}>
+                            {Math.round(entry.stats.winRate)}% Win Rate
                           </div>
                         </div>
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
-                    <p className="text-gray-400">No players found in your league</p>
+                  <div className="py-20 text-center bg-white/5 rounded-[2rem] border-2 border-dashed border-white/10">
+                    <p className="text-white/20 font-black uppercase tracking-[0.2em] text-[10px]">No competitors yet</p>
                   </div>
                 )}
               </div>
@@ -346,39 +360,41 @@ export const LeaguePage: React.FC = () => {
           )}
 
           {activeTab === 'info' && (
-            <div className="bg-gray-800 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-white mb-4">All Leagues</h3>
+            <div className="bg-white/10 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/20 shadow-2xl space-y-4">
+              <h3 className="text-lg font-black text-white tracking-tight uppercase px-2 mb-2">League Progression</h3>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {allLeagues.slice().reverse().map((league) => {
                   const isCurrentLeague = userLeague?.currentLeague.id === league.id;
                   return (
                     <div
                       key={league.id}
-                      className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                        isCurrentLeague ? 'bg-blue-600/20 border border-blue-600/50' : 'bg-gray-700/50'
+                      className={`flex items-center space-x-4 p-4 rounded-2xl transition-all ${
+                        isCurrentLeague 
+                          ? 'bg-blue-500/20 border-2 border-white/40 shadow-lg' 
+                          : 'bg-white/5 border border-white/5'
                       }`}
                     >
                       <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg border-2 border-white/20"
                         style={{ backgroundColor: league.color }}
                       >
-                        <span className="text-white font-bold text-sm">
+                        <span className="text-white font-black text-xl">
                           {league.tier}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
-                          <h4 className="text-white font-medium">
+                          <h4 className="text-white font-black text-sm uppercase tracking-tight">
                             {league.name}
                           </h4>
                           {isCurrentLeague && (
-                            <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
+                            <span className="bg-white text-blue-700 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm">
                               Current
                             </span>
                           )}
                         </div>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-white/40 font-black text-[9px] uppercase tracking-widest mt-1">
                           {league.id === 'ultimate-champion' ? `${league.minElo}+ Trophies` : `${league.minElo} - ${league.maxElo} Trophies`}
                         </p>
                       </div>
@@ -395,99 +411,77 @@ export const LeaguePage: React.FC = () => {
       {/* Player Profile Modal */}
       {selectedPlayer && (
         <div 
-          className="fixed inset-0 bg-black/90 backdrop-blur z-50 flex items-center justify-center p-4"
-          style={{ touchAction: 'none' }}
+          className="fixed inset-0 bg-black/95 backdrop-blur-2xl z-50 flex items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setSelectedPlayer(null);
             }
           }}
         >
-          <div className="w-full max-w-sm">
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-white">Player Profile</h3>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPlayer(null)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  title="Close player profile"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          <div className="w-full max-w-sm bg-gray-900 rounded-[2.5rem] p-8 border border-white/10 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setSelectedPlayer(null)}
+              className="absolute top-6 right-6 text-white/50 hover:text-white transition-transform hover:scale-125"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <div className="text-center space-y-6">
+              {/* Player Photo */}
+              <div className="relative inline-block">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-400 rounded-3xl blur opacity-75"></div>
+                <img
+                  src={selectedPlayer.user.profilePhotoUrl || selectedPlayer.photo.url}
+                  alt={selectedPlayer.user.name}
+                  className="relative w-48 h-48 rounded-3xl object-cover border-4 border-white shadow-2xl"
+                />
               </div>
-              
-              <div className="text-center space-y-4">
-                {/* Player Photo */}
-                <div className="flex justify-center">
-                  <img
-                    src={selectedPlayer.user.profilePhotoUrl || selectedPlayer.photo.url}
-                    alt={`${selectedPlayer.user.name}'s photo`}
-                    className="w-40 h-40 rounded-2xl object-cover border-4 border-gray-700"
-                  />
-                </div>
 
-                {/* Player Info */}
-                <div>
-                  <h4 className="text-xl font-bold text-white mb-1">
-                    {selectedPlayer.user.name}
-                  </h4>
-                  <p className="text-gray-400">
-                    {selectedPlayer.user.age} years old
-                  </p>
-                  {selectedPlayer.user.location && (
-                    <p className="text-gray-400 text-sm">
-                      📍 {selectedPlayer.user.location}
-                    </p>
-                  )}
-                  
-                  {/* Height/Weight Display */}
-                  {(selectedPlayer.user.gender === 'male' && selectedPlayer.user.height) && (
-                    <p className="text-gray-400 text-sm">
-                      Height: {Math.floor(selectedPlayer.user.height / 12)}'{selectedPlayer.user.height % 12}"
-                    </p>
-                  )}
-                  {(selectedPlayer.user.gender === 'female' && selectedPlayer.user.weight) && (
-                    <p className="text-gray-400 text-sm">
-                      Weight: {selectedPlayer.user.weight} lbs
-                    </p>
-                  )}
+              {/* Player Info */}
+              <div>
+                <h4 className="text-3xl font-black text-white tracking-tight uppercase mb-1">
+                  {selectedPlayer.user.name.split(' ')[0]}
+                </h4>
+                <div className="flex items-center justify-center space-x-2 text-white/60 font-black text-xs uppercase tracking-widest">
+                  <span>{selectedPlayer.user.age} YRS</span>
+                  <span>•</span>
+                  <span>{selectedPlayer.user.location || 'UC BERKELEY'}</span>
                 </div>
+              </div>
 
-                {/* League Rank */}
-                <div className="bg-gray-800 rounded-lg p-3">
-                  <div className="text-lg font-bold text-white mb-1">
-                    League Rank #{selectedPlayer.rank}
-                  </div>
-                  <div className="text-gray-400 text-sm">
-                    in {userLeague?.currentLeague.name}
-                  </div>
+              {/* League & Rank */}
+              <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-4 border border-white/10 flex items-center justify-between">
+                <div className="text-left">
+                  <div className="text-[10px] font-black text-blue-200/40 uppercase tracking-widest mb-1">LEAGUE RANK</div>
+                  <div className="text-2xl font-black text-white tracking-tighter">#{selectedPlayer.rank}</div>
                 </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-black text-blue-200/40 uppercase tracking-widest mb-1">CURRENT LEAGUE</div>
+                  <div className="text-sm font-black text-white uppercase tracking-tight">{userLeague?.currentLeague.name}</div>
+                </div>
+              </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-800 rounded-lg p-3">
-                    <div className="text-lg font-bold text-blue-400">
-                      {selectedPlayer.stats.trophyScore}
-                    </div>
-                    <div className="text-gray-400 text-sm">Trophy Score</div>
-                  </div>
-                  <div className="bg-gray-800 rounded-lg p-3">
-                    <div className="text-lg font-bold text-green-400">
-                      {selectedPlayer.stats.winRate}%
-                    </div>
-                    <div className="text-gray-400 text-sm">Win Rate</div>
+              {/* Detailed Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <div className="text-[10px] font-black text-blue-200/40 uppercase tracking-widest mb-1">TROPHIES</div>
+                  <div className="text-2xl font-black text-blue-400 tracking-tighter flex items-center justify-center space-x-1">
+                    <span>{Math.round(selectedPlayer.stats.trophyScore)}</span>
+                    <span className="text-xl">🏆</span>
                   </div>
                 </div>
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <div className="text-[10px] font-black text-blue-200/40 uppercase tracking-widest mb-1">WIN RATE</div>
+                  <div className="text-2xl font-black text-green-400 tracking-tighter">{Math.round(selectedPlayer.stats.winRate)}%</div>
+                </div>
+              </div>
 
-                <div className="bg-gray-800 rounded-lg p-3">
-                  <div className="text-lg font-bold text-white">
-                    {selectedPlayer.stats.totalComparisons}
-                  </div>
-                  <div className="text-gray-400 text-sm">Total Comparisons</div>
-                </div>
+              <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                <div className="text-[10px] font-black text-blue-200/40 uppercase tracking-widest mb-1">TOTAL BATTLES</div>
+                <div className="text-xl font-black text-white">{selectedPlayer.stats.totalComparisons}</div>
               </div>
             </div>
           </div>

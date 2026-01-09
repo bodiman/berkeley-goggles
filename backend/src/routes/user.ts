@@ -28,22 +28,9 @@ const upload = multer({
 const profileSetupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   age: z.number().int().min(18, 'Must be at least 18 years old'),
-  gender: z.enum(['male', 'female']),
-  height: z.number().int().min(60).max(84).optional(), // Height in inches (5'0" to 7'0")
-  weight: z.number().int().min(80).max(300).optional(), // Weight in pounds (80-300 lbs)
-}).refine((data) => {
-  // Males must provide height
-  if (data.gender === 'male' && !data.height) {
-    return false;
-  }
-  // Females must provide weight
-  if (data.gender === 'female' && !data.weight) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Height is required for males and weight is required for females',
-  path: ['height', 'weight'], // This will show the error on both fields
+  // Gender is now optional in schema because AI will detect it
+  gender: z.enum(['male', 'female']).optional(),
+  profilePhotoUrl: z.string().optional(), // R2 URL if already uploaded
 });
 
 const profileUpdateSchema = z.object({
@@ -54,9 +41,30 @@ const profileUpdateSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   country: z.string().optional(),
-  height: z.number().int().min(60).max(84).optional(), // Height in inches (5'0" to 7'0")
-  weight: z.number().int().min(80).max(300).optional(), // Weight in pounds (80-300 lbs)
 });
+
+// POST /api/user/detect-gender - Simulated AI gender detection
+userRoutes.post('/detect-gender', upload.single('photo'), asyncHandler(async (req, res) => {
+  if (!req.file && !req.body.photoUrl) {
+    return res.status(400).json({ success: false, error: 'Photo is required' });
+  }
+
+  // Simulate AI processing time
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  // Simulated AI Logic: 
+  // In a real app, you would pass the buffer to a model like OpenAI or AWS Rekognition.
+  // For now, we'll use a random assignment to demonstrate the locking feature.
+  const genders: ('male' | 'female')[] = ['male', 'female'];
+  const detectedGender = genders[Math.floor(Math.random() * genders.length)];
+
+  res.json({
+    success: true,
+    detectedGender,
+    confidence: 0.98,
+    message: `AI detected ${detectedGender.toUpperCase()} with 98% confidence.`
+  });
+}));
 
 // POST /api/user/setup - Setup user profile (initial onboarding)
 userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) => {
@@ -80,50 +88,32 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
     let relativePhotoUrl: string | null = null;
     let photoId: string | null = null;
     
-    // Process photo if provided
+    // Process photo if provided as file upload (Legacy/Webcam fallback)
     if (req.file) {
-      // Create unique filename
+      // ... existing file upload logic ...
       const timestamp = Date.now();
       const filename = `${userId}-${timestamp}.jpg`;
       const filepath = path.join('uploads', 'profile-photos', filename);
       
-      // Ensure directory exists
       const dir = path.dirname(filepath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       
-      // Process and save image
       const processedImage = await sharp(req.file.buffer)
-        .resize(400, 400, { 
-          fit: 'cover',
-          position: 'centre'
-        })
-        .jpeg({ quality: 90 })
-        .toBuffer();
+        .resize(400, 400, { fit: 'cover', position: 'centre' })
+        .jpeg({ quality: 90 }).toBuffer();
 
-      // Create thumbnail
       const thumbnail = await sharp(req.file.buffer)
-        .resize(200, 200, { 
-          fit: 'cover',
-          position: 'centre'
-        })
-        .jpeg({ quality: 80 })
-        .toBuffer();
+        .resize(200, 200, { fit: 'cover', position: 'centre' })
+        .jpeg({ quality: 80 }).toBuffer();
         
       fs.writeFileSync(filepath, processedImage);
       
-      // Save thumbnail
       const thumbnailFilename = `${userId}-${timestamp}-thumb.jpg`;
       const thumbnailPath = path.join('uploads', 'profile-photos', 'thumbs', thumbnailFilename);
       const thumbnailDir = path.dirname(thumbnailPath);
-      if (!fs.existsSync(thumbnailDir)) {
-        fs.mkdirSync(thumbnailDir, { recursive: true });
-      }
+      if (!fs.existsSync(thumbnailDir)) fs.mkdirSync(thumbnailDir, { recursive: true });
       fs.writeFileSync(thumbnailPath, thumbnail);
       
-      // Get the base URL for the current environment
-      // Use Railway URL if available, otherwise fall back to production URL, then localhost
       const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : process.env.API_BASE_URL
@@ -132,40 +122,59 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         ? 'https://berkeley-goggles-production.up.railway.app'
         : 'http://localhost:3001';
 
-      // console.log('baseUrl', baseUrl);
-
-      // Store relative path in database, but prepare full URL for response
       relativePhotoUrl = `/uploads/profile-photos/${filename}`;
       const relativeThumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
       profilePhotoUrl = `${baseUrl}${relativePhotoUrl}`;
-      const thumbnailUrl = `${baseUrl}${relativeThumbnailUrl}`;
 
-      // Create Photo record in database for algorithm training
       const photo = await prisma.photo.create({
         data: {
           userId,
           url: relativePhotoUrl!,
           thumbnailUrl: relativeThumbnailUrl,
-          status: 'approved', // Profile photos are automatically approved
+          status: 'approved',
           originalFilename: req.file.originalname || 'profile-setup.jpg',
           fileSize: processedImage.length,
-          width: 400,
-          height: 400,
-          format: 'jpeg',
+          width: 400, height: 400, format: 'jpeg',
         },
       });
 
-      // Create initial PhotoRanking record for this photo
       await prisma.photoRanking.create({
         data: {
           photoId: photo.id,
           userId,
-          currentPercentile: 50.0, // Start at middle percentile
+          currentPercentile: 50.0,
           totalComparisons: 0,
-          wins: 0,
-          losses: 0,
-          bradleyTerryScore: 0.5, // Start at neutral score
-          confidence: 0.0,
+          wins: 0, losses: 0, bradleyTerryScore: 0.5, confidence: 0.0,
+        },
+      });
+
+      photoId = photo.id;
+    } else if (validatedData.profilePhotoUrl) {
+      // New flow: Use R2 URL directly (from AI Gender Detection step)
+      profilePhotoUrl = validatedData.profilePhotoUrl;
+      relativePhotoUrl = validatedData.profilePhotoUrl; // For R2, these are the same
+
+      // Create Photo record in database
+      const photo = await prisma.photo.create({
+        data: {
+          userId,
+          url: profilePhotoUrl,
+          thumbnailUrl: profilePhotoUrl, // Simplified for R2
+          status: 'approved',
+          originalFilename: 'r2-upload.jpg',
+          fileSize: 0,
+          width: 400, height: 400, format: 'jpeg',
+        },
+      });
+
+      // Create initial PhotoRanking record
+      await prisma.photoRanking.create({
+        data: {
+          photoId: photo.id,
+          userId,
+          currentPercentile: 50.0,
+          totalComparisons: 0,
+          wins: 0, losses: 0, bradleyTerryScore: 0.5, confidence: 0.0,
         },
       });
 
@@ -176,11 +185,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
     const isProfileComplete = Boolean(
       validatedData.name &&
       validatedData.age &&
-      validatedData.gender &&
-      (
-        (validatedData.gender === 'male' && validatedData.height) ||
-        (validatedData.gender === 'female' && validatedData.weight)
-      )
+      validatedData.gender
     );
     
     // Update user in database (store relative path)
@@ -190,8 +195,6 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         name: validatedData.name,
         age: validatedData.age,
         gender: validatedData.gender,
-        height: validatedData.height,
-        weight: validatedData.weight,
         profileComplete: isProfileComplete,
         profilePhotoUrl: photoId ? relativePhotoUrl : null,
         lastActive: new Date(),

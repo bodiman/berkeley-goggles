@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
 import { useAuth } from '../contexts/AuthContext';
+import { apiRequest } from '../config/api';
 import type { UploadProgress } from '../services/photoUpload';
 // TODO: Import from shared package once workspace is properly configured
 interface UserProfileSetup {
   name: string;
   age: number;
   gender: 'male' | 'female';
-  height?: number; // Height in inches (for males)
-  weight?: number; // Weight in pounds (for females)
   photo?: File | Blob;
   photoUrl?: string; // R2 CDN URL if already uploaded
 }
@@ -27,19 +26,27 @@ interface CameraCapture {
 export const ProfileSetupPage: React.FC = () => {
   const { setupProfile, logout, user } = useAuth();
   
-  const [currentStep, setCurrentStep] = useState<'name' | 'photo' | 'terms'>('name');
+  const [currentStep, setCurrentStep] = useState<'name' | 'photo' | 'friends' | 'terms'>('name');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<UserProfileSetup>({
     name: '',
     age: 18,
-    gender: 'male',
+    gender: 'male', // Default, will be overwritten by AI
   });
   
   const [capturedPhoto, setCapturedPhoto] = useState<CameraCapture | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [hasSkippedPhoto, setHasSkippedPhoto] = useState(false);
+  const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
+  const [aiDetectedGender, setAiDetectedGender] = useState<'male' | 'female' | null>(null);
+
+  // Friends step state
+  const [contactsText, setContactsText] = useState('');
+  const [matchedFriends, setMatchedFriends] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncedCount, setSyncedCount] = useState(0);
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,19 +57,6 @@ export const ProfileSetupPage: React.FC = () => {
     if (formData.age < 18) {
       setError('You must be at least 18 years old');
       return;
-    }
-    
-    // Validate height/weight based on gender
-    if (formData.gender === 'male') {
-      if (!formData.height || formData.height < 60 || formData.height > 84) {
-        setError('Height is required for males and must be between 5\'0" and 7\'0"');
-        return;
-      }
-    } else if (formData.gender === 'female') {
-      if (!formData.weight || formData.weight < 80 || formData.weight > 300) {
-        setError('Weight is required for females and must be between 80 and 300 lbs');
-        return;
-      }
     }
     
     setError(null);
@@ -81,8 +75,41 @@ export const ProfileSetupPage: React.FC = () => {
     // Don't auto-advance to terms step - wait for user confirmation
   };
 
-  const handleUsePhoto = () => {
-    setCurrentStep('terms');
+  const handleUsePhoto = async () => {
+    if (!capturedPhoto) return;
+
+    setIsAiAnalyzing(true);
+    setError(null);
+
+    try {
+      // Create form data for the detection API
+      const formData = new FormData();
+      if (capturedPhoto.uploadResult?.url) {
+        formData.append('photoUrl', capturedPhoto.uploadResult.url);
+      } else {
+        formData.append('photo', capturedPhoto.blob);
+      }
+
+      const response = await apiRequest('/api/user/detect-gender', {
+        method: 'POST',
+        body: formData,
+        headers: {}, // Let browser set Content-Type for FormData
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setAiDetectedGender(data.detectedGender);
+        setFormData(prev => ({ ...prev, gender: data.detectedGender }));
+        setCurrentStep('friends');
+      } else {
+        throw new Error(data.error || 'AI failed to analyze photo');
+      }
+    } catch (err) {
+      console.error('AI Gender Detection error:', err);
+      setError('AI could not determine gender from this photo. Please try a clearer shot.');
+    } finally {
+      setIsAiAnalyzing(false);
+    }
   };
 
   const handlePhotoCaptureError = (errorMessage: string) => {
@@ -92,6 +119,70 @@ export const ProfileSetupPage: React.FC = () => {
 
   const handleSkipPhoto = () => {
     setHasSkippedPhoto(true);
+    setCurrentStep('friends');
+  };
+
+  const handleSyncContacts = async () => {
+    if (!contactsText.trim()) {
+      setError('Please enter some emails to find friends');
+      return;
+    }
+
+    setIsSyncing(true);
+    setError(null);
+
+    try {
+      // Extract emails from text
+      const emails = contactsText.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gi) || [];
+      
+      if (emails.length === 0) {
+        throw new Error('No valid emails found. Make sure to include @berkeley.edu emails!');
+      }
+
+      const response = await apiRequest('/api/friends/match-contacts', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user?.id,
+          contacts: emails,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setMatchedFriends(data.matches);
+        setSyncedCount(data.matches.length);
+      } else {
+        throw new Error(data.error || 'Failed to match contacts');
+      }
+    } catch (err) {
+      console.error('Sync error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to find friends. Please try again.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleAddFriend = async (friendId: string) => {
+    try {
+      const response = await apiRequest('/api/friends/request', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user?.id,
+          friendId,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMatchedFriends(prev => prev.map(f => 
+          f.id === friendId ? { ...f, friendshipStatus: 'pending', isInitiator: true } : f
+        ));
+      }
+    } catch (err) {
+      console.error('Friend request error:', err);
+    }
+  };
+
+  const handleFriendsNext = () => {
     setCurrentStep('terms');
   };
 
@@ -149,10 +240,12 @@ export const ProfileSetupPage: React.FC = () => {
   const goBack = () => {
     if (currentStep === 'photo') {
       setCurrentStep('name');
-    } else if (currentStep === 'terms') {
-      // Reset skip state if going back to photo step
-      setHasSkippedPhoto(false);
+    } else if (currentStep === 'friends') {
       setCurrentStep('photo');
+    } else if (currentStep === 'terms') {
+      // Reset skip state if going back from terms
+      setHasSkippedPhoto(false);
+      setCurrentStep('friends');
     }
   };
 
@@ -188,7 +281,8 @@ export const ProfileSetupPage: React.FC = () => {
         {/* Progress Indicator */}
         <div className="mt-4 flex space-x-2">
           <div className={`flex-1 h-1 rounded ${currentStep === 'name' ? 'bg-blue-500' : 'bg-blue-500'}`} />
-          <div className={`flex-1 h-1 rounded ${currentStep === 'photo' || currentStep === 'terms' ? 'bg-blue-500' : 'bg-gray-700'}`} />
+          <div className={`flex-1 h-1 rounded ${currentStep === 'photo' || currentStep === 'friends' || currentStep === 'terms' ? 'bg-blue-500' : 'bg-gray-700'}`} />
+          <div className={`flex-1 h-1 rounded ${currentStep === 'friends' || currentStep === 'terms' ? 'bg-blue-500' : 'bg-gray-700'}`} />
           <div className={`flex-1 h-1 rounded ${currentStep === 'terms' ? 'bg-blue-500' : 'bg-gray-700'}`} />
         </div>
       </header>
@@ -235,97 +329,6 @@ export const ProfileSetupPage: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Gender
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, gender: 'male', weight: undefined }))}
-                    className={`py-3 px-4 rounded-lg font-medium transition-colors ${
-                      formData.gender === 'male'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    Male
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, gender: 'female', height: undefined }))}
-                    className={`py-3 px-4 rounded-lg font-medium transition-colors ${
-                      formData.gender === 'female'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    Female
-                  </button>
-                </div>
-              </div>
-
-              {/* Height input for males */}
-              {formData.gender === 'male' && (
-                <div>
-                  <label htmlFor="height" className="block text-sm font-medium text-white mb-2">
-                    Height <span className="text-red-400">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={Math.floor((formData.height || 70) / 12)}
-                      onChange={(e) => {
-                        const feet = parseInt(e.target.value);
-                        const inches = (formData.height || 70) % 12;
-                        setFormData(prev => ({ ...prev, height: feet * 12 + inches }));
-                      }}
-                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {Array.from({ length: 3 }, (_, i) => i + 5).map(feet => (
-                        <option key={feet} value={feet}>{feet} ft</option>
-                      ))}
-                    </select>
-                    <select
-                      value={(formData.height || 70) % 12}
-                      onChange={(e) => {
-                        const feet = Math.floor((formData.height || 70) / 12);
-                        const inches = parseInt(e.target.value);
-                        setFormData(prev => ({ ...prev, height: feet * 12 + inches }));
-                      }}
-                      className="flex-1 px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {Array.from({ length: 12 }, (_, i) => i).map(inches => (
-                        <option key={inches} value={inches}>{inches} in</option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">Height will be displayed in photo comparisons</p>
-                </div>
-              )}
-
-              {/* Weight input for females */}
-              {formData.gender === 'female' && (
-                <div>
-                  <label htmlFor="weight" className="block text-sm font-medium text-white mb-2">
-                    Weight <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      id="weight"
-                      min="80"
-                      max="300"
-                      value={formData.weight || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, weight: parseInt(e.target.value) || undefined }))}
-                      placeholder="Enter weight"
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">lbs</span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">Weight will be displayed in photo comparisons</p>
-                </div>
-              )}
-
               {error && (
                 <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">
                   <p className="text-red-400 text-sm">{error}</p>
@@ -365,6 +368,17 @@ export const ProfileSetupPage: React.FC = () => {
               autoUpload={true}
               onUploadProgress={setUploadProgress}
             />
+
+            {/* AI Analysis State */}
+            {isAiAnalyzing && (
+              <div className="mt-4 p-6 bg-blue-600/20 border-2 border-blue-500/50 rounded-2xl animate-pulse">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4" />
+                  <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">AI Analyzing Photo</h3>
+                  <p className="text-blue-200 text-xs font-bold uppercase tracking-widest">Identifying gender & biological traits...</p>
+                </div>
+              </div>
+            )}
 
             {/* Upload Progress Display */}
             {uploadProgress && (
@@ -407,6 +421,101 @@ export const ProfileSetupPage: React.FC = () => {
           </div>
         )}
 
+        {/* Friends Step */}
+        {currentStep === 'friends' && (
+          <div className="max-w-md mx-auto">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-white mb-2">Find Your Friends</h2>
+              <p className="text-gray-400">Challenge your friends to MOG battles and see who ranks higher!</p>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Address Book Sync
+                </label>
+                <div className="p-4 bg-gray-800 border border-gray-600 rounded-lg">
+                  <p className="text-sm text-gray-300 mb-4">
+                    Paste emails of friends you want to find on the app (comma or space separated). 
+                    We'll match them against our directory.
+                  </p>
+                  <textarea
+                    value={contactsText}
+                    onChange={(e) => setContactsText(e.target.value)}
+                    placeholder="friend1@berkeley.edu, friend2@berkeley.edu..."
+                    className="w-full h-32 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={handleSyncContacts}
+                    disabled={isSyncing}
+                    className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-bold transition-colors disabled:opacity-50"
+                  >
+                    {isSyncing ? 'Syncing...' : 'Sync Contacts'}
+                  </button>
+                </div>
+              </div>
+
+              {matchedFriends.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-white font-bold flex items-center">
+                    <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full mr-2">
+                      {syncedCount}
+                    </span>
+                    Friends Found
+                  </h3>
+                  <div className="max-h-60 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                    {matchedFriends.map(friend => (
+                      <div key={friend.id} className="flex items-center justify-between p-3 bg-gray-800 rounded-xl border border-white/5">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden border border-white/10">
+                            {friend.profilePhotoUrl ? (
+                              <img src={friend.profilePhotoUrl} alt={friend.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                                {friend.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-white font-bold text-sm">{friend.name}</p>
+                            <p className="text-gray-500 text-xs">{friend.email}</p>
+                          </div>
+                        </div>
+                        
+                        {friend.friendshipStatus === 'none' ? (
+                          <button
+                            onClick={() => handleAddFriend(friend.id)}
+                            className="bg-white text-black px-3 py-1 rounded-lg text-xs font-black hover:bg-gray-200 transition-colors"
+                          >
+                            ADD
+                          </button>
+                        ) : (
+                          <span className="text-blue-400 text-xs font-bold uppercase">
+                            {friend.friendshipStatus === 'pending' ? (friend.isInitiator ? 'Requested' : 'Wants to add you') : 'Friends'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
+
+              <button
+                onClick={handleFriendsNext}
+                className="w-full btn-primary"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Terms Step */}
         {currentStep === 'terms' && (
           <div className="max-w-md mx-auto">
@@ -422,9 +531,18 @@ export const ProfileSetupPage: React.FC = () => {
                   alt="Your profile photo"
                   className="w-32 h-32 rounded-full object-cover mx-auto border-4 border-gray-600"
                 />
-                <p className="text-center text-gray-400 mt-2">
+                <p className="text-center text-gray-400 mt-4">
                   Hello, {formData.name}!
                 </p>
+                {aiDetectedGender && (
+                  <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center justify-center space-x-3">
+                    <span className="text-2xl">{aiDetectedGender === 'male' ? '🕺' : '💃'}</span>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest leading-none">AI Detected</p>
+                      <p className="text-lg font-black text-white uppercase tracking-tighter">{aiDetectedGender}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : hasSkippedPhoto ? (
               <div className="mb-6">

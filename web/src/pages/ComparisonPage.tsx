@@ -352,9 +352,7 @@ export const ComparisonPage: React.FC = () => {
                 : `http://localhost:3001/api/user/photo/${currentPair.leftPhoto.url.split('/').pop()}`,
               userId: currentPair.leftPhoto.userId,
               age: currentPair.leftPhoto.userAge,
-              height: currentPair.leftPhoto.height,
-              weight: currentPair.leftPhoto.weight,
-              gender: currentPair.leftPhoto.gender,
+              gender: currentPair.leftPhoto.userGender as 'male' | 'female',
               bio: currentPair.leftPhoto.bio,
               type: currentPair.leftPhoto.type,
             }}
@@ -365,9 +363,7 @@ export const ComparisonPage: React.FC = () => {
                 : `http://localhost:3001/api/user/photo/${currentPair.rightPhoto.url.split('/').pop()}`,
               userId: currentPair.rightPhoto.userId,
               age: currentPair.rightPhoto.userAge,
-              height: currentPair.rightPhoto.height,
-              weight: currentPair.rightPhoto.weight,
-              gender: currentPair.rightPhoto.gender,
+              gender: currentPair.rightPhoto.userGender as 'male' | 'female',
               bio: currentPair.rightPhoto.bio,
               type: currentPair.rightPhoto.type,
             }}
