@@ -71,6 +71,12 @@ interface BattleLogEntry {
     gender: string;
     photoUrl: string | null;
   };
+  opponent: {
+    id: string;
+    name: string;
+    gender: string;
+    photoUrl: string | null;
+  } | null;
 }
 
 export const ProfilePage: React.FC = () => {
@@ -498,21 +504,48 @@ export const ProfilePage: React.FC = () => {
               <div className="space-y-3">
                 {battleLog.slice(0, 3).map((entry) => (
                   <div key={entry.id} className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 transition-transform hover:scale-[1.02]">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
+                    <div className="flex items-center space-x-4">
+                      {/* Rater Photo with Label */}
+                      <div className="flex flex-col items-center space-y-1">
                         {entry.rater.photoUrl ? (
-                          <img src={entry.rater.photoUrl} alt={entry.rater.name} className="w-10 h-10 rounded-full object-cover border-2 border-white/20" />
+                          <img src={entry.rater.photoUrl} alt={entry.rater.name} className="w-12 h-12 rounded-full object-cover border-2 border-white/20" />
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-xs">
+                          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
                             {entry.rater.gender === 'female' ? '💃' : '🕺'}
                           </div>
                         )}
-                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border border-black ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
-                          {entry.isWinner ? 'W' : 'L'}
-                        </div>
+                        <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">Rater</span>
                       </div>
-                      <div>
-                        <div className="text-xs font-black text-white uppercase tracking-tight">{entry.rater.name} Rated</div>
+                      
+                      {/* Space Separator */}
+                      <div className="w-8"></div>
+                      
+                      {/* Opponent Photo with W/L Indicator */}
+                      {entry.opponent ? (
+                        <div className="flex items-center space-x-2">
+                          {entry.opponent.photoUrl ? (
+                            <img src={entry.opponent.photoUrl} alt={entry.opponent.name} className="w-12 h-12 rounded-full object-cover border-2 border-white/20" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
+                              {entry.opponent.gender === 'female' ? '💃' : '🕺'}
+                            </div>
+                          )}
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {entry.isWinner ? 'W' : 'L'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
+                            ?
+                          </div>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {entry.isWinner ? 'W' : 'L'}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="ml-2">
                         <div className="text-[8px] font-bold text-blue-100/40 uppercase">
                           {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
@@ -596,20 +629,47 @@ export const ProfilePage: React.FC = () => {
               {battleLog.map((entry) => (
                 <div key={entry.id} className="flex items-center justify-between p-4 bg-white/5 rounded-3xl border border-white/5 transition-colors hover:bg-white/10">
                   <div className="flex items-center space-x-4">
-                    <div className="relative">
+                    {/* Rater Photo with Label */}
+                    <div className="flex flex-col items-center space-y-2">
                       {entry.rater.photoUrl ? (
-                        <img src={entry.rater.photoUrl} alt={entry.rater.name} className="w-14 h-14 rounded-2xl object-cover border-2 border-white/20" />
+                        <img src={entry.rater.photoUrl} alt={entry.rater.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20" />
                       ) : (
-                        <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
+                        <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
                           {entry.rater.gender === 'female' ? '💃' : '🕺'}
                         </div>
                       )}
-                      <div className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
-                        {entry.isWinner ? 'W' : 'L'}
-                      </div>
+                      <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Rater</span>
                     </div>
-                    <div>
-                      <div className="text-base font-black text-white uppercase tracking-tight">{entry.rater.name} Rated</div>
+                    
+                    {/* Space Separator */}
+                    <div className="w-12"></div>
+                    
+                    {/* Opponent Photo with W/L Indicator */}
+                    {entry.opponent ? (
+                      <div className="flex items-center space-x-3">
+                        {entry.opponent.photoUrl ? (
+                          <img src={entry.opponent.photoUrl} alt={entry.opponent.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
+                            {entry.opponent.gender === 'female' ? '💃' : '🕺'}
+                          </div>
+                        )}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                          {entry.isWinner ? 'W' : 'L'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-3">
+                        <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
+                          ?
+                        </div>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                          {entry.isWinner ? 'W' : 'L'}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="ml-4">
                       <div className="text-[10px] font-bold text-blue-100/40 uppercase">
                         {new Date(entry.timestamp).toLocaleDateString()} at {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>

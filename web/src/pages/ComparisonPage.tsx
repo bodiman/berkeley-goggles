@@ -396,9 +396,8 @@ export const ComparisonPage: React.FC = () => {
             💡 Pro tip: Be honest in your ratings to help everyone get accurate feedback
           </p>
           <div className="flex justify-center space-x-6 text-xs text-gray-600">
-            <span>👆 Tap to select</span>
-            <span>↕️ Swipe up/down</span>
             <span>↔️ Swipe left/right to skip</span>
+            <span>👆 Double tap to select</span>
           </div>
         </div>
       </footer>

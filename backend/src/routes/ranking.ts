@@ -481,6 +481,44 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
             profilePhotoUrl: true,
           },
         },
+        winnerPhoto: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                gender: true,
+                profilePhotoUrl: true,
+              },
+            },
+          },
+        },
+        loserPhoto: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                gender: true,
+                profilePhotoUrl: true,
+              },
+            },
+          },
+        },
+        winnerSampleImage: {
+          select: {
+            id: true,
+            url: true,
+            gender: true,
+          },
+        },
+        loserSampleImage: {
+          select: {
+            id: true,
+            url: true,
+            gender: true,
+          },
+        },
       },
       orderBy: {
         timestamp: 'desc',
@@ -491,6 +529,50 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
     const log = comparisons.map(comp => {
       const isWinner = comp.winnerPhotoId === photo.id;
       const trophyDelta = isWinner ? comp.winnerTrophyDelta : comp.loserTrophyDelta;
+      
+      // Get opponent (could be a user photo or a sample image)
+      let opponent = null;
+      if (isWinner) {
+        // User's photo won, so opponent is the loser
+        if (comp.loserPhoto) {
+          // Opponent is a user photo
+          const opponentUser = comp.loserPhoto.user;
+          opponent = opponentUser ? {
+            id: opponentUser.id,
+            name: opponentUser.name.split(' ')[0], // First name only
+            gender: opponentUser.gender,
+            photoUrl: opponentUser.profilePhotoUrl,
+          } : null;
+        } else if (comp.loserSampleImage) {
+          // Opponent is a sample image
+          opponent = {
+            id: comp.loserSampleImage.id,
+            name: 'Sample',
+            gender: comp.loserSampleImage.gender,
+            photoUrl: comp.loserSampleImage.url,
+          };
+        }
+      } else {
+        // User's photo lost, so opponent is the winner
+        if (comp.winnerPhoto) {
+          // Opponent is a user photo
+          const opponentUser = comp.winnerPhoto.user;
+          opponent = opponentUser ? {
+            id: opponentUser.id,
+            name: opponentUser.name.split(' ')[0], // First name only
+            gender: opponentUser.gender,
+            photoUrl: opponentUser.profilePhotoUrl,
+          } : null;
+        } else if (comp.winnerSampleImage) {
+          // Opponent is a sample image
+          opponent = {
+            id: comp.winnerSampleImage.id,
+            name: 'Sample',
+            gender: comp.winnerSampleImage.gender,
+            photoUrl: comp.winnerSampleImage.url,
+          };
+        }
+      }
       
       return {
         id: comp.id,
@@ -503,6 +585,7 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
           gender: comp.rater.gender,
           photoUrl: comp.rater.profilePhotoUrl,
         },
+        opponent,
       };
     });
 

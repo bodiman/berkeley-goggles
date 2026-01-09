@@ -43,6 +43,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   onAnimationComplete,
   bufferStats,
 }, ref) => {
+  // Card reference for TinderCard
+  const cardRef = useRef<TinderCardRef>(null);
+
   const [showInstructions, setShowInstructions] = useState(true);
   
   // Immediate state tracking for instructions (to prevent timing issues)
@@ -64,8 +67,8 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   const showHintsRef = useRef(false);
   const inactivityTimerRef = useRef<number | null>(null);
   
-  // Ref for programmatic swiping
-  const cardRef = useRef<TinderCardRef>(null);
+  // Handle double-tap selection
+  const lastTapTimeRef = useRef<{ id: string, time: number } | null>(null);
 
   // Expose swipe method to parent
   useImperativeHandle(ref, () => ({
@@ -154,6 +157,64 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
     hideHintsAfterInteraction();
   }, [startSelectionCooldown, hideHintsAfterInteraction]);
 
+  const handleSelectionInteraction = useCallback((event: React.MouseEvent | React.TouchEvent, winner: Photo, loser: Photo) => {
+    console.log('👆 handleSelectionInteraction called, instructionsVisible (ref):', instructionsVisibleRef.current, 'hintsVisible (ref):', showHintsRef.current, 'cooldown (ref):', cooldownActiveRef.current);
+    
+    if (disabled) return;
+
+    // If instructions or hints are showing, first tap should only dismiss them
+    if (instructionsVisibleRef.current || showHintsRef.current) {
+      console.log('📋💡 Interaction - UI elements visible, dismissing only');
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+      dismissVisibleElements();
+      resetInactivityTimer();
+      return;
+    }
+
+    // Double-tap logic
+    const now = Date.now();
+    const lastTap = lastTapTimeRef.current;
+    
+    if (lastTap && lastTap.id === winner.id && (now - lastTap.time) < 300) {
+      // It's a double tap!
+      console.log('✅ Double tap confirmed - processing selection:', winner.id);
+      
+      // Reset tap ref
+      lastTapTimeRef.current = null;
+      
+      // Add haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+
+      const swipeDir = winner.id === topPhoto.id ? 'up' : 'down';
+      
+      // Show MOGS overlay immediately
+      setSwipeDirection(swipeDir);
+      setSwipeProgress(1);
+
+      // Submit the selection
+      onSelection(winner.id, loser.id);
+      
+      // Trigger programmatic swipe animation after a brief delay
+      setTimeout(() => {
+        if (cardRef.current) {
+          cardRef.current.swipe(swipeDir);
+        }
+      }, 100);
+    } else {
+      // First tap of a potential double-tap
+      lastTapTimeRef.current = { id: winner.id, time: now };
+      
+      // Reset inactivity timer
+      resetInactivityTimer();
+      
+      // Optional: Visual feedback for first tap
+      console.log('👆 First tap recorded for', winner.id);
+    }
+  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer, dismissVisibleElements]);
+
   // Sync ref state with useState on component mount and state changes
   useEffect(() => {
     instructionsVisibleRef.current = showInstructions;
@@ -216,12 +277,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
     switch (direction) {
       case 'up':
-        // Top photo wins
-        onSelection(topPhoto.id, bottomPhoto.id);
-        break;
       case 'down':
-        // Bottom photo wins
-        onSelection(bottomPhoto.id, topPhoto.id);
+        // Selection is now handled by double-tap
+        // The programmatic swipe triggered by double-tap brings us here
         break;
       case 'left':
       case 'right':
@@ -229,68 +287,21 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         console.log('Skip disabled - ignoring left/right swipe');
         break;
     }
-  }, [disabled, onSelection, topPhoto.id, bottomPhoto.id, resetInactivityTimer, dismissVisibleElements]);
+  }, [disabled, resetInactivityTimer, dismissVisibleElements]);
 
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
     console.log('Card left screen');
     
+    // Reset overlay state for next card
+    setSwipeDirection(null);
+    setSwipeProgress(0);
+
     // Notify parent that animation completed
     if (onAnimationComplete) {
       onAnimationComplete();
     }
   }, [onAnimationComplete]);
-
-
-  // Handle direct tap selection
-  const handleDirectSelection = useCallback((event: React.MouseEvent, winner: Photo, loser: Photo) => {
-    console.log('👆 handleDirectSelection called, instructionsVisible (ref):', instructionsVisibleRef.current, 'hintsVisible (ref):', showHintsRef.current, 'cooldown (ref):', cooldownActiveRef.current);
-    
-    if (disabled) return;
-
-    // If instructions or hints are showing, first tap should only dismiss them
-    if (instructionsVisibleRef.current || showHintsRef.current) {
-      console.log('📋💡 Direct tap - UI elements visible, dismissing only');
-      event.preventDefault();
-      event.stopPropagation();
-      dismissVisibleElements();
-      // Reset timer after dismissing to start fresh countdown
-      resetInactivityTimer();
-      return;
-    }
-
-    // If in cooldown period, ignore the interaction
-    if (cooldownActiveRef.current) {
-      console.log('⏱️ In cooldown period - ignoring tap');
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    console.log('✅ Direct tap - processing selection:', winner.id);
-    
-    // Reset inactivity timer on successful interaction
-    resetInactivityTimer();
-
-    // Add haptic feedback if available
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
-    }
-
-    // Submit the selection
-    onSelection(winner.id, loser.id);
-    
-    // Determine swipe direction based on which photo was selected
-    // Top photo (topPhoto) -> swipe up, Bottom photo (bottomPhoto) -> swipe down
-    const swipeDirection = winner.id === topPhoto.id ? 'up' : 'down';
-    
-    // Trigger programmatic swipe animation after a brief delay for visual feedback
-    setTimeout(() => {
-      if (cardRef.current) {
-        cardRef.current.swipe(swipeDirection);
-      }
-    }, 150); // 150ms delay for user to see their selection
-  }, [disabled, onSelection, topPhoto.id, resetInactivityTimer, dismissVisibleElements]);
 
   // Handle real-time drag movement for MOGS overlay
   const handleDragMove = useCallback((dragState: DragState) => {
@@ -342,17 +353,17 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         onCardLeftScreen={handleCardLeftScreen}
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
-        preventSwipe={disabled || instructionsVisibleRef.current ? ['up', 'down', 'left', 'right'] : ['left', 'right']}
+        preventSwipe={['up', 'down', 'left', 'right']}
         swipeRequirementType="velocity"
         swipeThreshold={300}
         flickOnSwipe={true}
         className="w-full h-[75vh] cursor-grab active:cursor-grabbing"
       >
-        <div className="flex flex-col h-full gap-2 p-4 bg-gray-900 rounded-xl shadow-2xl">
+        <div className="flex flex-col h-full gap-8 p-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl shadow-2xl">
           {/* Top Photo */}
           <button
-            onClick={(event) => handleDirectSelection(event, topPhoto, bottomPhoto)}
-            className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
+            onClick={(event) => handleSelectionInteraction(event, topPhoto, bottomPhoto)}
+            className="flex-1 relative overflow-hidden rounded-2xl border-4 border-white/10 hover:border-blue-500/50 transition-all duration-300 group touch-target prevent-zoom shadow-lg"
             disabled={disabled}
           >
             <img 
@@ -397,13 +408,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             {/* MOGS Overlay for Top Photo */}
             {swipeDirection === 'up' && (
               <div 
-                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none"
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none z-20"
                 style={{ 
                   backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
                   opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
                 }}
               >
-                <div className="text-white text-6xl font-bold tracking-widest drop-shadow-2xl animate-pulse">
+                <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
                   MOGS
                 </div>
               </div>
@@ -411,13 +422,10 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             
           </button>
 
-          {/* Divider */}
-          <div className="h-0.5 bg-gray-700 my-1" />
-
           {/* Bottom Photo */}
           <button
-            onClick={(event) => handleDirectSelection(event, bottomPhoto, topPhoto)}
-            className="flex-1 relative overflow-hidden rounded-xl touch-target prevent-zoom"
+            onClick={(event) => handleSelectionInteraction(event, bottomPhoto, topPhoto)}
+            className="flex-1 relative overflow-hidden rounded-2xl border-4 border-white/10 hover:border-blue-500/50 transition-all duration-300 group touch-target prevent-zoom shadow-lg"
             disabled={disabled}
           >
             <img 
@@ -462,13 +470,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             {/* MOGS Overlay for Bottom Photo */}
             {swipeDirection === 'down' && (
               <div 
-                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none"
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none z-20"
                 style={{ 
                   backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
                   opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
                 }}
               >
-                <div className="text-white text-6xl font-bold tracking-widest drop-shadow-2xl animate-pulse">
+                <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
                   MOGS
                 </div>
               </div>
@@ -484,21 +492,21 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       {/* Instructions - Outside TinderCard to overlay above */}
       {showInstructions && (
         <div className="absolute bottom-4 left-4 right-4 z-50 pointer-events-none">
-          <div className="bg-black/80 backdrop-blur-sm rounded-xl p-4 text-center relative pointer-events-auto">
+          <div className="bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl p-6 text-center relative pointer-events-auto shadow-2xl">
             {/* Close button */}
             <button
               onClick={dismissInstructions}
-              className="absolute top-2 right-2 w-6 h-6 bg-gray-600/80 hover:bg-gray-500/80 rounded-full flex items-center justify-center text-white text-sm transition-colors"
+              className="absolute top-3 right-3 w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-colors"
               aria-label="Close instructions"
             >
               ×
             </button>
             
-            <p className="text-white font-semibold mb-1">
-              Tap or swipe to choose who is more attractive
+            <p className="text-white font-black italic uppercase tracking-widest mb-1">
+              Double tap to choose who is more attractive
             </p>
-            <p className="text-gray-400 text-sm">
-              Swipe up/down to choose • Tap photos to select
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em]">
+              Tap twice to select your preference
             </p>
           </div>
         </div>
