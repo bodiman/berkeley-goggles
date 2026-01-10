@@ -113,31 +113,21 @@ export const ProfileSetupPage: React.FC = () => {
       } else {
         // Detection failed
         setGenderDetectionFailed(true);
-        setDetectionError(data.error || 'Gender detection failed');
-        setError('Gender detection failed. Please try again with a clearer photo showing your face clearly.');
+        setDetectionError('Photo quality too low');
+        setError('Photo quality too low for verification. Please take a clearer photo with good lighting and your face clearly visible.');
       }
     } catch (err: any) {
       console.error('AI Gender Detection error:', err);
       setGenderDetectionFailed(true);
-      
-      // Check if it's a structured error response
-      if (err.response && err.response.json) {
-        try {
-          const errorData = await err.response.json();
-          if (errorData.details?.action === 'retake_photo') {
-            setDetectionError(errorData.error || 'Gender detection failed');
-            setError(errorData.error || 'Gender detection failed. Please retake your photo.');
-          } else {
-            setDetectionError('Gender detection failed');
-            setError('Gender detection failed. Please try again with a clearer photo.');
-          }
-        } catch {
-          setDetectionError('Network error occurred during gender detection');
-          setError('Gender detection failed due to a network error. Please check your connection and try again.');
-        }
+
+      // Check if it's a confidence/quality issue
+      const errorMessage = err.message || '';
+      if (errorMessage.includes('confidence') || errorMessage.includes('gender')) {
+        setDetectionError('Photo quality too low');
+        setError('Photo quality too low for verification. Please take a clearer photo with good lighting and your face clearly visible.');
       } else {
-        setDetectionError('Network error occurred during gender detection');
-        setError('Gender detection failed due to a network error. Please check your connection and try again.');
+        setDetectionError('Verification failed');
+        setError('Photo verification failed. Please try again with a clearer photo.');
       }
     } finally {
       setIsAiAnalyzing(false);
@@ -423,20 +413,20 @@ export const ProfileSetupPage: React.FC = () => {
             {genderDetectionFailed && capturedPhoto && (
               <div className="mt-4 p-6 bg-red-600/20 border-2 border-red-500/50 rounded-2xl">
                 <div className="flex flex-col items-center text-center">
-                  <span className="text-4xl mb-3">🤖❌</span>
-                  <h3 className="text-lg font-black text-red-400 uppercase tracking-tighter mb-2">Detection Failed</h3>
-                  <p className="text-red-200 text-sm mb-4">{detectionError || 'Gender could not be detected from this photo'}</p>
+                  <span className="text-4xl mb-3">📷</span>
+                  <h3 className="text-lg font-black text-red-400 uppercase tracking-tighter mb-2">Photo Quality Too Low</h3>
+                  <p className="text-red-200 text-sm mb-3">Please take a clearer photo</p>
+                  <ul className="text-gray-300 text-xs mb-4 text-left space-y-1 w-full px-4">
+                    <li>• Make sure your face is clearly visible</li>
+                    <li>• Use good lighting (avoid shadows)</li>
+                    <li>• Look directly at the camera</li>
+                    <li>• Remove sunglasses or hats</li>
+                  </ul>
                   <div className="space-y-3 w-full">
                     <button
-                      onClick={handleRetryGenderDetection}
-                      disabled={isAiAnalyzing}
-                      className="w-full bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg font-bold transition-colors disabled:opacity-50"
-                    >
-                      Retry Detection
-                    </button>
-                    <button
+                      type="button"
                       onClick={() => setCapturedPhoto(null)}
-                      className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                      className="w-full bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg font-bold transition-colors"
                     >
                       Take New Photo
                     </button>

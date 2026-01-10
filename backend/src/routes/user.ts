@@ -80,13 +80,13 @@ userRoutes.post('/detect-gender', upload.single('photo'), asyncHandler(async (re
     // Real AI gender detection using face analysis
     const analysis = await faceAnalysisService.detectGender(imageBuffer);
     
-    if (analysis.confidence < 0.50) {
+    if (analysis.confidence < 0.85) {
       return res.status(400).json({
         success: false,
         error: 'Unable to detect gender with sufficient confidence. Please try a clearer photo with better lighting and ensure your face is clearly visible.',
         details: {
           confidence: Math.round(analysis.confidence * 100),
-          minimumRequired: 50,
+          minimumRequired: 85,
           action: 'retake_photo'
         }
       });
@@ -244,7 +244,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
     if (req.file) {
       try {
         const genderAnalysis = await faceAnalysisService.detectGender(req.file.buffer);
-        if (genderAnalysis.confidence >= 0.50) {
+        if (genderAnalysis.confidence >= 0.85) {
           detectedGender = genderAnalysis.gender;
           console.log(`Gender auto-detected: ${detectedGender} (${Math.round(genderAnalysis.confidence * 100)}% confidence)`);
         } else {
@@ -254,7 +254,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
             error: 'Gender detection confidence too low. Please retake your photo with better lighting and a clear view of your face.',
             details: {
               confidence: Math.round(genderAnalysis.confidence * 100),
-              minimumRequired: 65,
+              minimumRequired: 85,
               action: 'retake_photo'
             }
           });
@@ -343,7 +343,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
         try {
           console.log(`🔍 Analyzing R2 setup image for gender detection: ${profilePhotoUrl}`);
           const genderAnalysis = await fetchAndAnalyzeR2Image(profilePhotoUrl);
-          if (genderAnalysis.confidence >= 0.50) {
+          if (genderAnalysis.confidence >= 0.85) {
             detectedGender = genderAnalysis.gender;
             console.log(`Gender auto-detected from R2 setup image: ${detectedGender} (${Math.round(genderAnalysis.confidence * 100)}% confidence)`);
           } else {
@@ -353,7 +353,7 @@ userRoutes.post('/setup', upload.single('photo'), asyncHandler(async (req, res) 
               error: 'Gender detection confidence too low. Please retake your photo with better lighting and a clear view of your face.',
               details: {
                 confidence: Math.round(genderAnalysis.confidence * 100),
-                minimumRequired: 65,
+                minimumRequired: 85,
                 action: 'retake_photo'
               }
             });
@@ -562,7 +562,7 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
         console.log(`🔍 Analyzing R2 image for gender detection: ${r2PhotoUrl}`);
         genderAnalysis = await fetchAndAnalyzeR2Image(r2PhotoUrl);
         
-        if (genderAnalysis.confidence >= 0.50) {
+        if (genderAnalysis.confidence >= 0.85) {
           detectedGender = genderAnalysis.gender;
           console.log(`Gender auto-detected from R2 image: ${detectedGender} (${Math.round(genderAnalysis.confidence * 100)}% confidence)`);
         } else {
@@ -572,7 +572,7 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
             error: 'Gender detection confidence too low. Please retake your photo with better lighting and a clear view of your face.',
             details: {
               confidence: Math.round(genderAnalysis.confidence * 100),
-              minimumRequired: 65,
+              minimumRequired: 85,
               action: 'retake_photo'
             }
           });
@@ -666,7 +666,7 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
     
     try {
       genderAnalysis = await faceAnalysisService.detectGender(req.file.buffer);
-      if (genderAnalysis.confidence >= 0.50) {
+      if (genderAnalysis.confidence >= 0.85) {
         detectedGender = genderAnalysis.gender;
         console.log(`Gender auto-detected during photo update: ${detectedGender} (${Math.round(genderAnalysis.confidence * 100)}% confidence)`);
       } else {
@@ -676,7 +676,7 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
           error: 'Gender detection confidence too low. Please retake your photo with better lighting and a clear view of your face.',
           details: {
             confidence: Math.round(genderAnalysis.confidence * 100),
-            minimumRequired: 65,
+            minimumRequired: 85,
             action: 'retake_photo'
           }
         });

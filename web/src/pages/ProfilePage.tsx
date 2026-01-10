@@ -232,10 +232,10 @@ export const ProfilePage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Failed to update photo:', error);
-      
-      // Check if it's a gender detection error
-      if (error.message && error.message.includes('gender')) {
-        setPhotoError(error.message);
+
+      // Check if it's a gender detection confidence error
+      if (error.message && (error.message.includes('confidence') || error.message.includes('gender'))) {
+        setPhotoError('Photo quality too low for verification. Please take a clearer photo.');
       } else {
         setPhotoError('Failed to update photo. Please try again.');
       }
@@ -600,10 +600,17 @@ export const ProfilePage: React.FC = () => {
             
             {photoError && (
               <div className="mb-4 p-4 bg-red-600/20 border border-red-600/50 rounded-xl">
-                <p className="text-red-400 text-sm font-bold text-center mb-3">{photoError}</p>
-                {photoError.includes('gender') && (
+                <p className="text-red-400 text-sm font-bold text-center mb-2">{photoError}</p>
+                {(photoError.includes('quality') || photoError.includes('gender')) && (
                   <div className="text-center">
+                    <ul className="text-gray-300 text-xs mb-3 text-left space-y-1 px-2">
+                      <li>• Make sure your face is clearly visible</li>
+                      <li>• Use good lighting (avoid shadows)</li>
+                      <li>• Look directly at the camera</li>
+                      <li>• Remove sunglasses or hats</li>
+                    </ul>
                     <button
+                      type="button"
                       onClick={() => setPhotoError(null)}
                       className="bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg font-bold text-xs uppercase tracking-widest transition-colors"
                     >

@@ -19,20 +19,20 @@ class FaceAnalysisService {
   async detectGender(imageBuffer: Buffer): Promise<GenderDetectionResult> {
     console.log('Starting face-api.js gender detection...');
 
+    // Ensure models are loaded first
+    await this.ensureInitialized();
+
+    // Decode image using tfjs-node (no canvas required)
+    const tensor = tf.node.decodeImage(imageBuffer, 3);
+
     try {
-      await this.ensureInitialized();
-
-      // Decode image using tfjs-node (no canvas required)
-      const tensor = tf.node.decodeImage(imageBuffer, 3);
-
       // Detect face with gender
       console.log('Detecting face and gender...');
       const detection = await faceapi
         .detectSingleFace(tensor as unknown as faceapi.TNetInput)
         .withAgeAndGender();
 
-      // Clean up tensor
-      tensor.dispose();
+      console.log('Detection result abcdefg:', detection);
 
       if (!detection) {
         console.log('No face detected in image');
@@ -49,10 +49,9 @@ class FaceAnalysisService {
         gender: gender as 'male' | 'female',
         confidence: genderProbability
       };
-
-    } catch (error) {
-      console.error('Face-api.js error:', error);
-      return this.basicGenderHeuristics(imageBuffer);
+    } finally {
+      // Clean up tensor
+      tensor.dispose();
     }
   }
 
@@ -87,22 +86,6 @@ class FaceAnalysisService {
     })();
 
     return this.initPromise;
-  }
-
-  /**
-   * Basic fallback heuristics when ML fails
-   */
-  private basicGenderHeuristics(imageBuffer: Buffer): GenderDetectionResult {
-    const timestamp = Date.now();
-    const size = imageBuffer.length;
-    const seed = (timestamp + size) % 1000;
-
-    const gender = seed % 2 === 0 ? 'male' : 'female';
-    const confidence = 0.55 + (seed % 100) / 1000;
-
-    console.log(`Heuristic fallback result: ${gender} (${Math.round(confidence * 100)}% confidence)`);
-
-    return { gender, confidence };
   }
 }
 

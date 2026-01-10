@@ -33,15 +33,6 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
     ...options,
   };
 
-  // Debug logging for API requests
-  console.log('🌐 API Request:', {
-    endpoint,
-    fullURL: url,
-    method: config.method || 'GET',
-    headers: config.headers,
-    body: config.body
-  });
-
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
 

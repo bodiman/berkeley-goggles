@@ -448,7 +448,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('Photo update failed:', error);
-      return false;
+      // Re-throw to let the caller handle the error message
+      throw error;
     }
   };
 
