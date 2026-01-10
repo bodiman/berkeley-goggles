@@ -274,12 +274,14 @@ rankingRoutes.get('/leaderboard', asyncHandler(async (req, res) => {
     }
     
     // Get top ranked photos (only show users who opted in and match gender)
-    const topRankings = await prisma.photoRanking.findMany({
+    // Query all rankings, then filter to only include current profile photos
+    const allRankings = await prisma.photoRanking.findMany({
       where: {
-        photo: { status: 'approved' }, // Show all approved photos
+        photo: { status: 'approved' },
         user: {
           optOutOfLeaderboards: false,
-          gender: requestingUser.gender, // Filter by same gender
+          gender: requestingUser.gender,
+          profilePhotoUrl: { not: null }, // Must have a profile photo
         },
       },
       include: {
@@ -291,12 +293,20 @@ rankingRoutes.get('/leaderboard', asyncHandler(async (req, res) => {
             age: true,
             city: true,
             state: true,
+            profilePhotoUrl: true,
           },
         },
       },
       orderBy: { currentPercentile: 'desc' },
-      take: limit,
     });
+
+    // Filter to only include rankings for the user's current profile photo
+    const topRankings = allRankings
+      .filter(ranking => {
+        const profileUrl = ranking.user.profilePhotoUrl;
+        return profileUrl && (ranking.photo.url === profileUrl || ranking.photo.thumbnailUrl === profileUrl);
+      })
+      .slice(0, limit);
 
     const leaderboard = topRankings.map((ranking, index) => ({
       rank: index + 1,
@@ -379,12 +389,14 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
     }
 
     // Get players in the specified league based on trophy scores (filtered by gender)
-    const leagueRankings = await prisma.photoRanking.findMany({
+    // Query all rankings in league, then filter to only include current profile photos
+    const allLeagueRankings = await prisma.photoRanking.findMany({
       where: {
         photo: { status: 'approved' },
         user: {
           optOutOfLeaderboards: false,
-          gender: requestingUser.gender, // Filter by same gender
+          gender: requestingUser.gender,
+          profilePhotoUrl: { not: null }, // Must have a profile photo
         },
         trophyScore: {
           gte: league.minElo,
@@ -406,8 +418,15 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
         },
       },
       orderBy: { trophyScore: 'desc' },
-      take: limit,
     });
+
+    // Filter to only include rankings for the user's current profile photo
+    const leagueRankings = allLeagueRankings
+      .filter(ranking => {
+        const profileUrl = ranking.user.profilePhotoUrl;
+        return profileUrl && (ranking.photo.url === profileUrl || ranking.photo.thumbnailUrl === profileUrl);
+      })
+      .slice(0, limit);
 
     const leaderboard = leagueRankings.map((ranking, index) => ({
       rank: index + 1,
