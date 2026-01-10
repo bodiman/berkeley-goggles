@@ -392,9 +392,9 @@ export const ComparisonPage: React.FC = () => {
       {/* Footer Tips */}
       <footer className="px-6 py-4 flex-shrink-0">
         <div className="text-center">
-          <p className="text-xs text-gray-500 mb-2">
-            💡 Pro tip: Be honest in your ratings to help everyone get accurate feedback
-          </p>
+          {/* <p className="text-xs text-gray-500 mb-2">
+            💡 Pro tip: Be honest or we match you with chuzz
+          </p> */}
           <div className="flex justify-center space-x-6 text-xs text-gray-600">
             <span>↔️ Swipe left/right to skip</span>
             <span>👆 Double tap to select</span>

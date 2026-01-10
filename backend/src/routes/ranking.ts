@@ -277,11 +277,10 @@ rankingRoutes.get('/leaderboard', asyncHandler(async (req, res) => {
     const topRankings = await prisma.photoRanking.findMany({
       where: {
         photo: { status: 'approved' }, // Show all approved photos
-        user: { 
+        user: {
           optOutOfLeaderboards: false,
           gender: requestingUser.gender, // Filter by same gender
         },
-        totalComparisons: { gte: 10 }, // Minimum comparisons for leaderboard
       },
       include: {
         photo: true,
@@ -383,11 +382,10 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
     const leagueRankings = await prisma.photoRanking.findMany({
       where: {
         photo: { status: 'approved' },
-        user: { 
+        user: {
           optOutOfLeaderboards: false,
           gender: requestingUser.gender, // Filter by same gender
         },
-        totalComparisons: { gte: 5 }, // Minimum comparisons for league leaderboard
         trophyScore: {
           gte: league.minElo,
           lt: league.maxElo === Infinity ? undefined : league.maxElo,
