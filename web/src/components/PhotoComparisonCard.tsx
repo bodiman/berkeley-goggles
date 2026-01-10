@@ -277,9 +277,14 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
 
     switch (direction) {
       case 'up':
+        // User swiped up - top photo wins
+        console.log('📤 Submitting selection: top photo wins');
+        onSelection(topPhoto.id, bottomPhoto.id);
+        break;
       case 'down':
-        // Selection is now handled by double-tap
-        // The programmatic swipe triggered by double-tap brings us here
+        // User swiped down - bottom photo wins
+        console.log('📤 Submitting selection: bottom photo wins');
+        onSelection(bottomPhoto.id, topPhoto.id);
         break;
       case 'left':
       case 'right':
@@ -287,7 +292,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
         console.log('Skip disabled - ignoring left/right swipe');
         break;
     }
-  }, [disabled, resetInactivityTimer, dismissVisibleElements]);
+  }, [disabled, resetInactivityTimer, dismissVisibleElements, onSelection, topPhoto.id, bottomPhoto.id]);
 
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {

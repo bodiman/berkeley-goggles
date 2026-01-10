@@ -41,7 +41,7 @@ export const ProfileSetupPage: React.FC = () => {
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [aiDetectedGender, setAiDetectedGender] = useState<'male' | 'female' | null>(null);
   const [genderDetectionFailed, setGenderDetectionFailed] = useState(false);
-  const [detectionError, setDetectionError] = useState<string | null>(null);
+  const [_, setDetectionError] = useState<string | null>(null);
 
   // Friends step state
   const [contactsText, setContactsText] = useState('');
@@ -134,11 +134,11 @@ export const ProfileSetupPage: React.FC = () => {
     }
   };
 
-  const handleRetryGenderDetection = () => {
-    if (capturedPhoto) {
-      handleUsePhoto();
-    }
-  };
+  // const handleRetryGenderDetection = () => {
+  //   if (capturedPhoto) {
+  //     handleUsePhoto();
+  //   }
+  // };
 
   const handlePhotoCaptureError = (errorMessage: string) => {
     console.error('📷 ProfileSetup: Photo capture error:', errorMessage);

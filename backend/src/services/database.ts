@@ -6,7 +6,7 @@ console.log("database service - DATABASE_URL:", process.env.DATABASE_URL?.substr
 // Create Prisma client instance
 // Let Prisma read DATABASE_URL from environment naturally
 export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
 // Connect to database

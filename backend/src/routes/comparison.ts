@@ -945,26 +945,37 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
     });
 
     // Calculate expensive rating updates in background (non-blocking)
-    setImmediate(async () => {
-      try {
-        if (finalComparisonType === 'user_photos') {
-          // Both are user photos - use existing rating update function
-          await updatePhotoRatings(winnerId, loserId, comparison.id);
-          // Also update combined rankings for cross-comparisons
-          await updateCombinedRankings(winnerId, loserId, 'user', 'user');
-        } else if (finalComparisonType === 'sample_images') {
-          // Both are sample images - use sample image rating update
-          await updateSampleImageRatings(winnerId, loserId, comparison.id);
-          // Also update combined rankings
-          await updateCombinedRankings(winnerId, loserId, 'sample', 'sample');
-        } else if (finalComparisonType === 'mixed') {
-          // Mixed comparison - only update combined rankings
-          await updateCombinedRankings(winnerId, loserId, winnerType, loserType);
+    console.log(`🔄 Scheduling background rating update for comparison ${comparison.id}, type: ${finalComparisonType}`);
+    setImmediate(() => {
+      (async () => {
+        try {
+          console.log(`⏰ Background update starting for ${comparison.id}, type: ${finalComparisonType}`);
+          if (finalComparisonType === 'user_photos') {
+            // Both are user photos - use existing rating update function
+            console.log(`📊 Updating user photo ratings: winner=${winnerId}, loser=${loserId}`);
+            await updatePhotoRatings(winnerId, loserId, comparison.id);
+            // Also update combined rankings for cross-comparisons
+            await updateCombinedRankings(winnerId, loserId, 'user', 'user');
+          } else if (finalComparisonType === 'sample_images') {
+            // Both are sample images - use sample image rating update
+            console.log(`📊 Updating sample image ratings: winner=${winnerId}, loser=${loserId}`);
+            await updateSampleImageRatings(winnerId, loserId, comparison.id);
+            // Also update combined rankings
+            await updateCombinedRankings(winnerId, loserId, 'sample', 'sample');
+          } else if (finalComparisonType === 'mixed') {
+            // Mixed comparison - update individual rankings for each type + combined
+            console.log(`📊 Updating mixed rankings: winner=${winnerId} (${winnerType}), loser=${loserId} (${loserType})`);
+            await updateMixedRatings(winnerId, loserId, winnerType, loserType, comparison.id);
+            await updateCombinedRankings(winnerId, loserId, winnerType, loserType);
+          } else {
+            console.log(`⚠️ Unknown comparison type: ${finalComparisonType}`);
+          }
+          console.log(`✅ Background update completed for ${comparison.id}`);
+        } catch (error) {
+          // Log errors but don't affect user experience
+          console.error('❌ Background rating update failed:', error);
         }
-      } catch (error) {
-        // Log errors but don't affect user experience
-        console.error('Background rating update failed:', error);
-      }
+      })();
     });
   } catch (error) {
     console.error('Submit comparison error:', error);
@@ -1382,6 +1393,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
 // Helper function to update photo ratings using dual-layer trophy system
 // Note: Basic counts (wins/losses/totalComparisons) are already updated in main flow
 async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string, comparisonId?: string) {
+  console.log(`🎯 updatePhotoRatings called: winner=${winnerPhotoId}, loser=${loserPhotoId}, comparison=${comparisonId}`);
   try {
     // Get current rankings for both photos
     const [winnerRanking, loserRanking] = await Promise.all([
@@ -1390,9 +1402,11 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string, c
     ]);
 
     if (!winnerRanking || !loserRanking) {
-      console.error('Photo rankings not found for rating update');
+      console.error(`❌ Photo rankings not found: winner=${!!winnerRanking}, loser=${!!loserRanking}`);
       return;
     }
+
+    console.log(`📈 Current hidden BT scores: winner=${winnerRanking.hiddenBradleyTerryScore}, loser=${loserRanking.hiddenBradleyTerryScore}`);
 
     // ---- Truth Layer: Update hidden Bradley-Terry scores ----
     const hiddenUpdate = bradleyTerryService.updateRatings(
@@ -1400,6 +1414,8 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string, c
       loserRanking.hiddenBradleyTerryScore || 0,
       { learningRate: 0.05 } // K_BT from script
     );
+
+    console.log(`📈 New hidden BT scores: winner=${hiddenUpdate.newWinnerScore.toFixed(4)}, loser=${hiddenUpdate.newLoserScore.toFixed(4)}`);
 
     // Update hidden scores first
     await Promise.all([
@@ -1419,13 +1435,16 @@ async function updatePhotoRatings(winnerPhotoId: string, loserPhotoId: string, c
       }),
     ]);
 
+    console.log(`✅ Hidden BT scores updated in database`);
+
     // ---- Product Layer: Calculate target trophies and update trophy scores ----
     await updateSpecificTrophyScores(winnerPhotoId, loserPhotoId, 'photo', comparisonId);
 
     // Update percentiles based on trophy scores (for display)
     await updatePercentiles();
+    console.log(`✅ updatePhotoRatings completed successfully`);
   } catch (error) {
-    console.error('Error updating photo ratings:', error);
+    console.error('❌ Error updating photo ratings:', error);
   }
 }
 
@@ -1476,6 +1495,193 @@ async function updateSampleImageRatings(winnerSampleId: string, loserSampleId: s
     await updateSampleImagePercentiles();
   } catch (error) {
     console.error('Error updating sample image ratings:', error);
+  }
+}
+
+// Helper function to update ratings for mixed comparisons (user photo vs sample image)
+async function updateMixedRatings(
+  winnerId: string,
+  loserId: string,
+  winnerType: string,
+  loserType: string,
+  comparisonId?: string
+) {
+  console.log(`🎯 updateMixedRatings called: winner=${winnerId} (${winnerType}), loser=${loserId} (${loserType})`);
+  try {
+    // Get rankings for both participants based on their types
+    const winnerRanking = winnerType === 'user'
+      ? await prisma.photoRanking.findUnique({ where: { photoId: winnerId } })
+      : await prisma.sampleImageRanking.findUnique({ where: { sampleImageId: winnerId } });
+
+    const loserRanking = loserType === 'user'
+      ? await prisma.photoRanking.findUnique({ where: { photoId: loserId } })
+      : await prisma.sampleImageRanking.findUnique({ where: { sampleImageId: loserId } });
+
+    if (!winnerRanking || !loserRanking) {
+      console.error(`❌ Mixed rankings not found: winner=${!!winnerRanking}, loser=${!!loserRanking}`);
+      return;
+    }
+
+    console.log(`📈 Current hidden BT scores: winner=${winnerRanking.hiddenBradleyTerryScore}, loser=${loserRanking.hiddenBradleyTerryScore}`);
+
+    // ---- Truth Layer: Update hidden Bradley-Terry scores ----
+    const hiddenUpdate = bradleyTerryService.updateRatings(
+      winnerRanking.hiddenBradleyTerryScore || 0,
+      loserRanking.hiddenBradleyTerryScore || 0,
+      { learningRate: 0.05 }
+    );
+
+    console.log(`📈 New hidden BT scores: winner=${hiddenUpdate.newWinnerScore.toFixed(4)}, loser=${hiddenUpdate.newLoserScore.toFixed(4)}`);
+
+    // Update winner's hidden BT score
+    if (winnerType === 'user') {
+      await prisma.photoRanking.update({
+        where: { photoId: winnerId },
+        data: {
+          hiddenBradleyTerryScore: hiddenUpdate.newWinnerScore,
+          lastUpdated: new Date(),
+        },
+      });
+      // Update winner's trophy score
+      await updateSingleTrophyScore(winnerId, 'photo', true, comparisonId);
+    } else {
+      await prisma.sampleImageRanking.update({
+        where: { sampleImageId: winnerId },
+        data: {
+          hiddenBradleyTerryScore: hiddenUpdate.newWinnerScore,
+          lastUpdated: new Date(),
+        },
+      });
+      await updateSingleTrophyScore(winnerId, 'sample', true, comparisonId);
+    }
+
+    // Update loser's hidden BT score
+    if (loserType === 'user') {
+      await prisma.photoRanking.update({
+        where: { photoId: loserId },
+        data: {
+          hiddenBradleyTerryScore: hiddenUpdate.newLoserScore,
+          lastUpdated: new Date(),
+        },
+      });
+      // Update loser's trophy score
+      await updateSingleTrophyScore(loserId, 'photo', false, comparisonId);
+    } else {
+      await prisma.sampleImageRanking.update({
+        where: { sampleImageId: loserId },
+        data: {
+          hiddenBradleyTerryScore: hiddenUpdate.newLoserScore,
+          lastUpdated: new Date(),
+        },
+      });
+      await updateSingleTrophyScore(loserId, 'sample', false, comparisonId);
+    }
+
+    console.log(`✅ Mixed ratings updated successfully`);
+
+    // Update percentiles
+    await updatePercentiles();
+    await updateSampleImagePercentiles();
+  } catch (error) {
+    console.error('❌ Error updating mixed ratings:', error);
+  }
+}
+
+// Helper function to update trophy score for a single item in mixed comparisons
+async function updateSingleTrophyScore(
+  itemId: string,
+  itemType: 'photo' | 'sample',
+  isWinner: boolean,
+  comparisonId?: string
+) {
+  console.log(`🏆 updateSingleTrophyScore: ${itemId} (${itemType}), winner=${isWinner}`);
+  try {
+    const trophyConfig = bradleyTerryService.getDefaultTrophyConfig();
+
+    // Get the item's ranking
+    const ranking = itemType === 'photo'
+      ? await prisma.photoRanking.findUnique({ where: { photoId: itemId } })
+      : await prisma.sampleImageRanking.findUnique({ where: { sampleImageId: itemId } });
+
+    if (!ranking) return;
+
+    // Get total count for this type
+    const totalCount = itemType === 'photo'
+      ? await prisma.photoRanking.count({ where: { totalComparisons: { gt: 0 } } })
+      : await prisma.sampleImageRanking.count({ where: { totalComparisons: { gt: 0 } } });
+
+    if (totalCount === 0) return;
+
+    // Get rank based on hidden BT score
+    const rank = itemType === 'photo'
+      ? await prisma.photoRanking.count({ where: { hiddenBradleyTerryScore: { lt: ranking.hiddenBradleyTerryScore } } })
+      : await prisma.sampleImageRanking.count({ where: { hiddenBradleyTerryScore: { lt: ranking.hiddenBradleyTerryScore } } });
+
+    // Calculate target trophy
+    const p = (rank + 1) / (totalCount + 1);
+    const targetTrophy = trophyConfig.targetMean + trophyConfig.targetStd * bradleyTerryService.inverseNormalCDF(p);
+    const oldTrophy = ranking.trophyScore || 0;
+
+    // Calculate new trophy using the step function
+    const newTrophy = bradleyTerryService.calculateTrophyStep(
+      oldTrophy,
+      targetTrophy,
+      isWinner,
+      trophyConfig.winGain,
+      trophyConfig.lossPenalty,
+      trophyConfig.fadeWidth
+    );
+
+    const delta = newTrophy - oldTrophy;
+
+    // Get user email for searchable logging (only for user photos)
+    let userEmail = 'sample_image';
+    if (itemType === 'photo') {
+      const photo = await prisma.photo.findUnique({
+        where: { id: itemId },
+        include: { user: { select: { email: true } } }
+      });
+      userEmail = photo?.user?.email || 'unknown';
+    }
+
+    const deltaStr = delta >= 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+    console.log(`🏆 Trophy update: ${oldTrophy} → ${newTrophy.toFixed(1)} (${deltaStr}), target=${targetTrophy.toFixed(1)}`);
+    console.log(`TROPHY_UPDATE abcdefg | User: ${userEmail} | ${isWinner ? 'WON' : 'LOST'} | Delta: ${deltaStr} trophies | New total: ${newTrophy.toFixed(1)}`);
+
+    // Update the trophy score
+    if (itemType === 'photo') {
+      await prisma.photoRanking.update({
+        where: { photoId: itemId },
+        data: {
+          trophyScore: newTrophy,
+          targetTrophyScore: targetTrophy,
+          lastUpdated: new Date(),
+        },
+      });
+    } else {
+      await prisma.sampleImageRanking.update({
+        where: { sampleImageId: itemId },
+        data: {
+          trophyScore: newTrophy,
+          targetTrophyScore: targetTrophy,
+          lastUpdated: new Date(),
+        },
+      });
+    }
+
+    // Update comparison record with delta if it's a user photo and we have comparison ID
+    if (comparisonId && itemType === 'photo') {
+      const updateData = isWinner
+        ? { winnerTrophyDelta: delta }
+        : { loserTrophyDelta: delta };
+
+      await prisma.comparison.update({
+        where: { id: comparisonId },
+        data: updateData,
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Error updating single trophy score for ${itemId}:`, error);
   }
 }
 
@@ -1708,11 +1914,12 @@ async function updateCombinedPercentiles() {
 
 // Helper function to update trophy scores for a specific comparison
 async function updateSpecificTrophyScores(
-  winnerId: string, 
-  loserId: string, 
+  winnerId: string,
+  loserId: string,
   rankingType: 'photo' | 'sample' | 'combined',
   comparisonId?: string
 ) {
+  console.log(`🏆 updateSpecificTrophyScores called: winner=${winnerId}, loser=${loserId}, type=${rankingType}`);
   try {
     const trophyConfig = bradleyTerryService.getDefaultTrophyConfig();
 
@@ -1735,7 +1942,12 @@ async function updateSpecificTrophyScores(
       ]);
     }
 
-    if (!winnerRanking || !loserRanking || totalCount === 0) return;
+    console.log(`📊 Trophy update data: winnerRanking=${!!winnerRanking}, loserRanking=${!!loserRanking}, totalCount=${totalCount}`);
+
+    if (!winnerRanking || !loserRanking || totalCount === 0) {
+      console.log(`⚠️ Skipping trophy update: missing data`);
+      return;
+    }
 
     // 2. Get ranks for winner and loser based on hidden Bradley-Terry scores
     // This allows us to calculate their target trophies without updating everyone
@@ -1752,13 +1964,18 @@ async function updateSpecificTrophyScores(
     // p = (rank + 1) / (total + 1) to match the logic in calculateTargetTrophies
     const winnerP = (winnerRank + 1) / (totalCount + 1);
     const loserP = (loserRank + 1) / (totalCount + 1);
-    
+
+    console.log(`📊 Percentile calculation: winnerRank=${winnerRank}, loserRank=${loserRank}, winnerP=${winnerP.toFixed(4)}, loserP=${loserP.toFixed(4)}`);
+
     // We can use the service's target trophy logic directly for individual P values
     const winnerTarget = trophyConfig.targetMean + trophyConfig.targetStd * bradleyTerryService.inverseNormalCDF(winnerP);
     const loserTarget = trophyConfig.targetMean + trophyConfig.targetStd * bradleyTerryService.inverseNormalCDF(loserP);
 
     const winnerOldTrophy = winnerRanking.trophyScore || 0;
     const loserOldTrophy = loserRanking.trophyScore || 0;
+
+    console.log(`📊 Trophy targets: winnerTarget=${winnerTarget.toFixed(1)}, loserTarget=${loserTarget.toFixed(1)}`);
+    console.log(`📊 Current trophies: winner=${winnerOldTrophy}, loser=${loserOldTrophy}`);
 
     // 4. Calculate new trophy scores using the trophy progression logic
     const trophyUpdate = bradleyTerryService.updateTrophyScores(
@@ -1775,6 +1992,22 @@ async function updateSpecificTrophyScores(
 
     const winnerDelta = trophyUpdate.newWinnerTrophy - winnerOldTrophy;
     const loserDelta = trophyUpdate.newLoserTrophy - loserOldTrophy;
+
+    console.log(`🏆 Trophy update result: winner ${winnerOldTrophy} → ${trophyUpdate.newWinnerTrophy.toFixed(1)} (+${winnerDelta.toFixed(1)}), loser ${loserOldTrophy} → ${trophyUpdate.newLoserTrophy.toFixed(1)} (${loserDelta.toFixed(1)})`);
+
+    // Get user emails for searchable logging (only for user photos)
+    if (rankingType === 'photo') {
+      const [winnerPhoto, loserPhoto] = await Promise.all([
+        prisma.photo.findUnique({ where: { id: winnerId }, include: { user: { select: { email: true } } } }),
+        prisma.photo.findUnique({ where: { id: loserId }, include: { user: { select: { email: true } } } }),
+      ]);
+      const winnerEmail = winnerPhoto?.user?.email || 'unknown';
+      const loserEmail = loserPhoto?.user?.email || 'unknown';
+      const winnerDeltaStr = winnerDelta >= 0 ? `+${winnerDelta.toFixed(1)}` : winnerDelta.toFixed(1);
+      const loserDeltaStr = loserDelta >= 0 ? `+${loserDelta.toFixed(1)}` : loserDelta.toFixed(1);
+      console.log(`TROPHY_UPDATE abcdefg | User: ${winnerEmail} | WON | Delta: ${winnerDeltaStr} trophies | New total: ${trophyUpdate.newWinnerTrophy.toFixed(1)}`);
+      console.log(`TROPHY_UPDATE abcdefg | User: ${loserEmail} | LOST | Delta: ${loserDeltaStr} trophies | New total: ${trophyUpdate.newLoserTrophy.toFixed(1)}`);
+    }
 
     // 5. Update rankings in database
     if (rankingType === 'photo') {

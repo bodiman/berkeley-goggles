@@ -55,6 +55,10 @@ export class BradleyTerryService {
    * This is the core Bradley-Terry probability formula
    */
   public calculateWinProbability(ratingA: number, ratingB: number): number {
+    // Handle edge case where both ratings are 0 (equal probability)
+    if (ratingA === 0 && ratingB === 0) {
+      return 0.5;
+    }
     return ratingA / (ratingA + ratingB);
   }
 
