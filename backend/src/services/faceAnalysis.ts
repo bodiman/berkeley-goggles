@@ -1,10 +1,6 @@
 import * as faceapi from '@vladmandic/face-api';
+import * as tf from '@tensorflow/tfjs-node';
 import * as path from 'path';
-import * as canvas from 'canvas';
-
-// Patch face-api to work in Node.js
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-faceapi.env.monkeyPatch({ Canvas: canvas.Canvas, Image: canvas.Image, ImageData: canvas.ImageData } as any);
 
 export interface GenderDetectionResult {
   gender: 'male' | 'female';
@@ -26,14 +22,17 @@ class FaceAnalysisService {
     try {
       await this.ensureInitialized();
 
-      // Load image from buffer
-      const img = await canvas.loadImage(imageBuffer);
+      // Decode image using tfjs-node (no canvas required)
+      const tensor = tf.node.decodeImage(imageBuffer, 3);
 
       // Detect face with gender
       console.log('Detecting face and gender...');
       const detection = await faceapi
-        .detectSingleFace(img as unknown as faceapi.TNetInput)
+        .detectSingleFace(tensor as unknown as faceapi.TNetInput)
         .withAgeAndGender();
+
+      // Clean up tensor
+      tensor.dispose();
 
       if (!detection) {
         console.log('No face detected in image');
