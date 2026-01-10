@@ -23,7 +23,7 @@ interface AppNavigationState {
 interface UserProfileSetup {
   name: string;
   age: number;
-  gender: 'male' | 'female';
+  gender?: 'male' | 'female'; // Optional - will be auto-detected from photo
   photo?: File | Blob;
   photoUrl?: string; // R2 CDN URL if already uploaded
 }
@@ -361,7 +361,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
 
         if (!response.ok) {
-          return false;
+          // Handle error responses with structured error messages
+          try {
+            const errorData = await response.json();
+            console.error('R2 photo update failed:', errorData);
+            throw new Error(errorData.error || 'Photo update failed');
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Photo update failed') {
+              throw e;
+            }
+            throw new Error('Photo update failed');
+          }
         }
 
         const data = await response.json();
@@ -384,7 +394,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return true;
         }
 
-        return false;
+        throw new Error(data.error || 'Photo update failed');
       } else if (photoData.blob) {
         // Legacy flow: File upload
         const formData = new FormData();
@@ -398,7 +408,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
 
         if (!response.ok) {
-          return false;
+          // Handle error responses with structured error messages
+          try {
+            const errorData = await response.json();
+            console.error('Blob photo update failed:', errorData);
+            throw new Error(errorData.error || 'Photo update failed');
+          } catch (e) {
+            if (e instanceof Error && e.message !== 'Photo update failed') {
+              throw e;
+            }
+            throw new Error('Photo update failed');
+          }
         }
 
         const data = await response.json();
@@ -421,7 +441,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return true;
         }
 
-        return false;
+        throw new Error(data.error || 'Photo update failed');
       } else {
         console.error('No photo blob or R2 URL provided');
         return false;

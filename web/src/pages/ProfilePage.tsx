@@ -230,9 +230,15 @@ export const ProfilePage: React.FC = () => {
       } else {
         setPhotoError('Failed to update photo.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update photo:', error);
-      setPhotoError('Failed to update photo.');
+      
+      // Check if it's a gender detection error
+      if (error.message && error.message.includes('gender')) {
+        setPhotoError(error.message);
+      } else {
+        setPhotoError('Failed to update photo. Please try again.');
+      }
     } finally {
       setIsUpdatingPhoto(false);
     }
@@ -593,8 +599,18 @@ export const ProfilePage: React.FC = () => {
             </div>
             
             {photoError && (
-              <div className="mb-4 p-3 bg-red-600/20 border border-red-600/50 rounded-xl">
-                <p className="text-red-400 text-sm font-bold text-center">{photoError}</p>
+              <div className="mb-4 p-4 bg-red-600/20 border border-red-600/50 rounded-xl">
+                <p className="text-red-400 text-sm font-bold text-center mb-3">{photoError}</p>
+                {photoError.includes('gender') && (
+                  <div className="text-center">
+                    <button
+                      onClick={() => setPhotoError(null)}
+                      className="bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg font-bold text-xs uppercase tracking-widest transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             

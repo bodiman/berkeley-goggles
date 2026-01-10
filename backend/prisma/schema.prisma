@@ -16,7 +16,7 @@ model User {
   email       String   @unique
   password    String   // Store hashed password directly
   age         Int?
-  gender      String?   // "male" or "female"
+  gender      String?   // "male" or "female" - auto-detected from photo
   city        String?
   state       String?
   country     String?

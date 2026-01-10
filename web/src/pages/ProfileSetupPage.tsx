@@ -7,7 +7,7 @@ import type { UploadProgress } from '../services/photoUpload';
 interface UserProfileSetup {
   name: string;
   age: number;
-  gender: 'male' | 'female';
+  gender?: 'male' | 'female'; // Optional - will be auto-detected from photo
   photo?: File | Blob;
   photoUrl?: string; // R2 CDN URL if already uploaded
 }
@@ -33,14 +33,15 @@ export const ProfileSetupPage: React.FC = () => {
   const [formData, setFormData] = useState<UserProfileSetup>({
     name: '',
     age: 18,
-    gender: 'male', // Default, will be overwritten by AI
+    // gender will be auto-detected from photo
   });
   
   const [capturedPhoto, setCapturedPhoto] = useState<CameraCapture | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [hasSkippedPhoto, setHasSkippedPhoto] = useState(false);
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
   const [aiDetectedGender, setAiDetectedGender] = useState<'male' | 'female' | null>(null);
+  const [genderDetectionFailed, setGenderDetectionFailed] = useState(false);
+  const [detectionError, setDetectionError] = useState<string | null>(null);
 
   // Friends step state
   const [contactsText, setContactsText] = useState('');
@@ -72,6 +73,11 @@ export const ProfileSetupPage: React.FC = () => {
       timestamp: capture.timestamp
     });
     setCapturedPhoto(capture);
+    // Reset failure states when new photo is captured
+    setGenderDetectionFailed(false);
+    setDetectionError(null);
+    setAiDetectedGender(null);
+    setError(null);
     // Don't auto-advance to terms step - wait for user confirmation
   };
 
@@ -80,6 +86,8 @@ export const ProfileSetupPage: React.FC = () => {
 
     setIsAiAnalyzing(true);
     setError(null);
+    setGenderDetectionFailed(false);
+    setDetectionError(null);
 
     try {
       // Create form data for the detection API
@@ -97,18 +105,48 @@ export const ProfileSetupPage: React.FC = () => {
       });
 
       const data = await response.json();
-      if (data.success) {
+      if (data.success && data.detectedGender) {
         setAiDetectedGender(data.detectedGender);
         setFormData(prev => ({ ...prev, gender: data.detectedGender }));
+        setGenderDetectionFailed(false);
         setCurrentStep('friends');
       } else {
-        throw new Error(data.error || 'AI failed to analyze photo');
+        // Detection failed
+        setGenderDetectionFailed(true);
+        setDetectionError(data.error || 'Gender detection failed');
+        setError('Gender detection failed. Please try again with a clearer photo showing your face clearly.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('AI Gender Detection error:', err);
-      setError('AI could not determine gender from this photo. Please try a clearer shot.');
+      setGenderDetectionFailed(true);
+      
+      // Check if it's a structured error response
+      if (err.response && err.response.json) {
+        try {
+          const errorData = await err.response.json();
+          if (errorData.details?.action === 'retake_photo') {
+            setDetectionError(errorData.error || 'Gender detection failed');
+            setError(errorData.error || 'Gender detection failed. Please retake your photo.');
+          } else {
+            setDetectionError('Gender detection failed');
+            setError('Gender detection failed. Please try again with a clearer photo.');
+          }
+        } catch {
+          setDetectionError('Network error occurred during gender detection');
+          setError('Gender detection failed due to a network error. Please check your connection and try again.');
+        }
+      } else {
+        setDetectionError('Network error occurred during gender detection');
+        setError('Gender detection failed due to a network error. Please check your connection and try again.');
+      }
     } finally {
       setIsAiAnalyzing(false);
+    }
+  };
+
+  const handleRetryGenderDetection = () => {
+    if (capturedPhoto) {
+      handleUsePhoto();
     }
   };
 
@@ -117,10 +155,6 @@ export const ProfileSetupPage: React.FC = () => {
     setError(errorMessage);
   };
 
-  const handleSkipPhoto = () => {
-    setHasSkippedPhoto(true);
-    setCurrentStep('friends');
-  };
 
   const handleSyncContacts = async () => {
     if (!contactsText.trim()) {
@@ -189,9 +223,15 @@ export const ProfileSetupPage: React.FC = () => {
   const handleTermsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Allow submission without photo if user explicitly skipped
-    if (!capturedPhoto && !hasSkippedPhoto) {
-      setError('Please take a profile photo or skip this step');
+    // Require photo for gender detection
+    if (!capturedPhoto) {
+      setError('Please take a profile photo. A photo is required for gender detection.');
+      return;
+    }
+
+    // Require AI gender detection to have completed
+    if (!aiDetectedGender) {
+      setError('Gender detection must complete before proceeding. Please retake your photo.');
       return;
     }
 
@@ -210,6 +250,7 @@ export const ProfileSetupPage: React.FC = () => {
 
       const profileData: UserProfileSetup = {
         ...formData,
+        gender: aiDetectedGender, // Use AI-detected gender
         // Only add photo data if user didn't skip the photo step
         ...(capturedPhoto && capturedPhoto.uploadResult?.url 
           ? { photoUrl: capturedPhoto.uploadResult.url }
@@ -243,8 +284,6 @@ export const ProfileSetupPage: React.FC = () => {
     } else if (currentStep === 'friends') {
       setCurrentStep('photo');
     } else if (currentStep === 'terms') {
-      // Reset skip state if going back from terms
-      setHasSkippedPhoto(false);
       setCurrentStep('friends');
     }
   };
@@ -380,6 +419,32 @@ export const ProfileSetupPage: React.FC = () => {
               </div>
             )}
 
+            {/* Gender Detection Failed */}
+            {genderDetectionFailed && capturedPhoto && (
+              <div className="mt-4 p-6 bg-red-600/20 border-2 border-red-500/50 rounded-2xl">
+                <div className="flex flex-col items-center text-center">
+                  <span className="text-4xl mb-3">🤖❌</span>
+                  <h3 className="text-lg font-black text-red-400 uppercase tracking-tighter mb-2">Detection Failed</h3>
+                  <p className="text-red-200 text-sm mb-4">{detectionError || 'Gender could not be detected from this photo'}</p>
+                  <div className="space-y-3 w-full">
+                    <button
+                      onClick={handleRetryGenderDetection}
+                      disabled={isAiAnalyzing}
+                      className="w-full bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg font-bold transition-colors disabled:opacity-50"
+                    >
+                      Retry Detection
+                    </button>
+                    <button
+                      onClick={() => setCapturedPhoto(null)}
+                      className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                    >
+                      Take New Photo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Upload Progress Display */}
             {uploadProgress && (
               <div className="mt-4 p-4 bg-gray-800/80 rounded-lg">
@@ -396,27 +461,17 @@ export const ProfileSetupPage: React.FC = () => {
               </div>
             )}
 
-            {/* Skip Photo Option */}
-            <div className="mt-8 text-center">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-700"></div>
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="px-4 bg-black text-sm text-gray-500">Or</span>
+            {/* Photo Required Notice */}
+            <div className="mt-8 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🤖</span>
+                <div>
+                  <h3 className="text-white font-bold text-sm">AI Gender Detection</h3>
+                  <p className="text-blue-200 text-xs mt-1">
+                    A photo is required for automatic gender detection. This ensures you see the right leaderboards and compete against the right people.
+                  </p>
                 </div>
               </div>
-              
-              <button
-                onClick={handleSkipPhoto}
-                className="mt-4 w-full bg-gray-800 hover:bg-gray-700 text-gray-300 py-3 px-6 rounded-lg font-medium transition-colors"
-              >
-                Skip Photo for Now
-              </button>
-              
-              <p className="text-xs text-gray-500 mt-2">
-                ⚠️ You won't be able to rate others or be rated without a photo
-              </p>
             </div>
           </div>
         )}
@@ -544,21 +599,13 @@ export const ProfileSetupPage: React.FC = () => {
                   </div>
                 )}
               </div>
-            ) : hasSkippedPhoto ? (
-              <div className="mb-6">
-                <div className="w-32 h-32 rounded-full bg-gray-700 flex items-center justify-center mx-auto border-4 border-gray-600">
-                  <span className="text-4xl text-gray-500">👤</span>
-                </div>
-                <p className="text-center text-gray-400 mt-2">
-                  Hello, {formData.name}!
+            ) : (
+              <div className="mb-6 p-4 bg-red-900/20 border border-red-600/50 rounded-lg">
+                <p className="text-red-400 text-sm text-center">
+                  ⚠️ Please go back and take a profile photo. A photo is required for gender detection.
                 </p>
-                <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-600/50 rounded-lg">
-                  <p className="text-yellow-400 text-sm text-center">
-                    ⚠️ Without a photo, you won't be able to participate in ratings or see your ranking stats until you add one later.
-                  </p>
-                </div>
               </div>
-            ) : null}
+            )}
 
             {error && (
               <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">

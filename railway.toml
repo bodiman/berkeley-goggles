@@ -3,7 +3,7 @@
 
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npm run build:backend"
+buildCommand = "npm install && cd backend && npm run download:models && cd .. && npm run build:backend"
 
 [deploy]
 startCommand = "npm run start:prod"

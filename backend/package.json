@@ -46,14 +46,18 @@
     "populate:simple:debug": "tsx scripts/simple-populate-samples.ts --debug=100",
     "populate:simple:debug:dry": "tsx scripts/simple-populate-samples.ts --dry-run --debug=100",
     "fix:production:urls": "node scripts/fix-production-urls.js",
-    "upload:samples:r2": "node scripts/upload-samples-to-r2.js"
+    "upload:samples:r2": "node scripts/upload-samples-to-r2.js",
+    "download:models": "tsx scripts/download-ml-models.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.947.0",
     "@aws-sdk/s3-request-presigner": "^3.947.0",
     "@prisma/client": "^5.7.1",
+    "@tensorflow/tfjs-node": "^4.17.0",
+    "@vladmandic/face-api": "^1.7.15",
     "aws-sdk": "^2.1504.0",
     "bcrypt": "^5.1.1",
+    "canvas": "^3.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

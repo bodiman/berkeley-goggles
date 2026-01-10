@@ -35,6 +35,12 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
     setError('Google login failed. Please try again.');
   };
 
+  console.log(
+    "GOOGLE CLIENT ID (runtime):",
+    import.meta.env.VITE_GOOGLE_CLIENT_ID
+  );
+
+
   return (
     <div className="min-h-screen bg-black flex flex-col safe-area-inset">
       {/* Hero Section */}

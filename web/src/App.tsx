@@ -90,7 +90,7 @@ function App() {
   }
 
   return (
-    <GoogleOAuthProvider clientId={googleClientId || ''}>
+    <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
         <AppContent />
       </AuthProvider>

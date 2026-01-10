@@ -251,12 +251,36 @@ rankingRoutes.get('/history', asyncHandler(async (req, res) => {
 rankingRoutes.get('/leaderboard', asyncHandler(async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+    const userId = req.query.userId as string;
     
-    // Get top ranked photos (only show users who opted in)
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+
+    // Get requesting user's gender for filtering
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { gender: true },
+    });
+
+    if (!requestingUser?.gender) {
+      return res.status(400).json({
+        success: false,
+        error: 'User gender not found',
+      });
+    }
+    
+    // Get top ranked photos (only show users who opted in and match gender)
     const topRankings = await prisma.photoRanking.findMany({
       where: {
         photo: { status: 'approved' }, // Show all approved photos
-        user: { optOutOfLeaderboards: false },
+        user: { 
+          optOutOfLeaderboards: false,
+          gender: requestingUser.gender, // Filter by same gender
+        },
         totalComparisons: { gte: 10 }, // Minimum comparisons for leaderboard
       },
       include: {
@@ -333,6 +357,19 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
       });
     }
 
+    // Get requesting user's gender for filtering
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { gender: true },
+    });
+
+    if (!requestingUser?.gender) {
+      return res.status(400).json({
+        success: false,
+        error: 'User gender not found',
+      });
+    }
+
     // Get the league information
     const league = LeagueService.getLeagueById(leagueId);
     if (!league) {
@@ -342,11 +379,14 @@ rankingRoutes.get('/league-leaderboard', asyncHandler(async (req, res) => {
       });
     }
 
-    // Get players in the specified league based on trophy scores
+    // Get players in the specified league based on trophy scores (filtered by gender)
     const leagueRankings = await prisma.photoRanking.findMany({
       where: {
         photo: { status: 'approved' },
-        user: { optOutOfLeaderboards: false },
+        user: { 
+          optOutOfLeaderboards: false,
+          gender: requestingUser.gender, // Filter by same gender
+        },
         totalComparisons: { gte: 5 }, // Minimum comparisons for league leaderboard
         trophyScore: {
           gte: league.minElo,
