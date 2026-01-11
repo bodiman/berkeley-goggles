@@ -12,21 +12,27 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { LoadingScreen } from './components/LoadingScreen';
 import './index.css';
 
-// Helper to extract invite token from URL
-const getInviteTokenFromUrl = (): string | null => {
+// Helper to check if we're on an invite path and extract token
+const getInviteInfo = (): { isInvitePath: boolean; token: string | null } => {
   const path = window.location.pathname;
   console.log('🎫 App: Current pathname:', path);
+
+  // Check if we're on any invite path
+  const isInvitePath = path.startsWith('/invite');
+
+  // Extract token if present
   const match = path.match(/^\/invite\/([^/]+)$/);
   const token = match ? match[1] : null;
-  console.log('🎫 App: Extracted invite token:', token);
-  return token;
+
+  console.log('🎫 App: isInvitePath:', isInvitePath, 'token:', token);
+  return { isInvitePath, token };
 };
 
 const AppContent: React.FC = () => {
   const { user, navigationState, isLoading } = useAuth();
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [hasShownInitialLoading, setHasShownInitialLoading] = useState(false);
-  const [inviteToken, setInviteToken] = useState<string | null>(() => getInviteTokenFromUrl());
+  const [inviteInfo, setInviteInfo] = useState(() => getInviteInfo());
 
   // Trigger loading screen on successful login
   useEffect(() => {
@@ -36,16 +42,48 @@ const AppContent: React.FC = () => {
     }
   }, [navigationState.isAuthenticated, hasShownInitialLoading, isLoading]);
 
-  // Handle invite link - show InvitePage if we have an invite token
-  if (inviteToken) {
+  // Handle invite link - show InvitePage if we're on an invite path
+  if (inviteInfo.isInvitePath) {
+    // If we have a token, validate it via InvitePage
+    if (inviteInfo.token) {
+      return (
+        <InvitePage
+          inviteToken={inviteInfo.token}
+          onComplete={() => {
+            setInviteInfo({ isInvitePath: false, token: null });
+            window.history.replaceState({}, '', '/');
+          }}
+        />
+      );
+    }
+
+    // No token found - show invalid invite error
     return (
-      <InvitePage
-        inviteToken={inviteToken}
-        onComplete={() => {
-          setInviteToken(null);
-          window.history.replaceState({}, '', '/');
-        }}
-      />
+      <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-700 flex items-center justify-center p-6">
+        <div className="max-w-sm w-full bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 text-center">
+          <div className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-black text-white uppercase tracking-wide mb-2">
+            Invalid Invite Link
+          </h2>
+          <p className="text-white/80 text-sm mb-6">
+            This invite link is invalid or has expired. Please ask your friend to send you a new one.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setInviteInfo({ isInvitePath: false, token: null });
+              window.history.replaceState({}, '', '/');
+            }}
+            className="bg-white text-blue-700 font-black py-3 px-8 rounded-xl uppercase tracking-wide shadow-lg hover:bg-blue-50 transition-colors"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
     );
   }
 
