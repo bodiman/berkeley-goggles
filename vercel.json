@@ -1,49 +1,5 @@
 {
-  "buildCommand": "npm run build:web",
-  "outputDirectory": "web/dist",
-  "installCommand": "npm install",
-  "env": {
-    "VITE_API_BASE_URL": "https://berkeley-goggles-production.up.railway.app"
-  },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://berkeley-goggles-production.up.railway.app/api/$1"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/((?!.*\\.).*)",
-      "destination": "/index.html",
-      "permanent": false
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
-    },
-    {
-      "source": "/sw.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
