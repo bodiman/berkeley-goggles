@@ -99,10 +99,12 @@ export const ProfilePage: React.FC = () => {
   // Challenge state
   const [pendingChallengesIn, setPendingChallengesIn] = useState<any[]>([]);
   const [pendingChallengesOut, setPendingChallengesOut] = useState<any[]>([]);
+  const [activeChallenges, setActiveChallenges] = useState<any[]>([]);
   const [isAcceptingChallenge, setIsAcceptingChallenge] = useState<string | null>(null);
   const [isSendingChallenge, setIsSendingChallenge] = useState<string | null>(null);
   const [challengeConfirmFriend, setChallengeConfirmFriend] = useState<any>(null);
   const [showChallengeDropdown, setShowChallengeDropdown] = useState(false);
+  const [viewingChallengeVotes, setViewingChallengeVotes] = useState<string | null>(null);
 
   // Chat state
   const [showChat, setShowChat] = useState(false);
@@ -175,6 +177,7 @@ export const ProfilePage: React.FC = () => {
       if (data.success) {
         setPendingChallengesIn(data.incoming);
         setPendingChallengesOut(data.outgoing);
+        setActiveChallenges(data.active || []);
       }
     } catch (error) {
       console.error('Failed to fetch challenges:', error);
@@ -346,27 +349,45 @@ export const ProfilePage: React.FC = () => {
   const handleShareInvite = async () => {
     if (!user?.id) return;
 
-    const inviteUrl = `${window.location.origin}/invite/${user.id}`;
-    const inviteText = `Join me on Berkeley Goggles! See how you rank and challenge me to a MOG battle. ${inviteUrl}`;
+    try {
+      // Create a new one-time-use invite token
+      const response = await apiRequest('/api/invite/create', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await response.json();
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Berkeley Goggles',
-          text: inviteText,
-          url: inviteUrl,
-        });
-      } catch (error) {
-        console.error('Error sharing:', error);
+      if (!data.success) {
+        console.error('Failed to create invite:', data.error);
+        alert('Failed to create invite link. Please try again.');
+        return;
       }
-    } else {
-      // Fallback: Copy to clipboard
-      try {
-        await navigator.clipboard.writeText(inviteText);
-        alert('Invite link copied to clipboard!');
-      } catch (err) {
-        console.error('Failed to copy:', err);
+
+      const inviteUrl = `${window.location.origin}/invite/${data.token}`;
+      const inviteText = `Join me on Berkeley Goggles! See how you rank and challenge me to a MOG battle. ${inviteUrl}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Berkeley Goggles',
+            text: inviteText,
+            url: inviteUrl,
+          });
+        } catch (error) {
+          console.error('Error sharing:', error);
+        }
+      } else {
+        // Fallback: Copy to clipboard
+        try {
+          await navigator.clipboard.writeText(inviteText);
+          alert('Invite link copied to clipboard!');
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
       }
+    } catch (error) {
+      console.error('Error creating invite:', error);
+      alert('Failed to create invite link. Please try again.');
     }
   };
 
@@ -489,11 +510,12 @@ export const ProfilePage: React.FC = () => {
               type="button"
               onClick={() => setShowChallengeDropdown(!showChallengeDropdown)}
               className="relative p-2 bg-white/10 rounded-xl border border-white/20 transition-transform hover:scale-110 active:scale-95 group"
+              title="Challenges"
             >
               <img src={swordsIcon} alt="Challenges" className="w-6 h-6" />
-              {pendingChallengesIn.length > 0 && (
+              {(pendingChallengesIn.length + activeChallenges.length) > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#1e3a8a] animate-bounce shadow-lg">
-                  {pendingChallengesIn.length}
+                  {pendingChallengesIn.length + activeChallenges.length}
                 </span>
               )}
             </button>
@@ -504,74 +526,224 @@ export const ProfilePage: React.FC = () => {
                 {/* Backdrop to close on outside click */}
                 <div
                   className="fixed inset-0 z-40"
-                  onClick={() => setShowChallengeDropdown(false)}
+                  onClick={() => {
+                    setShowChallengeDropdown(false);
+                    setViewingChallengeVotes(null);
+                  }}
                 />
                 {/* Dropdown menu - centered right side of screen */}
-                <div className="fixed top-16 right-4 w-72 z-[100]">
+                <div className="fixed top-16 right-4 w-80 z-[100]">
                   <div className="bg-[#2d3748] rounded-xl border-[3px] border-[#4a5568] shadow-2xl overflow-hidden">
-                    {pendingChallengesIn.length === 0 ? (
-                      /* Empty state */
+                    {/* Active Battles Section */}
+                    {activeChallenges.length > 0 && (
+                      <div>
+                        <div className="px-3 py-2 bg-[#ed8936]/20 border-b border-[#4a5568]">
+                          <p className="text-[#ed8936] text-xs font-black uppercase tracking-wider flex items-center">
+                            <span className="mr-2">⚔️</span>
+                            Active Battles
+                          </p>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {activeChallenges.map((challenge) => {
+                            const isChallenger = challenge.challengerId === user?.id;
+                            const opponent = isChallenger ? challenge.challenged : challenge.challenger;
+                            const totalVotes = challenge.challengerVotes + challenge.challengedVotes;
+                            const isViewingVotes = viewingChallengeVotes === challenge.id;
+
+                            return (
+                              <div key={challenge.id}>
+                                <div className="p-3 border-b border-[#4a5568] last:border-b-0 bg-gradient-to-r from-[#ed8936]/10 to-transparent">
+                                  <div className="flex items-center justify-between">
+                                    {/* Both photos with VS */}
+                                    <div className="flex items-center space-x-2">
+                                      {/* Your photo */}
+                                      <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden border-2 border-[#48bb78]">
+                                        {user?.profilePhoto ? (
+                                          <img
+                                            src={user.profilePhoto}
+                                            alt="You"
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-sm">👤</div>
+                                        )}
+                                      </div>
+                                      <span className="text-[#ed8936] font-black text-xs">VS</span>
+                                      {/* Opponent photo */}
+                                      <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden border-2 border-[#ed8936]">
+                                        {opponent?.profilePhotoUrl ? (
+                                          <img
+                                            src={opponent.profilePhotoUrl}
+                                            alt={opponent.name}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-sm">👤</div>
+                                        )}
+                                      </div>
+                                      <div className="ml-1">
+                                        <p className="text-white font-bold text-xs truncate max-w-[80px]">
+                                          vs {opponent?.name}
+                                        </p>
+                                        {/* Vote progress bar */}
+                                        <div className="flex items-center space-x-1 mt-1">
+                                          <div className="w-16 h-1.5 bg-[#4a5568] rounded-full overflow-hidden">
+                                            <div
+                                              className="h-full bg-[#ed8936] rounded-full transition-all"
+                                              style={{ width: `${(totalVotes / challenge.votesRequired) * 100}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-[10px] text-gray-400">
+                                            {totalVotes}/{challenge.votesRequired}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {/* Orange eyeball button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewingChallengeVotes(isViewingVotes ? null : challenge.id)}
+                                      className="w-8 h-8 bg-[#ed8936] hover:bg-[#dd7726] rounded-lg flex items-center justify-center border-b-2 border-[#c05621] active:border-b-0 active:translate-y-[1px] transition-all"
+                                      title="View votes"
+                                    >
+                                      <span className="text-white text-sm">👁️</span>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Vote viewer dropdown */}
+                                {isViewingVotes && (
+                                  <div className="bg-[#1a202c] border-t border-b border-[#4a5568]">
+                                    <div className="px-3 py-2 flex items-center justify-between border-b border-[#4a5568]">
+                                      <p className="text-white text-xs font-bold">
+                                        Battle Votes ({totalVotes}/{challenge.votesRequired})
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => setViewingChallengeVotes(null)}
+                                        className="text-gray-400 hover:text-white text-xs"
+                                        title="Close"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                    {challenge.votes && challenge.votes.length > 0 ? (
+                                      <div className="max-h-32 overflow-y-auto">
+                                        {challenge.votes.map((vote: any) => {
+                                          const votedForYou = vote.chosenUserId === user?.id;
+                                          return (
+                                            <div key={vote.id} className="px-3 py-2 flex items-center space-x-2 border-b border-[#4a5568]/50 last:border-b-0">
+                                              <div className="w-6 h-6 rounded-full bg-white/10 overflow-hidden">
+                                                {vote.voter?.profilePhotoUrl ? (
+                                                  <img
+                                                    src={vote.voter.profilePhotoUrl}
+                                                    alt={vote.voter.name}
+                                                    className="w-full h-full object-cover"
+                                                  />
+                                                ) : (
+                                                  <div className="w-full h-full flex items-center justify-center text-[10px]">👤</div>
+                                                )}
+                                              </div>
+                                              <p className="text-gray-300 text-xs flex-1">
+                                                <span className="font-bold text-white">{vote.voter?.name}</span>
+                                                <span className="mx-1">voted for</span>
+                                                <span className={votedForYou ? 'text-[#48bb78] font-bold' : 'text-[#ed8936] font-bold'}>
+                                                  {votedForYou ? 'You' : opponent?.name}
+                                                </span>
+                                              </p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div className="px-3 py-4 text-center text-gray-500 text-xs">
+                                        No votes yet
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Incoming Challenges Section */}
+                    {pendingChallengesIn.length > 0 && (
+                      <div>
+                        <div className="px-3 py-2 bg-[#3182ce]/20 border-b border-[#4a5568]">
+                          <p className="text-[#63b3ed] text-xs font-black uppercase tracking-wider flex items-center">
+                            <span className="mr-2">📥</span>
+                            Incoming Challenges
+                          </p>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {pendingChallengesIn.map((challenge) => (
+                            <div
+                              key={challenge.id}
+                              className="p-3 border-b border-[#4a5568] last:border-b-0 bg-gradient-to-r from-[#3182ce]/20 to-transparent"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden border-2 border-[#ed8936]">
+                                    {challenge.challenger?.profilePhotoUrl ? (
+                                      <img
+                                        src={challenge.challenger.profilePhotoUrl}
+                                        alt={challenge.challenger.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-lg">👤</div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="text-white font-black italic text-sm">
+                                      {challenge.challenger?.name}
+                                    </p>
+                                    <p className="text-[#ed8936] text-[10px] font-bold italic uppercase">
+                                      Mog Battle
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {/* Accept Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleAcceptChallenge(challenge.id);
+                                      setShowChallengeDropdown(false);
+                                    }}
+                                    disabled={isAcceptingChallenge === challenge.id}
+                                    className="w-8 h-8 bg-[#48bb78] hover:bg-[#38a169] rounded-lg flex items-center justify-center border-b-2 border-[#2f855a] active:border-b-0 active:translate-y-[1px] transition-all disabled:opacity-50"
+                                    title="Accept challenge"
+                                  >
+                                    <span className="text-white text-sm font-bold">✓</span>
+                                  </button>
+                                  {/* Decline Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleDeclineChallenge(challenge.id);
+                                    }}
+                                    className="w-8 h-8 bg-[#e53e3e] hover:bg-[#c53030] rounded-lg flex items-center justify-center border-b-2 border-[#9b2c2c] active:border-b-0 active:translate-y-[1px] transition-all"
+                                    title="Decline challenge"
+                                  >
+                                    <span className="text-white text-sm font-bold">✕</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Empty state - only when no active or pending */}
+                    {activeChallenges.length === 0 && pendingChallengesIn.length === 0 && (
                       <div className="p-4 flex items-center justify-center space-x-2">
                         <span className="text-xl">ℹ️</span>
                         <span className="text-gray-400 font-bold italic">No challenges.</span>
-                      </div>
-                    ) : (
-                      /* Challenge list */
-                      <div className="max-h-64 overflow-y-auto">
-                        {pendingChallengesIn.map((challenge) => (
-                          <div
-                            key={challenge.id}
-                            className="p-3 border-b border-[#4a5568] last:border-b-0 bg-gradient-to-r from-[#3182ce]/20 to-transparent"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden border-2 border-[#ed8936]">
-                                  {challenge.challenger?.profilePhotoUrl ? (
-                                    <img
-                                      src={challenge.challenger.profilePhotoUrl}
-                                      alt={challenge.challenger.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-lg">👤</div>
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="text-white font-black italic text-sm">
-                                    {challenge.challenger?.name}
-                                  </p>
-                                  <p className="text-[#ed8936] text-[10px] font-bold italic uppercase">
-                                    Mog Battle
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                {/* Accept Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleAcceptChallenge(challenge.id);
-                                    setShowChallengeDropdown(false);
-                                  }}
-                                  disabled={isAcceptingChallenge === challenge.id}
-                                  className="w-8 h-8 bg-[#48bb78] hover:bg-[#38a169] rounded-lg flex items-center justify-center border-b-2 border-[#2f855a] active:border-b-0 active:translate-y-[1px] transition-all disabled:opacity-50"
-                                >
-                                  <span className="text-white text-sm font-bold">✓</span>
-                                </button>
-                                {/* Decline Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleDeclineChallenge(challenge.id);
-                                  }}
-                                  className="w-8 h-8 bg-[#e53e3e] hover:bg-[#c53030] rounded-lg flex items-center justify-center border-b-2 border-[#9b2c2c] active:border-b-0 active:translate-y-[1px] transition-all"
-                                >
-                                  <span className="text-white text-sm font-bold">✕</span>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     )}
                   </div>

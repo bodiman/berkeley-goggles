@@ -167,7 +167,38 @@ challengesRoutes.get('/pending/:userId', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json({ success: true, incoming, outgoing });
+  // Get active challenges where user is a participant
+  const active = await prisma.challenge.findMany({
+    where: {
+      status: 'active',
+      OR: [
+        { challengerId: userId },
+        { challengedId: userId }
+      ]
+    },
+    include: {
+      challenger: {
+        select: { id: true, name: true, profilePhotoUrl: true }
+      },
+      challenged: {
+        select: { id: true, name: true, profilePhotoUrl: true }
+      },
+      votes: {
+        include: {
+          voter: {
+            select: { id: true, name: true, profilePhotoUrl: true }
+          },
+          chosenUser: {
+            select: { id: true, name: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }
+    },
+    orderBy: { acceptedAt: 'desc' }
+  });
+
+  res.json({ success: true, incoming, outgoing, active });
 }));
 
 // GET /api/challenges/active - Get a random active challenge for comparison queue

@@ -35,6 +35,7 @@ import { matchesRoutes } from './routes/matches';
 import { friendsRoutes } from './routes/friends';
 import { challengesRoutes } from './routes/challenges';
 import { messagesRoutes } from './routes/messages';
+import { inviteRoutes } from './routes/invite';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -193,6 +194,7 @@ app.use('/api/matches', matchesRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/challenges', challengesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/invite', inviteRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

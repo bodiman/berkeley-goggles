@@ -26,6 +26,7 @@ model User {
   profileComplete Boolean @default(false) @map("profile_complete")
   profilePhotoUrl String? @map("profile_photo_url")
   isActive    Boolean  @default(true) @map("is_active")
+  isAdmin     Boolean  @default(false) @map("is_admin")
   createdAt   DateTime @default(now()) @map("created_at")
   lastActive  DateTime @default(now()) @map("last_active")
   
@@ -74,6 +75,10 @@ model User {
   // Message relations
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
+
+  // Invite token relations
+  inviteTokensCreated InviteToken[] @relation("InviteTokensCreated")
+  inviteTokensUsed    InviteToken[] @relation("InviteTokensUsed")
 
   @@map("users")
 }
@@ -412,4 +417,22 @@ model Message {
   @@index([receiverId, isRead])
   @@index([senderId, receiverId])
   @@map("messages")
+}
+
+model InviteToken {
+  id          String    @id @default(cuid())
+  token       String    @unique @default(cuid())
+  creatorId   String    @map("creator_id")
+  usedById    String?   @map("used_by_id")
+  usedAt      DateTime? @map("used_at")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  creator     User      @relation("InviteTokensCreated", fields: [creatorId], references: [id], onDelete: Cascade)
+  usedBy      User?     @relation("InviteTokensUsed", fields: [usedById], references: [id], onDelete: SetNull)
+
+  @@index([token])
+  @@index([creatorId])
+  @@map("invite_tokens")
 }

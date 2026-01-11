@@ -17,13 +17,9 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Validation schemas
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string()
-    .email('Invalid email address')
-    .refine(email => email.endsWith('@berkeley.edu'), {
-      message: 'Registration requires a @berkeley.edu email address',
-    }),
+  email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  referrerId: z.string().optional(), // Optional referrer for invite links
+  inviteToken: z.string().optional(), // One-time use invite token
 });
 
 const loginSchema = z.object({
@@ -33,12 +29,57 @@ const loginSchema = z.object({
 
 const googleAuthSchema = z.object({
   idToken: z.string().min(1, 'Google ID token is required'),
-  referrerId: z.string().optional(), // Optional referrer for invite links
+  inviteToken: z.string().optional(), // One-time use invite token
 });
 
 // POST /api/auth/register
 authRoutes.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = registerSchema.parse(req.body);
+
+  // Validate invite token if provided
+  let inviteRecord = null;
+  let referrer = null;
+  if (validatedData.inviteToken) {
+    inviteRecord = await prisma.inviteToken.findUnique({
+      where: { token: validatedData.inviteToken },
+      include: {
+        creator: {
+          select: { id: true, name: true, profilePhotoUrl: true }
+        }
+      }
+    });
+
+    if (!inviteRecord) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid invite link',
+      });
+    }
+
+    if (inviteRecord.usedById) {
+      return res.status(400).json({
+        success: false,
+        error: 'This invite link has already been used',
+      });
+    }
+
+    if (inviteRecord.expiresAt && inviteRecord.expiresAt < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'This invite link has expired',
+      });
+    }
+
+    referrer = inviteRecord.creator;
+  }
+
+  // If no valid invite token, require Berkeley email
+  if (!referrer && !validatedData.email.endsWith('@berkeley.edu')) {
+    return res.status(403).json({
+      success: false,
+      error: 'Registration requires a @berkeley.edu email address, or use an invite link',
+    });
+  }
 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -65,26 +106,23 @@ authRoutes.post('/register', asyncHandler(async (req: Request, res: Response) =>
     },
   });
 
-  // If there's a referrer, create an accepted friendship
-  let referrer = null;
-  if (validatedData.referrerId) {
-    const referrerUser = await prisma.user.findUnique({
-      where: { id: validatedData.referrerId },
-      select: { id: true, name: true, profilePhotoUrl: true }
+  // If there's a valid invite, mark it as used and create friendship
+  if (inviteRecord && referrer) {
+    // Mark invite token as used
+    await prisma.inviteToken.update({
+      where: { id: inviteRecord.id },
+      data: { usedById: user.id, usedAt: new Date() }
     });
 
-    if (referrerUser && referrerUser.id !== user.id) {
-      // Create accepted friendship (referrer initiated by sharing the link)
-      await prisma.friendship.create({
-        data: {
-          userId: referrerUser.id,  // Referrer is the initiator
-          friendId: user.id,        // New user is the receiver
-          status: 'accepted',       // Skip pending for invite links
-        },
-      });
-      referrer = referrerUser;
-      console.log(`Created friendship: ${referrerUser.name} -> ${user.name} (via invite link)`);
-    }
+    // Create accepted friendship (referrer initiated by sharing the link)
+    await prisma.friendship.create({
+      data: {
+        userId: referrer.id,  // Referrer is the initiator
+        friendId: user.id,    // New user is the receiver
+        status: 'accepted',   // Skip pending for invite links
+      },
+    });
+    console.log(`Created friendship: ${referrer.name} -> ${user.name} (via invite token)`);
   }
 
   // Generate JWT token
@@ -183,11 +221,48 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
       });
     }
 
-    // Ensure email is from berkeley.edu
-    if (!payload.email.endsWith('@berkeley.edu')) {
+    // Validate invite token if provided
+    let inviteRecord = null;
+    let referrer = null;
+    if (validatedData.inviteToken) {
+      inviteRecord = await prisma.inviteToken.findUnique({
+        where: { token: validatedData.inviteToken },
+        include: {
+          creator: {
+            select: { id: true, name: true, profilePhotoUrl: true }
+          }
+        }
+      });
+
+      if (!inviteRecord) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid invite link',
+        });
+      }
+
+      if (inviteRecord.usedById) {
+        return res.status(400).json({
+          success: false,
+          error: 'This invite link has already been used',
+        });
+      }
+
+      if (inviteRecord.expiresAt && inviteRecord.expiresAt < new Date()) {
+        return res.status(400).json({
+          success: false,
+          error: 'This invite link has expired',
+        });
+      }
+
+      referrer = inviteRecord.creator;
+    }
+
+    // If no valid invite token, require Berkeley email
+    if (!referrer && !payload.email.endsWith('@berkeley.edu')) {
       return res.status(403).json({
         success: false,
-        error: 'Only @berkeley.edu email addresses are allowed',
+        error: 'Only @berkeley.edu email addresses are allowed, or use an invite link',
       });
     }
 
@@ -211,36 +286,33 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
       });
     }
 
-    // If there's a referrer and this is a new user, create an accepted friendship
-    let referrer = null;
-    if (validatedData.referrerId && isNewUser) {
-      const referrerUser = await prisma.user.findUnique({
-        where: { id: validatedData.referrerId },
-        select: { id: true, name: true, profilePhotoUrl: true }
+    // If there's a valid invite and this is a new user, mark it as used and create friendship
+    if (inviteRecord && referrer && isNewUser) {
+      // Mark invite token as used
+      await prisma.inviteToken.update({
+        where: { id: inviteRecord.id },
+        data: { usedById: user.id, usedAt: new Date() }
       });
 
-      if (referrerUser && referrerUser.id !== user.id) {
-        // Check if friendship already exists (shouldn't for new user, but be safe)
-        const existingFriendship = await prisma.friendship.findFirst({
-          where: {
-            OR: [
-              { userId: user.id, friendId: referrerUser.id },
-              { userId: referrerUser.id, friendId: user.id }
-            ]
-          }
-        });
-
-        if (!existingFriendship) {
-          await prisma.friendship.create({
-            data: {
-              userId: referrerUser.id,
-              friendId: user.id,
-              status: 'accepted',
-            },
-          });
-          referrer = referrerUser;
-          console.log(`Created friendship: ${referrerUser.name} -> ${user.name} (via Google invite link)`);
+      // Check if friendship already exists (shouldn't for new user, but be safe)
+      const existingFriendship = await prisma.friendship.findFirst({
+        where: {
+          OR: [
+            { userId: user.id, friendId: referrer.id },
+            { userId: referrer.id, friendId: user.id }
+          ]
         }
+      });
+
+      if (!existingFriendship) {
+        await prisma.friendship.create({
+          data: {
+            userId: referrer.id,
+            friendId: user.id,
+            status: 'accepted',
+          },
+        });
+        console.log(`Created friendship: ${referrer.name} -> ${user.name} (via Google invite token)`);
       }
     }
 

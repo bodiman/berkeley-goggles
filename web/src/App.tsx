@@ -12,8 +12,8 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { LoadingScreen } from './components/LoadingScreen';
 import './index.css';
 
-// Helper to extract invite ID from URL
-const getInviteIdFromUrl = (): string | null => {
+// Helper to extract invite token from URL
+const getInviteTokenFromUrl = (): string | null => {
   const path = window.location.pathname;
   const match = path.match(/^\/invite\/([^/]+)$/);
   return match ? match[1] : null;
@@ -23,7 +23,7 @@ const AppContent: React.FC = () => {
   const { user, navigationState, isLoading } = useAuth();
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [hasShownInitialLoading, setHasShownInitialLoading] = useState(false);
-  const [inviteId, setInviteId] = useState<string | null>(() => getInviteIdFromUrl());
+  const [inviteToken, setInviteToken] = useState<string | null>(() => getInviteTokenFromUrl());
 
   // Trigger loading screen on successful login
   useEffect(() => {
@@ -33,13 +33,13 @@ const AppContent: React.FC = () => {
     }
   }, [navigationState.isAuthenticated, hasShownInitialLoading, isLoading]);
 
-  // Handle invite link - show InvitePage if we have an invite ID
-  if (inviteId) {
+  // Handle invite link - show InvitePage if we have an invite token
+  if (inviteToken) {
     return (
       <InvitePage
-        inviterId={inviteId}
+        inviteToken={inviteToken}
         onComplete={() => {
-          setInviteId(null);
+          setInviteToken(null);
           window.history.replaceState({}, '', '/');
         }}
       />
