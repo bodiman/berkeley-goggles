@@ -15,26 +15,34 @@ export const InvitePage: React.FC<InvitePageProps> = ({ inviteToken, onComplete 
 
   useEffect(() => {
     const handleInvite = async () => {
+      console.log('🎫 InvitePage: Received invite token:', inviteToken);
+      console.log('🎫 InvitePage: Current user:', user ? user.id : 'NOT LOGGED IN');
+
       // First, validate the invite token
       setStatus('validating');
       try {
+        console.log('🎫 InvitePage: Validating token with API...');
         const validateResponse = await apiRequest(`/api/invite/${inviteToken}`);
         const validateData = await validateResponse.json();
+        console.log('🎫 InvitePage: API response:', validateData);
 
         if (!validateData.success || !validateData.valid) {
           // Token is invalid, used, or expired
+          console.log('🎫 InvitePage: Token validation FAILED:', validateData.error);
           setErrorMessage(validateData.error || 'This invite link is no longer valid');
           setStatus('error');
           return;
         }
 
         // Token is valid
+        console.log('🎫 InvitePage: Token is VALID, creator:', validateData.creator?.name);
         setInviterName(validateData.creator?.name || 'your friend');
 
         if (!user) {
           // User not logged in - store invite token and redirect to auth
+          console.log('🎫 InvitePage: User not logged in, storing token in localStorage...');
           localStorage.setItem('inviteToken', inviteToken);
-          console.log('Stored invite token for registration:', inviteToken);
+          console.log('🎫 InvitePage: Token stored! Verifying:', localStorage.getItem('inviteToken'));
           onComplete();
           return;
         }

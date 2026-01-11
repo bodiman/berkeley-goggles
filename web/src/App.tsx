@@ -15,8 +15,11 @@ import './index.css';
 // Helper to extract invite token from URL
 const getInviteTokenFromUrl = (): string | null => {
   const path = window.location.pathname;
+  console.log('🎫 App: Current pathname:', path);
   const match = path.match(/^\/invite\/([^/]+)$/);
-  return match ? match[1] : null;
+  const token = match ? match[1] : null;
+  console.log('🎫 App: Extracted invite token:', token);
+  return token;
 };
 
 const AppContent: React.FC = () => {

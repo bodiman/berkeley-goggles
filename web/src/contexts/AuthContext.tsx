@@ -157,11 +157,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Check for invite token from invite link
       const inviteToken = localStorage.getItem('inviteToken');
+      console.log('🎫 AuthContext: loginWithGoogle - inviteToken from localStorage:', inviteToken);
 
       const response = await apiRequest(API_ENDPOINTS.auth.google, {
         method: 'POST',
         body: JSON.stringify({ idToken, inviteToken: inviteToken || undefined }),
       });
+      console.log('🎫 AuthContext: loginWithGoogle - API response status:', response.status);
 
       if (!response.ok) {
         return false;
@@ -209,6 +211,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Check for invite token from invite link
       const inviteToken = localStorage.getItem('inviteToken');
+      console.log('🎫 AuthContext: register - inviteToken from localStorage:', inviteToken);
 
       // Use the API helper for proper configuration
       const response = await apiRequest(API_ENDPOINTS.auth.register, {
