@@ -521,7 +521,7 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
       });
     }
 
-    // Get comparisons where this photo was either winner or loser
+    // Get comparisons where this photo was either winner or loser (order by timestamp desc for consecutive win calculation)
     const comparisons = await prisma.comparison.findMany({
       where: {
         OR: [
@@ -548,6 +548,12 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
                 profilePhotoUrl: true,
               },
             },
+            ranking: {
+              select: {
+                trophyScore: true,
+                currentPercentile: true,
+              },
+            },
           },
         },
         loserPhoto: {
@@ -558,6 +564,12 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
                 name: true,
                 gender: true,
                 profilePhotoUrl: true,
+              },
+            },
+            ranking: {
+              select: {
+                trophyScore: true,
+                currentPercentile: true,
               },
             },
           },
@@ -583,22 +595,72 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
       take: limit,
     });
 
-    const log = comparisons.map(comp => {
+    // Get user's photo ranking for UPSET detection
+    const userPhotoRanking = await prisma.photoRanking.findUnique({
+      where: { photoId: photo.id },
+      select: {
+        trophyScore: true,
+      },
+    });
+
+    const userTrophyScore = userPhotoRanking?.trophyScore || 0;
+
+    // Process comparisons with multiplier and UPSET detection
+    const log = await Promise.all(comparisons.map(async (comp, index) => {
       const isWinner = comp.winnerPhotoId === photo.id;
       const trophyDelta = isWinner ? comp.winnerTrophyDelta : comp.loserTrophyDelta;
       
+      // Calculate consecutive wins including this comparison
+      // Comparisons are ordered by timestamp DESC (most recent first)
+      // So we need to look at comparisons AFTER this one (higher index = older in time)
+      let consecutiveWins = 0;
+      let hasMultiplier = false;
+      if (isWinner) {
+        // This comparison is a win, start count at 1
+        consecutiveWins = 1;
+        
+        // Count consecutive wins by looking at older comparisons (higher indices)
+        for (let i = index + 1; i < comparisons.length; i++) {
+          const prevComp = comparisons[i];
+          // Check if the previous comparison (older in time) was also a win
+          if (prevComp.winnerPhotoId === photo.id) {
+            consecutiveWins++;
+          } else {
+            break; // Streak broken by a loss
+          }
+        }
+        
+        // Multiplier active if 5+ consecutive wins (including this one)
+        hasMultiplier = consecutiveWins >= 5;
+      }
+      
       // Get opponent (could be a user photo or a sample image)
       let opponent = null;
+      let opponentTrophyScore: number | null = null;
+      let opponentPercentile: number | null = null;
+      let isUpset = false;
+      
       if (isWinner) {
         // User's photo won, so opponent is the loser
         if (comp.loserPhoto) {
           // Opponent is a user photo
           const opponentUser = comp.loserPhoto.user;
+          const opponentRanking = comp.loserPhoto.ranking;
+          opponentTrophyScore = opponentRanking?.trophyScore || null;
+          opponentPercentile = opponentRanking?.currentPercentile || null;
+          
+          // Detect UPSET: opponent has significantly more trophies (200+ more)
+          if (opponentTrophyScore !== null && userTrophyScore < opponentTrophyScore - 200) {
+            isUpset = true;
+          }
+          
           opponent = opponentUser ? {
             id: opponentUser.id,
             name: opponentUser.name.split(' ')[0], // First name only
             gender: opponentUser.gender,
             photoUrl: opponentUser.profilePhotoUrl,
+            trophyScore: opponentTrophyScore,
+            percentile: opponentPercentile,
           } : null;
         } else if (comp.loserSampleImage) {
           // Opponent is a sample image
@@ -607,6 +669,8 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
             name: 'Sample',
             gender: comp.loserSampleImage.gender,
             photoUrl: comp.loserSampleImage.url,
+            trophyScore: null,
+            percentile: null,
           };
         }
       } else {
@@ -614,11 +678,22 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
         if (comp.winnerPhoto) {
           // Opponent is a user photo
           const opponentUser = comp.winnerPhoto.user;
+          const opponentRanking = comp.winnerPhoto.ranking;
+          opponentTrophyScore = opponentRanking?.trophyScore || null;
+          opponentPercentile = opponentRanking?.currentPercentile || null;
+          
+          // Detect UPSET: opponent has significantly more trophies (200+ more)
+          if (opponentTrophyScore !== null && userTrophyScore < opponentTrophyScore - 200) {
+            isUpset = true;
+          }
+          
           opponent = opponentUser ? {
             id: opponentUser.id,
             name: opponentUser.name.split(' ')[0], // First name only
             gender: opponentUser.gender,
             photoUrl: opponentUser.profilePhotoUrl,
+            trophyScore: opponentTrophyScore,
+            percentile: opponentPercentile,
           } : null;
         } else if (comp.winnerSampleImage) {
           // Opponent is a sample image
@@ -627,6 +702,8 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
             name: 'Sample',
             gender: comp.winnerSampleImage.gender,
             photoUrl: comp.winnerSampleImage.url,
+            trophyScore: null,
+            percentile: null,
           };
         }
       }
@@ -636,6 +713,9 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
         timestamp: comp.timestamp,
         isWinner,
         trophyDelta: trophyDelta ? Math.round(trophyDelta * 10) / 10 : 0,
+        hasMultiplier,
+        consecutiveWins,
+        isUpset,
         rater: {
           id: comp.rater.id,
           name: comp.rater.name.split(' ')[0], // First name only
@@ -644,7 +724,7 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
         },
         opponent,
       };
-    });
+    }));
 
     res.json({
       success: true,

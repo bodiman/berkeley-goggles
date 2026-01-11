@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { apiRequest } from '../config/api';
 
 interface Match {
   id: string;
@@ -10,6 +11,15 @@ interface Match {
   isYourTurn: boolean;
   isHidden?: boolean;
   age?: number;
+}
+
+interface PotentialMatch {
+  id: string;
+  name: string;
+  profilePhotoUrl: string | null;
+  currentPercentile: number;
+  age: number | null;
+  photoUrl: string;
 }
 
 interface ChatMessage {
@@ -36,7 +46,7 @@ const oskiResponses = [
 export const MatchedPage: React.FC = () => {
   const { user } = useAuth();
   const [yourTurnMatches, setYourTurnMatches] = useState<Match[]>([]);
-  const [theirTurnMatches] = useState<Match[]>([]);
+  const [theirTurnMatches, setTheirTurnMatches] = useState<Match[]>([]);
   const [hiddenMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -46,6 +56,15 @@ export const MatchedPage: React.FC = () => {
   const [showTheirTurn, setShowTheirTurn] = useState(true);
   const [showHidden, setShowHidden] = useState(false);
   const [showEnlargedPhoto, setShowEnlargedPhoto] = useState(false);
+  const [showDailyMatch, setShowDailyMatch] = useState(false);
+  const [potentialMatches, setPotentialMatches] = useState<PotentialMatch[]>([]);
+  const [revealedMatches, setRevealedMatches] = useState<Set<string>>(new Set());
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [isCreatingMatch, setIsCreatingMatch] = useState(false);
+  const [hasUsedDailyMatch, setHasUsedDailyMatch] = useState(false);
+  const [revealingMatch, setRevealingMatch] = useState<string | null>(null);
+  const [selectingMatch, setSelectingMatch] = useState<string | null>(null);
 
   // Initialize with Oski
   useEffect(() => {
@@ -133,6 +152,110 @@ export const MatchedPage: React.FC = () => {
     if (hours < 24) return `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
+  };
+
+  const fetchPotentialMatches = async () => {
+    if (!user?.id) return;
+
+    setIsLoadingMatches(true);
+    try {
+      const response = await apiRequest(`/api/matches/potential-matches?userId=${user.id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        const matches = data.matches || [];
+        setPotentialMatches(matches);
+        setRevealedMatches(new Set()); // Reset revealed matches
+        setSelectedMatchId(null); // Reset selected match
+        setShowDailyMatch(true);
+      } else {
+        console.error('Failed to fetch potential matches:', data.error);
+        if (data.hasUsedDailyMatch) {
+          setHasUsedDailyMatch(true);
+          alert(data.error || 'You have already used your daily match today. Come back tomorrow!');
+        } else {
+          alert(data.error || 'Failed to load matches');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching potential matches:', error);
+      alert('Failed to load matches');
+    } finally {
+      setIsLoadingMatches(false);
+    }
+  };
+
+  const revealMatch = async (matchId: string) => {
+    setRevealingMatch(matchId);
+    // Add a brief delay for animation
+    setTimeout(() => {
+      setRevealedMatches(prev => new Set(prev).add(matchId));
+      setRevealingMatch(null);
+    }, 300);
+  };
+
+  const selectMatch = async (selectedUserId: string) => {
+    if (!user?.id || isCreatingMatch) return;
+
+    setIsCreatingMatch(true);
+    setSelectedMatchId(selectedUserId);
+    setSelectingMatch(selectedUserId);
+    
+    // Animation delay
+    setTimeout(async () => {
+      try {
+        const response = await apiRequest('/api/matches/create-match', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: user.id,
+            selectedUserId,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Find the selected match from potential matches
+          const selectedMatchData = potentialMatches.find(m => m.id === selectedUserId);
+          if (selectedMatchData) {
+            // Create a match object and add to theirTurnMatches (isYourTurn: false)
+            const newMatch: Match = {
+              id: selectedMatchData.id,
+              name: selectedMatchData.name,
+              profilePhotoUrl: selectedMatchData.profilePhotoUrl || selectedMatchData.photoUrl,
+              isYourTurn: false, // Their turn (girl chose, so it's the guy's turn to respond)
+              age: selectedMatchData.age || undefined,
+            };
+            
+            // Add to theirTurnMatches
+            setTheirTurnMatches(prev => [...prev, newMatch]);
+            
+            // Mark daily match as used
+            setHasUsedDailyMatch(true);
+            
+            // Remove other options and close modal after animation
+            setTimeout(() => {
+              setPotentialMatches([]);
+              setRevealedMatches(new Set());
+              setShowDailyMatch(false);
+              setSelectingMatch(null);
+            }, 500);
+          }
+        } else {
+          console.error('Failed to create match:', data.error);
+          alert(data.error || 'Failed to create match');
+          setSelectedMatchId(null);
+          setSelectingMatch(null);
+        }
+      } catch (error) {
+        console.error('Error creating match:', error);
+        alert('Failed to create match');
+        setSelectedMatchId(null);
+        setSelectingMatch(null);
+      } finally {
+        setIsCreatingMatch(false);
+      }
+    }, 400);
   };
 
   if (isLoading) {
@@ -305,10 +428,152 @@ export const MatchedPage: React.FC = () => {
     }}>
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-sm border-b border-white/20 px-6 py-4 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-white drop-shadow-lg" style={{
-          textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
-        }}>Matches</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-white drop-shadow-lg" style={{
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',
+          }}>Matches</h1>
+          {user?.gender === 'female' && (
+            <button
+              onClick={fetchPotentialMatches}
+              disabled={isLoadingMatches || hasUsedDailyMatch}
+              className={`${
+                hasUsedDailyMatch 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-pink-500 hover:bg-pink-600'
+              } text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              title={hasUsedDailyMatch ? 'You have already used your daily match today. Come back tomorrow!' : 'Get 3 potential matches (one per day)'}
+            >
+              {isLoadingMatches ? 'Loading...' : 'Daily Match'}
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Daily Match Modal */}
+      {showDailyMatch && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDailyMatch(false);
+              setPotentialMatches([]);
+              setRevealedMatches(new Set());
+              setSelectedMatchId(null);
+              setRevealingMatch(null);
+              setSelectingMatch(null);
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Choose Your Match</h2>
+                <p className="text-sm text-gray-500 mt-1">One match per day</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDailyMatch(false);
+                  setPotentialMatches([]);
+                  setRevealedMatches(new Set());
+                  setSelectedMatchId(null);
+                  setRevealingMatch(null);
+                  setSelectingMatch(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {potentialMatches.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No matches available right now. Try again later!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {potentialMatches.map((match) => {
+                  const isRevealed = revealedMatches.has(match.id);
+                  const isSelected = selectedMatchId === match.id;
+                  const isRevealing = revealingMatch === match.id;
+                  const isSelecting = selectingMatch === match.id;
+                  const isDisabled = isCreatingMatch || (selectedMatchId !== null && !isSelected);
+                  
+                  return (
+                    <div
+                      key={match.id}
+                      className={`w-full rounded-xl transition-all duration-300 border-2 ${
+                        isSelecting
+                          ? 'border-pink-500 bg-pink-50 scale-105 shadow-lg'
+                          : isSelected 
+                          ? 'border-pink-500 bg-pink-50' 
+                          : isRevealed
+                          ? 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                          : 'border-gray-300 bg-gray-100 hover:bg-gray-200 cursor-pointer'
+                      } ${isDisabled && !isSelected ? 'opacity-30' : ''} ${
+                        isRevealing ? 'animate-pulse' : ''
+                      }`}
+                      style={{
+                        animation: isSelecting ? 'bounce 0.5s ease-in-out' : undefined,
+                      }}
+                    >
+                      {!isRevealed ? (
+                        <button
+                          onClick={() => revealMatch(match.id)}
+                          disabled={isDisabled || isRevealing}
+                          className={`w-full flex items-center justify-center p-8 min-h-[120px] transition-all duration-300 ${
+                            isRevealing ? 'scale-95' : 'hover:scale-105'
+                          }`}
+                        >
+                          <div className={`text-center transition-all duration-300 ${isRevealing ? 'opacity-50 scale-90' : ''}`}>
+                            <div className="text-4xl mb-2 transform transition-transform duration-300 hover:scale-110">🎁</div>
+                            <p className="text-gray-600 font-semibold">Click to reveal</p>
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => selectMatch(match.id)}
+                          disabled={isDisabled}
+                          className={`w-full flex items-center space-x-4 p-4 disabled:cursor-not-allowed transition-all duration-300 ${
+                            isSelecting ? 'transform scale-105' : ''
+                          }`}
+                        >
+                          <div className={`relative transition-all duration-300 ${isSelecting ? 'animate-bounce' : ''}`}>
+                            <img
+                              src={match.profilePhotoUrl || match.photoUrl}
+                              alt={match.name}
+                              className="w-20 h-20 rounded-full object-cover border-2 border-pink-200"
+                            />
+                            {isSelecting && (
+                              <div className="absolute inset-0 rounded-full border-4 border-pink-400 animate-ping"></div>
+                            )}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <h3 className="font-bold text-lg text-gray-900">{match.name}</h3>
+                            {match.age && (
+                              <p className="text-sm text-gray-600">{match.age} years old</p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {Math.round(match.currentPercentile)}th percentile
+                            </p>
+                          </div>
+                          {isCreatingMatch && isSelected && (
+                            <div className="w-5 h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+                          )}
+                          {isSelecting && !isCreatingMatch && (
+                            <div className="text-2xl">✨</div>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-6 py-4" style={{

@@ -102,7 +102,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
 
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen flex flex-col safe-area-inset">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -139,7 +139,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 value={formData.name}
                 onChange={handleInputChange('name')}
                 placeholder="Enter your full name"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none"
                 autoComplete="name"
                 autoFocus
               />
@@ -156,7 +156,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 placeholder="yourname@berkeley.edu"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none"
                 autoComplete="email"
               />
               <p className="mt-1.5 text-xs text-gray-500">Must be a @berkeley.edu address</p>
@@ -174,7 +174,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   value={formData.password}
                   onChange={handleInputChange('password')}
                   placeholder="Create a password (8+ characters)"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none pr-12"
                   autoComplete="new-password"
                 />
                 <button
@@ -199,7 +199,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                   value={formData.confirmPassword}
                   onChange={handleInputChange('confirmPassword')}
                   placeholder="Confirm your password"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none pr-12"
                   autoComplete="new-password"
                 />
                 <button

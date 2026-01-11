@@ -257,7 +257,7 @@ export const ComparisonPage: React.FC = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6 safe-area-inset">
+      <div className="min-h-screen flex items-center justify-center p-6 safe-area-inset">
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-6">❌</div>
           <h1 className="text-2xl font-bold text-white mb-4">Something went wrong</h1>
@@ -291,7 +291,7 @@ export const ComparisonPage: React.FC = () => {
   // No pairs available (only show this when genuinely done)
   if (!currentPair) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-6 safe-area-inset">
+      <div className="min-h-screen flex items-center justify-center p-6 safe-area-inset">
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-6">🎉</div>
           <h1 className="text-3xl font-bold text-white mb-4">All Done!</h1>
@@ -326,7 +326,7 @@ export const ComparisonPage: React.FC = () => {
       <header className="px-6 py-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold text-white">Berkeley Goggles</h1>
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-white font-semibold">
             {dailyProgress?.comparisonsCompleted || 0}/{dailyProgress?.dailyTarget || 20} today
           </div>
         </div>
@@ -347,7 +347,7 @@ export const ComparisonPage: React.FC = () => {
           </div>
           
           {/* Buffer Status */}
-          <div className="flex items-center text-xs text-gray-500">
+          <div className="flex items-center text-xs text-white font-medium">
             {isBuffering && <span className="mr-2">⏳ Loading...</span>}
             <span>{bufferStats.remaining} pairs ready</span>
             {!isCurrentPairReady() && (

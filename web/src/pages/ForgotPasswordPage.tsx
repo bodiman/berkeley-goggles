@@ -63,7 +63,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+      <div className="min-h-screen flex flex-col safe-area-inset">
         {/* Header */}
         <header className="px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -127,7 +127,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen flex flex-col safe-area-inset">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -169,7 +169,7 @@ export const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({
                   if (error) setError(null);
                 }}
                 placeholder="Enter your email address"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none"
                 autoComplete="email"
                 autoFocus
               />

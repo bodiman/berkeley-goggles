@@ -68,6 +68,7 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "claude": "^0.1.1"
   }
 }

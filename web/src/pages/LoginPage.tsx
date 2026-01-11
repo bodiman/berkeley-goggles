@@ -97,7 +97,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen flex flex-col safe-area-inset">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -134,7 +134,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 placeholder="Enter your email"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none"
                 autoComplete="email"
                 autoFocus
               />
@@ -152,7 +152,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   value={formData.password}
                   onChange={handleInputChange('password')}
                   placeholder="Enter your password"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none pr-12"
                   autoComplete="current-password"
                 />
                 <button

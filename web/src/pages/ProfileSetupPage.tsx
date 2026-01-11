@@ -279,7 +279,7 @@ export const ProfileSetupPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen flex flex-col safe-area-inset">
       {/* Header */}
       <header className="px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -337,7 +337,7 @@ export const ProfileSetupPage: React.FC = () => {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none"
                   autoComplete="given-name"
                   autoFocus
                 />
@@ -354,7 +354,7 @@ export const ProfileSetupPage: React.FC = () => {
                   max="99"
                   value={formData.age}
                   onChange={(e) => setFormData(prev => ({ ...prev, age: parseInt(e.target.value) }))}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-400 focus:outline-none"
                 />
               </div>
 
@@ -488,7 +488,7 @@ export const ProfileSetupPage: React.FC = () => {
                     value={contactsText}
                     onChange={(e) => setContactsText(e.target.value)}
                     placeholder="friend1@berkeley.edu, friend2@berkeley.edu..."
-                    className="w-full h-32 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-32 px-4 py-3 liquid-glass rounded-lg text-white placeholder-gray-500 focus:outline-none"
                   />
                   <button
                     onClick={handleSyncContacts}

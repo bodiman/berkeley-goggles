@@ -231,6 +231,285 @@ matchesRoutes.put('/update-preference', asyncHandler(async (req, res) => {
   }
 }));
 
+// GET /api/matches/potential-matches - Get 3 potential matches for girls based on percentile (closest to her percentile)
+matchesRoutes.get('/potential-matches', asyncHandler(async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+
+    // Get current user
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { 
+        id: true,
+        gender: true,
+        photos: {
+          where: { 
+            status: 'approved'
+          },
+          orderBy: { uploadedAt: 'desc' },
+          take: 1
+        }
+      },
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    // Only allow this feature for girls (female users)
+    if (currentUser.gender !== 'female') {
+      return res.status(400).json({
+        success: false,
+        error: 'This feature is only available for female users',
+      });
+    }
+
+    // Check if user has already done a daily match today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const todayMatch = await prisma.friendship.findFirst({
+      where: {
+        userId: userId,
+        createdAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+    });
+
+    if (todayMatch) {
+      return res.json({
+        success: false,
+        error: 'You have already used your daily match today. Come back tomorrow!',
+        hasUsedDailyMatch: true,
+      });
+    }
+
+    // Check if user has any photos
+    const currentUserPhoto = currentUser.photos[0];
+    if (!currentUserPhoto) {
+      return res.json({
+        success: true,
+        matches: [],
+        message: 'Please upload a photo to start matching.',
+      });
+    }
+
+    // Get the user's combined ranking for their photo
+    const userCombinedRanking = await prisma.combinedRanking.findFirst({
+      where: { photoId: currentUserPhoto.id },
+    });
+
+    if (!userCombinedRanking || userCombinedRanking.totalComparisons < 5) {
+      return res.json({
+        success: true,
+        matches: [],
+        message: 'Complete more comparisons to get your ranking and find matches.',
+      });
+    }
+
+    const currentUserPercentile = userCombinedRanking.currentPercentile;
+
+    // Find potential matches: male users with approved photos
+    // First get all male users with approved photos, then filter by combinedRanking
+    const potentialMatches = await prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        gender: 'male',
+        isActive: true,
+        photos: {
+          some: {
+            status: 'approved'
+          }
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        age: true,
+        profilePhotoUrl: true,
+        photos: {
+          where: { 
+            status: 'approved'
+          },
+          select: {
+            id: true,
+            url: true,
+            combinedRanking: {
+              select: {
+                currentPercentile: true,
+                totalComparisons: true,
+              }
+            }
+          },
+          orderBy: { uploadedAt: 'desc' },
+          take: 1
+        }
+      },
+      take: 100, // Get more candidates to sort by closest percentile
+    });
+
+    // Filter and sort by percentile difference (closest to her percentile)
+    // Only include matches with combinedRanking and >= 5 comparisons
+    const matches: Array<{
+      id: string;
+      name: string;
+      profilePhotoUrl: string | null;
+      currentPercentile: number;
+      age: number | null;
+      photoUrl: string;
+      percentileDiff: number;
+    }> = [];
+    
+    for (const potentialMatch of potentialMatches) {
+      if (potentialMatch.photos.length === 0) {
+        continue;
+      }
+
+      const matchPhoto = potentialMatch.photos[0];
+      if (!matchPhoto?.combinedRanking) {
+        continue;
+      }
+
+      // Only include matches with at least 5 comparisons
+      if (matchPhoto.combinedRanking.totalComparisons < 5) {
+        continue;
+      }
+      
+      const matchPercentile = matchPhoto.combinedRanking.currentPercentile;
+      const percentileDiff = Math.abs(matchPercentile - currentUserPercentile);
+
+      matches.push({
+        id: potentialMatch.id,
+        name: potentialMatch.name,
+        profilePhotoUrl: potentialMatch.profilePhotoUrl,
+        currentPercentile: matchPercentile,
+        age: potentialMatch.age || null,
+        photoUrl: matchPhoto.url,
+        percentileDiff,
+      });
+    }
+
+    // Sort by percentile difference (closest first), then take top 3
+    matches.sort((a, b) => (a as any).percentileDiff - (b as any).percentileDiff);
+    const topMatches = matches.slice(0, 3).map(({ percentileDiff, ...match }) => match);
+
+    return res.json({
+      success: true,
+      matches: topMatches,
+      hasUsedDailyMatch: false,
+      meta: {
+        userPercentile: currentUserPercentile,
+        totalFound: topMatches.length,
+      },
+    });
+
+  } catch (error) {
+    console.error('Failed to get potential matches:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}));
+
+// POST /api/matches/create-match - Create a match/conversation when girl selects a guy
+matchesRoutes.post('/create-match', asyncHandler(async (req, res) => {
+  try {
+    const { userId, selectedUserId } = req.body;
+
+    if (!userId || !selectedUserId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID and selected user ID required',
+      });
+    }
+
+    if (userId === selectedUserId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot match with yourself',
+      });
+    }
+
+    // Verify the user is female
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { gender: true },
+    });
+
+    if (!currentUser || currentUser.gender !== 'female') {
+      return res.status(400).json({
+        success: false,
+        error: 'This feature is only available for female users',
+      });
+    }
+
+    // Check if friendship already exists
+    const existingFriendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { userId: userId, friendId: selectedUserId },
+          { userId: selectedUserId, friendId: userId }
+        ]
+      }
+    });
+
+    if (existingFriendship) {
+      return res.json({
+        success: true,
+        friendship: existingFriendship,
+        message: 'Match already exists',
+      });
+    }
+
+    // Create friendship (match) - girl initiates, so userId is the initiator
+    const friendship = await prisma.friendship.create({
+      data: {
+        userId: userId,
+        friendId: selectedUserId,
+        status: 'accepted', // Auto-accept matches
+      },
+      include: {
+        friend: {
+          select: {
+            id: true,
+            name: true,
+            profilePhotoUrl: true,
+            age: true,
+          }
+        }
+      }
+    });
+
+    return res.json({
+      success: true,
+      friendship,
+      message: 'Match created successfully',
+    });
+
+  } catch (error) {
+    console.error('Failed to create match:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+}));
+
 // Helper function to determine match confidence based on comparison data
 function getMatchConfidence(totalComparisons: number, rankingConfidence: number): 'low' | 'medium' | 'high' {
   // Base confidence on number of comparisons and ranking stability

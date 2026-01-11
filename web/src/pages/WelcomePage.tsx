@@ -42,7 +42,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
 
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen flex flex-col safe-area-inset">
       {/* Hero Section */}
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="max-w-md mx-auto text-center">

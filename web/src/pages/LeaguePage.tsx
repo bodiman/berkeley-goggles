@@ -317,20 +317,19 @@ export const LeaguePage: React.FC = () => {
                         </div>
 
                         {/* User Info */}
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center space-x-2">
-                            <h4 className={`font-black text-base truncate uppercase tracking-tight ${
+                        <div className="flex-1 min-w-0 text-left flex items-center">
+                          <h4 
+                            className={`font-black uppercase tracking-tight text-sm ${
                               entry.isCurrentUser ? 'text-white' : 'text-white/90'
-                            }`}>
-                              {entry.user.name.split(' ')[0]}
-                            </h4>
-                            <span className="text-white/40 font-black text-[10px] uppercase">
-                              {entry.user.age}
-                            </span>
-                          </div>
-                          <div className="flex items-center text-white/40 text-[9px] font-black uppercase tracking-widest mt-0.5">
-                            <span className="truncate">{entry.user.location || 'UC Berkeley'}</span>
-                          </div>
+                            }`}
+                            style={{
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {entry.user.name.split(' ')[0]}
+                          </h4>
                         </div>
 
                         {/* Prominent Trophies */}

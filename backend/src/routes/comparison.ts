@@ -1990,8 +1990,55 @@ async function updateSpecificTrophyScores(
       }
     );
 
-    const winnerDelta = trophyUpdate.newWinnerTrophy - winnerOldTrophy;
+    let winnerDelta = trophyUpdate.newWinnerTrophy - winnerOldTrophy;
     const loserDelta = trophyUpdate.newLoserTrophy - loserOldTrophy;
+
+    // Apply streak multiplier for user photos (5+ consecutive wins = 1.2x multiplier)
+    let streakMultiplier = 1.0;
+    if (rankingType === 'photo' && winnerDelta > 0 && comparisonId) {
+      // Get the current comparison's timestamp to exclude it
+      const currentComparison = await prisma.comparison.findUnique({
+        where: { id: comparisonId },
+        select: { timestamp: true },
+      });
+
+      if (currentComparison) {
+        // Calculate consecutive wins for the winner's photo (excluding current comparison)
+        const recentComparisons = await prisma.comparison.findMany({
+          where: {
+            OR: [
+              { winnerPhotoId: winnerId },
+              { loserPhotoId: winnerId }
+            ],
+            id: { not: comparisonId }, // Exclude current comparison
+            timestamp: { lt: currentComparison.timestamp }, // Only comparisons before this one
+          },
+          orderBy: { timestamp: 'desc' },
+          take: 5, // Check last 5 comparisons
+        });
+
+        // Count consecutive wins (most recent first, so we check if they were wins)
+        let consecutiveWins = 0;
+        for (const comp of recentComparisons) {
+          if (comp.winnerPhotoId === winnerId) {
+            consecutiveWins++;
+          } else {
+            break; // Streak broken by a loss
+          }
+        }
+        
+        // If 4+ previous consecutive wins, then with this win it's 5+ total, so apply 1.2x multiplier
+        if (consecutiveWins >= 4) {
+          streakMultiplier = 1.2;
+          winnerDelta = winnerDelta * streakMultiplier;
+          
+          // Update trophy score with multiplied delta
+          trophyUpdate.newWinnerTrophy = winnerOldTrophy + winnerDelta;
+          
+          console.log(`🔥 STREAK MULTIPLIER ACTIVE: ${consecutiveWins + 1} consecutive wins (including this one), applying ${streakMultiplier}x multiplier!`);
+        }
+      }
+    }
 
     console.log(`🏆 Trophy update result: winner ${winnerOldTrophy} → ${trophyUpdate.newWinnerTrophy.toFixed(1)} (+${winnerDelta.toFixed(1)}), loser ${loserOldTrophy} → ${trophyUpdate.newLoserTrophy.toFixed(1)} (${loserDelta.toFixed(1)})`);
 

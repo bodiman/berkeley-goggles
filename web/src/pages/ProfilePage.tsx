@@ -66,6 +66,9 @@ interface BattleLogEntry {
   timestamp: string;
   isWinner: boolean;
   trophyDelta: number;
+  hasMultiplier?: boolean;
+  consecutiveWins?: number;
+  isUpset?: boolean;
   rater: {
     id: string;
     name: string;
@@ -77,6 +80,8 @@ interface BattleLogEntry {
     name: string;
     gender: string;
     photoUrl: string | null;
+    trophyScore?: number | null;
+    percentile?: number | null;
   } | null;
 }
 
@@ -89,6 +94,7 @@ export const ProfilePage: React.FC = () => {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [battleLog, setBattleLog] = useState<BattleLogEntry[]>([]);
   const [showFullBattleLog, setShowFullBattleLog] = useState(false);
+  const [selectedOpponent, setSelectedOpponent] = useState<BattleLogEntry['opponent'] | null>(null);
   
   // Friends state
   const [showFriendsList, setShowFriendsList] = useState(false);
@@ -673,7 +679,7 @@ export const ProfilePage: React.FC = () => {
                         value={editedBio}
                         onChange={(e) => setEditedBio(e.target.value)}
                         maxLength={25}
-                        className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2 text-white font-bold text-xs focus:outline-none focus:border-white/30 min-h-[50px]"
+                        className="w-full liquid-glass rounded-xl px-3 py-2 text-white font-bold text-xs focus:outline-none min-h-[50px]"
                         placeholder="Say something..."
                       />
                       <div className="grid grid-cols-1 gap-2">
@@ -681,7 +687,7 @@ export const ProfilePage: React.FC = () => {
                           type="number"
                           value={editedAge}
                           onChange={(e) => setEditedAge(parseInt(e.target.value))}
-                          className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-white font-bold text-[10px] text-center"
+                          className="w-full liquid-glass rounded-lg px-2 py-1.5 text-white font-bold text-[10px] text-center"
                         />
                       </div>
                       {profileError && <p className="text-red-300 font-bold text-[8px] text-center uppercase">{profileError}</p>}
@@ -789,42 +795,64 @@ export const ProfilePage: React.FC = () => {
                       {/* Space Separator */}
                       <div className="w-8"></div>
                       
-                      {/* Opponent Photo with W/L Indicator */}
+                      {/* Opponent Photo with Label and W/L Indicator */}
                       {entry.opponent ? (
-                        <div className="flex items-center space-x-2">
-                          {entry.opponent.photoUrl ? (
-                            <img src={entry.opponent.photoUrl} alt={entry.opponent.name} className="w-12 h-12 rounded-full object-cover border-2 border-white/20" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
-                              {entry.opponent.gender === 'female' ? '💃' : '🕺'}
+                        <div className="flex flex-col items-center space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => entry.opponent && entry.opponent.id !== 'Sample' && entry.opponent.trophyScore !== null && setSelectedOpponent(entry.opponent)}
+                              className={`relative ${entry.opponent.id !== 'Sample' && entry.opponent.trophyScore !== null ? 'cursor-pointer hover:opacity-80' : ''}`}
+                            >
+                              {entry.opponent.photoUrl ? (
+                                <img src={entry.opponent.photoUrl} alt={entry.opponent.name} className="w-12 h-12 rounded-full object-cover border-2 border-white/20" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
+                                  {entry.opponent.gender === 'female' ? '💃' : '🕺'}
+                                </div>
+                              )}
+                              {entry.isUpset && (
+                                <div className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                                  UPSET
+                                </div>
+                              )}
+                            </button>
+                            <div className="flex flex-col items-center space-y-1">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                                {entry.isWinner ? 'W' : 'L'}
+                              </div>
+                              {entry.hasMultiplier && (
+                                <div className="bg-purple-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">
+                                  {entry.consecutiveWins}x
+                                </div>
+                              )}
                             </div>
-                          )}
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
-                            {entry.isWinner ? 'W' : 'L'}
                           </div>
+                          <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">Opponent</span>
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
-                            ?
+                        <div className="flex flex-col items-center space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20 text-lg">
+                              ?
+                            </div>
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                              {entry.isWinner ? 'W' : 'L'}
+                            </div>
                           </div>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
-                            {entry.isWinner ? 'W' : 'L'}
-                          </div>
+                          <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">Opponent</span>
                         </div>
                       )}
-                      
-                      <div className="ml-2">
-                        <div className="text-[8px] font-bold text-blue-100/40 uppercase">
-                          {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </div>
                     </div>
                     <div className="text-right">
                       <div className={`text-sm font-black ${entry.isWinner ? 'text-green-400' : 'text-red-400'}`}>
                         {entry.isWinner ? '+' : ''}{entry.trophyDelta}
                       </div>
                       <div className="text-[8px] font-black text-blue-200/40 uppercase tracking-widest">Trophies</div>
+                      {entry.hasMultiplier && (
+                        <div className="text-[8px] font-black text-purple-400 uppercase tracking-widest mt-1">
+                          {entry.consecutiveWins} Win Streak
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -930,36 +958,36 @@ export const ProfilePage: React.FC = () => {
                     {/* Space Separator */}
                     <div className="w-12"></div>
                     
-                    {/* Opponent Photo with W/L Indicator */}
+                    {/* Opponent Photo with Label and W/L Indicator */}
                     {entry.opponent ? (
-                      <div className="flex items-center space-x-3">
-                        {entry.opponent.photoUrl ? (
-                          <img src={entry.opponent.photoUrl} alt={entry.opponent.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20" />
-                        ) : (
-                          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
-                            {entry.opponent.gender === 'female' ? '💃' : '🕺'}
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="flex items-center space-x-3">
+                          {entry.opponent.photoUrl ? (
+                            <img src={entry.opponent.photoUrl} alt={entry.opponent.name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20" />
+                          ) : (
+                            <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
+                              {entry.opponent.gender === 'female' ? '💃' : '🕺'}
+                            </div>
+                          )}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {entry.isWinner ? 'W' : 'L'}
                           </div>
-                        )}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
-                          {entry.isWinner ? 'W' : 'L'}
                         </div>
+                        <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Opponent</span>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-3">
-                        <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
-                          ?
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 text-2xl">
+                            ?
+                          </div>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {entry.isWinner ? 'W' : 'L'}
+                          </div>
                         </div>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black border-2 border-gray-900 ${entry.isWinner ? 'bg-green-500' : 'bg-red-500'}`}>
-                          {entry.isWinner ? 'W' : 'L'}
-                        </div>
+                        <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Opponent</span>
                       </div>
                     )}
-                    
-                    <div className="ml-4">
-                      <div className="text-[10px] font-bold text-blue-100/40 uppercase">
-                        {new Date(entry.timestamp).toLocaleDateString()} at {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
                   </div>
                   <div className="text-right">
                     <div className={`text-xl font-black ${entry.isWinner ? 'text-green-400' : 'text-red-400'}`}>
@@ -979,6 +1007,60 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Opponent Stats Modal */}
+      {selectedOpponent && (
+        <div 
+          className="fixed inset-0 bg-black/95 backdrop-blur-2xl z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedOpponent(null); }}
+        >
+          <div className="w-full max-w-md bg-gray-900 rounded-[2.5rem] p-8 border border-white/10 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-black text-white uppercase tracking-tight">Opponent Stats</h3>
+              <button onClick={() => setSelectedOpponent(null)} className="text-white/50 hover:text-white transition-transform hover:scale-125">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex flex-col items-center space-y-6">
+              {selectedOpponent.photoUrl ? (
+                <img src={selectedOpponent.photoUrl} alt={selectedOpponent.name} className="w-24 h-24 rounded-full object-cover border-4 border-white/20" />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-white/10 flex items-center justify-center border-4 border-white/20 text-4xl">
+                  {selectedOpponent.gender === 'female' ? '💃' : '🕺'}
+                </div>
+              )}
+              
+              <div className="text-center">
+                <h4 className="text-2xl font-black text-white mb-2">{selectedOpponent.name}</h4>
+                <p className="text-sm text-white/60 uppercase tracking-widest">{selectedOpponent.gender === 'female' ? 'Female' : 'Male'}</p>
+              </div>
+
+              <div className="w-full grid grid-cols-2 gap-4">
+                {selectedOpponent.trophyScore !== null && (
+                  <div className="bg-white/5 rounded-2xl p-4 text-center border border-white/10">
+                    <div className="text-2xl font-black text-yellow-400 mb-1">
+                      {Math.round(selectedOpponent.trophyScore)}
+                    </div>
+                    <div className="text-xs font-black text-white/60 uppercase tracking-widest">Trophies</div>
+                  </div>
+                )}
+                {selectedOpponent.percentile !== null && (
+                  <div className="bg-white/5 rounded-2xl p-4 text-center border border-white/10">
+                    <div className="text-2xl font-black text-blue-400 mb-1">
+                      {Math.round(selectedOpponent.percentile)}%
+                    </div>
+                    <div className="text-xs font-black text-white/60 uppercase tracking-widest">Percentile</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Friends List Modal (Social) */}
       {showFriendsList && (
         <div 

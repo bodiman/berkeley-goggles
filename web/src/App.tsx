@@ -48,7 +48,7 @@ const AppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-white text-center">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p>Loading...</p>
@@ -74,7 +74,7 @@ const AppContent: React.FC = () => {
 
   // Authenticated with complete profile - show main app
   return (
-    <div className="relative w-full h-screen h-dvh bg-black overflow-hidden">
+    <div className="relative w-full h-screen h-dvh overflow-hidden">
       {/* Keep all tab components mounted to preserve state */}
       <div className={`absolute inset-0 ${navigationState.currentTab === 'league' ? 'block' : 'hidden'}`}>
         <LeaguePage />
