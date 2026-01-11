@@ -7,14 +7,23 @@ import { ProfilePage } from './pages/ProfilePage';
 import { ComparisonPage } from './pages/ComparisonPage';
 import { MatchedPage } from './pages/MatchedPage';
 import { LeaguePage } from './pages/LeaguePage';
+import { InvitePage } from './pages/InvitePage';
 import { BottomNavigation } from './components/BottomNavigation';
 import { LoadingScreen } from './components/LoadingScreen';
 import './index.css';
+
+// Helper to extract invite ID from URL
+const getInviteIdFromUrl = (): string | null => {
+  const path = window.location.pathname;
+  const match = path.match(/^\/invite\/([^/]+)$/);
+  return match ? match[1] : null;
+};
 
 const AppContent: React.FC = () => {
   const { user, navigationState, isLoading } = useAuth();
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [hasShownInitialLoading, setHasShownInitialLoading] = useState(false);
+  const [inviteId, setInviteId] = useState<string | null>(() => getInviteIdFromUrl());
 
   // Trigger loading screen on successful login
   useEffect(() => {
@@ -23,6 +32,19 @@ const AppContent: React.FC = () => {
       setHasShownInitialLoading(true);
     }
   }, [navigationState.isAuthenticated, hasShownInitialLoading, isLoading]);
+
+  // Handle invite link - show InvitePage if we have an invite ID
+  if (inviteId) {
+    return (
+      <InvitePage
+        inviterId={inviteId}
+        onComplete={() => {
+          setInviteId(null);
+          window.history.replaceState({}, '', '/');
+        }}
+      />
+    );
+  }
 
   if (isLoading) {
     return (

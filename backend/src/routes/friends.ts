@@ -202,3 +202,62 @@ friendsRoutes.get('/pending', asyncHandler(async (req, res) => {
   res.json({ success: true, pending: pending.map(p => p.user) });
 }));
 
+const acceptInviteSchema = z.object({
+  userId: z.string(),
+  inviterId: z.string(),
+});
+
+// POST /api/friends/accept-invite
+// Creates an accepted friendship from an invite link (skips pending state)
+friendsRoutes.post('/accept-invite', asyncHandler(async (req, res) => {
+  const { userId, inviterId } = acceptInviteSchema.parse(req.body);
+
+  if (userId === inviterId) {
+    return res.status(400).json({ success: false, error: 'Cannot friend yourself' });
+  }
+
+  // Check if inviter exists
+  const inviter = await prisma.user.findUnique({
+    where: { id: inviterId },
+    select: { id: true, name: true, profilePhotoUrl: true }
+  });
+
+  if (!inviter) {
+    return res.status(404).json({ success: false, error: 'Inviter not found' });
+  }
+
+  // Check if friendship already exists
+  const existing = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { userId, friendId: inviterId },
+        { userId: inviterId, friendId: userId }
+      ]
+    }
+  });
+
+  if (existing) {
+    // If already friends or pending, just return success
+    if (existing.status === 'accepted') {
+      return res.json({ success: true, message: 'Already friends', inviter });
+    }
+    // If pending, accept it
+    await prisma.friendship.update({
+      where: { id: existing.id },
+      data: { status: 'accepted' }
+    });
+    return res.json({ success: true, message: 'Friend request accepted', inviter });
+  }
+
+  // Create new accepted friendship (inviter initiated, since they sent the link)
+  const friendship = await prisma.friendship.create({
+    data: {
+      userId: inviterId,  // Inviter is the initiator
+      friendId: userId,   // Current user is the receiver
+      status: 'accepted', // Skip pending state for invite links
+    },
+  });
+
+  res.json({ success: true, friendship, inviter });
+}));
+

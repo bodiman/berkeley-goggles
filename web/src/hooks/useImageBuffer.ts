@@ -11,6 +11,7 @@ export interface PhotoPair {
     userGender: string;
     bio?: string;
     type: 'user' | 'sample';
+    name?: string;
   };
   rightPhoto: {
     id: string;
@@ -21,7 +22,11 @@ export interface PhotoPair {
     userGender: string;
     bio?: string;
     type: 'user' | 'sample';
+    name?: string;
   };
+  // Challenge-specific fields
+  isChallenge?: boolean;
+  challengeId?: string;
 }
 
 interface BufferedPair extends PhotoPair {
@@ -280,6 +285,60 @@ export const useImageBuffer = ({
     }
   }, [userId, recentlySubmittedPair]);
 
+  // Fetch active challenge for mog battles
+  const fetchChallengePair = useCallback(async (): Promise<PhotoPair | null> => {
+    try {
+      const { apiRequest } = await import('../config/api');
+
+      const response = await apiRequest(
+        `/api/challenges/active?excludeUserId=${userId}`
+      );
+
+      const data = await response.json();
+
+      if (!data.success || !data.challenge) {
+        return null;
+      }
+
+      const challenge = data.challenge;
+
+      // Convert challenge to PhotoPair format
+      const challengePair: PhotoPair = {
+        sessionId: `challenge_${challenge.id}`,
+        isChallenge: true,
+        challengeId: challenge.id,
+        leftPhoto: {
+          id: challenge.challenger.id,
+          url: challenge.challenger.profilePhotoUrl || '',
+          thumbnailUrl: challenge.challenger.profilePhotoUrl || '',
+          userId: challenge.challenger.id,
+          userAge: 0,
+          userGender: '',
+          bio: '',
+          type: 'user',
+          name: challenge.challenger.name,
+        },
+        rightPhoto: {
+          id: challenge.challenged.id,
+          url: challenge.challenged.profilePhotoUrl || '',
+          thumbnailUrl: challenge.challenged.profilePhotoUrl || '',
+          userId: challenge.challenged.id,
+          userAge: 0,
+          userGender: '',
+          bio: '',
+          type: 'user',
+          name: challenge.challenged.name,
+        },
+      };
+
+      console.log('⚔️ Fetched challenge pair:', challengePair.sessionId);
+      return challengePair;
+    } catch (error) {
+      console.warn('Failed to fetch challenge pair:', error);
+      return null;
+    }
+  }, [userId]);
+
   // Refill buffer with new pairs
   const refillBuffer = useCallback(async (
     recentPairOverride?: {
@@ -296,18 +355,37 @@ export const useImageBuffer = ({
     setIsBuffering(true);
 
     try {
+      // Fetch regular pairs
       const newPairs = await fetchPairs(bufferSize, recentPairOverride);
-      
-      if (newPairs.length === 0) {
+
+      // Try to fetch a challenge pair (~30% chance if challenges exist)
+      let challengePair: PhotoPair | null = null;
+      if (Math.random() < 0.3) {
+        challengePair = await fetchChallengePair();
+      }
+
+      if (newPairs.length === 0 && !challengePair) {
         onError?.('No more pairs available');
         return;
       }
 
       // Convert to buffered pairs - filtering DISABLED
-      const newBufferedPairs: BufferedPair[] = newPairs.map(pair => ({
+      let newBufferedPairs: BufferedPair[] = newPairs.map(pair => ({
         ...pair,
         preloaded: false
       }));
+
+      // Insert challenge pair at a random position if available
+      if (challengePair) {
+        const challengeBufferedPair: BufferedPair = {
+          ...challengePair,
+          preloaded: false
+        };
+        // Insert challenge at random position (but not at index 0 to avoid confusion)
+        const insertIndex = Math.floor(Math.random() * newBufferedPairs.length) + 1;
+        newBufferedPairs.splice(Math.min(insertIndex, newBufferedPairs.length), 0, challengeBufferedPair);
+        console.log(`⚔️ Inserted challenge at position ${insertIndex}`);
+      }
       
       // Log state before buffer update
       logBufferState('before_refill', {
@@ -376,7 +454,7 @@ export const useImageBuffer = ({
       isFetching.current = false;
       setIsBuffering(false);
     }
-  }, [bufferSize, fetchPairs, preloadPairImages, onError]);
+  }, [bufferSize, fetchPairs, fetchChallengePair, preloadPairImages, onError]);
 
   // Initial buffer load
   const initializeBuffer = useCallback(async (): Promise<void> => {

@@ -23,6 +23,7 @@ const registerSchema = z.object({
       message: 'Registration requires a @berkeley.edu email address',
     }),
   password: z.string().min(8, 'Password must be at least 8 characters'),
+  referrerId: z.string().optional(), // Optional referrer for invite links
 });
 
 const loginSchema = z.object({
@@ -32,27 +33,28 @@ const loginSchema = z.object({
 
 const googleAuthSchema = z.object({
   idToken: z.string().min(1, 'Google ID token is required'),
+  referrerId: z.string().optional(), // Optional referrer for invite links
 });
 
 // POST /api/auth/register
 authRoutes.post('/register', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = registerSchema.parse(req.body);
-  
+
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email: validatedData.email },
   });
-  
+
   if (existingUser) {
     return res.status(400).json({
       success: false,
       error: 'User with this email already exists',
     });
   }
-  
+
   // Hash password
   const hashedPassword = await bcrypt.hash(validatedData.password, 12);
-  
+
   // Create user
   const user = await prisma.user.create({
     data: {
@@ -62,21 +64,44 @@ authRoutes.post('/register', asyncHandler(async (req: Request, res: Response) =>
       profileComplete: false,
     },
   });
-  
+
+  // If there's a referrer, create an accepted friendship
+  let referrer = null;
+  if (validatedData.referrerId) {
+    const referrerUser = await prisma.user.findUnique({
+      where: { id: validatedData.referrerId },
+      select: { id: true, name: true, profilePhotoUrl: true }
+    });
+
+    if (referrerUser && referrerUser.id !== user.id) {
+      // Create accepted friendship (referrer initiated by sharing the link)
+      await prisma.friendship.create({
+        data: {
+          userId: referrerUser.id,  // Referrer is the initiator
+          friendId: user.id,        // New user is the receiver
+          status: 'accepted',       // Skip pending for invite links
+        },
+      });
+      referrer = referrerUser;
+      console.log(`Created friendship: ${referrerUser.name} -> ${user.name} (via invite link)`);
+    }
+  }
+
   // Generate JWT token
   const token = jwt.sign(
     { userId: user.id, email: user.email },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
-  
+
   // Return user data without password
   const { password: _, ...userWithoutPassword } = user;
-  
+
   res.status(201).json({
     success: true,
     user: userWithoutPassword,
     token,
+    referrer, // Include referrer info so frontend can show "You're now friends with X"
   });
 }));
 
@@ -142,14 +167,14 @@ authRoutes.post('/logout', asyncHandler(async (req: Request, res: Response) => {
 // POST /api/auth/google
 authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = googleAuthSchema.parse(req.body);
-  
+
   try {
     // Verify the Google ID token
     const ticket = await googleClient.verifyIdToken({
       idToken: validatedData.idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
-    
+
     const payload = ticket.getPayload();
     if (!payload || !payload.email || !payload.name) {
       return res.status(400).json({
@@ -165,13 +190,15 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
         error: 'Only @berkeley.edu email addresses are allowed',
       });
     }
-    
+
     // Check if user already exists
     let user = await prisma.user.findUnique({
       where: { email: payload.email },
     });
-    
+
+    let isNewUser = false;
     if (!user) {
+      isNewUser = true;
       // Create new user from Google profile
       user = await prisma.user.create({
         data: {
@@ -183,27 +210,62 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
         },
       });
     }
-    
+
+    // If there's a referrer and this is a new user, create an accepted friendship
+    let referrer = null;
+    if (validatedData.referrerId && isNewUser) {
+      const referrerUser = await prisma.user.findUnique({
+        where: { id: validatedData.referrerId },
+        select: { id: true, name: true, profilePhotoUrl: true }
+      });
+
+      if (referrerUser && referrerUser.id !== user.id) {
+        // Check if friendship already exists (shouldn't for new user, but be safe)
+        const existingFriendship = await prisma.friendship.findFirst({
+          where: {
+            OR: [
+              { userId: user.id, friendId: referrerUser.id },
+              { userId: referrerUser.id, friendId: user.id }
+            ]
+          }
+        });
+
+        if (!existingFriendship) {
+          await prisma.friendship.create({
+            data: {
+              userId: referrerUser.id,
+              friendId: user.id,
+              status: 'accepted',
+            },
+          });
+          referrer = referrerUser;
+          console.log(`Created friendship: ${referrerUser.name} -> ${user.name} (via Google invite link)`);
+        }
+      }
+    }
+
     // Update last active
     await prisma.user.update({
       where: { id: user.id },
       data: { lastActive: new Date() },
     });
-    
+
     // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
-    
+
     // Return user data without password
     const { password: _, ...userWithoutPassword } = user;
-    
+
     res.json({
       success: true,
       user: userWithoutPassword,
       token,
+      referrer,
+      isNewUser,
     });
   } catch (error) {
     console.error('Google OAuth verification failed:', error);

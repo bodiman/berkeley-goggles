@@ -64,7 +64,17 @@ model User {
   // New Friends relations
   friendshipsInitiated Friendship[] @relation("FriendshipInitiator")
   friendshipsReceived  Friendship[] @relation("FriendshipReceiver")
-  
+
+  // Challenge relations
+  challengesInitiated    Challenge[]     @relation("ChallengesInitiated")
+  challengesReceived     Challenge[]     @relation("ChallengesReceived")
+  challengeVotesCast     ChallengeVote[] @relation("ChallengeVotesCast")
+  challengeVotesReceived ChallengeVote[] @relation("ChallengeVotesReceived")
+
+  // Message relations
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
   @@map("users")
 }
 
@@ -344,4 +354,62 @@ model Friendship {
 
   @@unique([userId, friendId])
   @@map("friendships")
+}
+
+model Challenge {
+  id              String    @id @default(cuid())
+  challengerId    String    @map("challenger_id")
+  challengedId    String    @map("challenged_id")
+  status          String    @default("pending") // "pending", "active", "completed", "declined"
+  votesRequired   Int       @default(10) @map("votes_required")
+  challengerVotes Int       @default(0) @map("challenger_votes")
+  challengedVotes Int       @default(0) @map("challenged_votes")
+  winnerId        String?   @map("winner_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  completedAt     DateTime? @map("completed_at")
+
+  // Relations
+  challenger      User            @relation("ChallengesInitiated", fields: [challengerId], references: [id], onDelete: Cascade)
+  challenged      User            @relation("ChallengesReceived", fields: [challengedId], references: [id], onDelete: Cascade)
+  votes           ChallengeVote[]
+
+  @@index([challengerId])
+  @@index([challengedId])
+  @@index([status])
+  @@map("challenges")
+}
+
+model ChallengeVote {
+  id           String   @id @default(cuid())
+  challengeId  String   @map("challenge_id")
+  voterId      String   @map("voter_id")
+  chosenUserId String   @map("chosen_user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  voter        User      @relation("ChallengeVotesCast", fields: [voterId], references: [id], onDelete: Cascade)
+  chosenUser   User      @relation("ChallengeVotesReceived", fields: [chosenUserId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, voterId])
+  @@index([challengeId])
+  @@map("challenge_votes")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  content    String
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  sender     User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, isRead])
+  @@index([senderId, receiverId])
+  @@map("messages")
 }

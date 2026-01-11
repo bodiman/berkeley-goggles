@@ -147,66 +147,83 @@ export const ComparisonPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      
-      // Determine winner and loser types
-      const winner = winnerId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
-      const loser = loserId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
-      
-      const response = await apiRequest('/api/comparisons/submit', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId: currentPair.sessionId,
-          winnerId: winnerId,
-          loserId: loserId,
-          winnerType: winner.type,
-          loserType: loser.type,
-          userId: user.id,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Create recent pair info for immediate exclusion
-        const submittedPairInfo = {
-          winnerId: winnerId,
-          loserId: loserId,
-          winnerType: winner.type,
-          loserType: loser.type,
-        };
-        
-        // IMMEDIATELY store in ref for reliable access in animation completion (before any async operations)
-        pendingSubmittedPairRef.current = submittedPairInfo;
-        // console.log('📝 Frontend: IMMEDIATELY stored pair info in ref before async operations:', {
-        //   submittedPairInfo,
-        //   refValue: pendingSubmittedPairRef.current
-        // });
-        
-        // Store for future use (fallback)
-        setRecentlySubmittedPair(submittedPairInfo);
-        
-        // Frontend logging for pair exclusion
-        // console.log('🚫 Frontend: Created pair info for immediate exclusion:', {
-        //   winnerId,
-        //   loserId,
-        //   winnerType: winner.type,
-        //   loserType: loser.type,
-        //   leftPhotoId: currentPair.leftPhoto.id,
-        //   rightPhotoId: currentPair.rightPhoto.id,
-        //   willPassToAdvanceNext: true
-        // });
-        
-        // Add haptic feedback
-        if (navigator.vibrate) {
-          navigator.vibrate([50, 50, 50]);
+
+      // Check if this is a challenge battle
+      if (currentPair.isChallenge && currentPair.challengeId) {
+        // Submit vote via challenge endpoint
+        const response = await apiRequest('/api/challenges/vote', {
+          method: 'POST',
+          body: JSON.stringify({
+            challengeId: currentPair.challengeId,
+            voterId: user.id,
+            chosenUserId: winnerId,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log('⚔️ Challenge vote submitted:', {
+            challengeId: currentPair.challengeId,
+            winner: winnerId,
+            totalVotes: data.totalVotes
+          });
+
+          // Add haptic feedback
+          if (navigator.vibrate) {
+            navigator.vibrate([50, 100, 50]); // Different pattern for challenges
+          }
+        } else {
+          // Don't show error for "already voted" since it's a valid state
+          if (!data.error?.includes('Already voted')) {
+            setError(data.error || 'Failed to submit challenge vote');
+          }
         }
-        
-        // Update progress (pair advancement will happen in animation completion with exclusion info)
-        await fetchDailyProgress();
-        
-        // Daily goal completion handled by UI indicators (progress bar, etc.)
       } else {
-        setError(data.error || 'Failed to submit comparison');
+        // Regular comparison submission
+        // Determine winner and loser types
+        const winner = winnerId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
+        const loser = loserId === currentPair.leftPhoto.id ? currentPair.leftPhoto : currentPair.rightPhoto;
+
+        const response = await apiRequest('/api/comparisons/submit', {
+          method: 'POST',
+          body: JSON.stringify({
+            sessionId: currentPair.sessionId,
+            winnerId: winnerId,
+            loserId: loserId,
+            winnerType: winner.type,
+            loserType: loser.type,
+            userId: user.id,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Create recent pair info for immediate exclusion
+          const submittedPairInfo = {
+            winnerId: winnerId,
+            loserId: loserId,
+            winnerType: winner.type,
+            loserType: loser.type,
+          };
+
+          // IMMEDIATELY store in ref for reliable access in animation completion (before any async operations)
+          pendingSubmittedPairRef.current = submittedPairInfo;
+
+          // Store for future use (fallback)
+          setRecentlySubmittedPair(submittedPairInfo);
+
+          // Add haptic feedback
+          if (navigator.vibrate) {
+            navigator.vibrate([50, 50, 50]);
+          }
+
+          // Update progress (pair advancement will happen in animation completion with exclusion info)
+          await fetchDailyProgress();
+        } else {
+          setError(data.error || 'Failed to submit comparison');
+        }
       }
     } catch (error) {
       console.error('Failed to submit comparison:', error);
@@ -339,6 +356,17 @@ export const ComparisonPage: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {/* Challenge Banner */}
+      {currentPair?.isChallenge && (
+        <div className="px-6 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 flex items-center justify-center space-x-2 shadow-lg">
+          <span className="text-2xl">⚔️</span>
+          <span className="text-white font-black italic uppercase tracking-wider drop-shadow-md">
+            Mog Battle
+          </span>
+          <span className="text-2xl">⚔️</span>
+        </div>
+      )}
 
       {/* Main Comparison Area */}
       <main className="flex-1 flex items-center justify-center p-2 overflow-hidden">

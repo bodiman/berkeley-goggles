@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
 import { apiRequest } from '../config/api';
+import swordsIcon from '../assets/bitmap.svg';
 
 // League types defined locally to avoid import issues
 interface League {
@@ -94,6 +95,22 @@ export const ProfilePage: React.FC = () => {
   const [friends, setFriends] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [isAcceptingFriend, setIsAcceptingFriend] = useState<string | null>(null);
+
+  // Challenge state
+  const [pendingChallengesIn, setPendingChallengesIn] = useState<any[]>([]);
+  const [pendingChallengesOut, setPendingChallengesOut] = useState<any[]>([]);
+  const [isAcceptingChallenge, setIsAcceptingChallenge] = useState<string | null>(null);
+  const [isSendingChallenge, setIsSendingChallenge] = useState<string | null>(null);
+  const [challengeConfirmFriend, setChallengeConfirmFriend] = useState<any>(null);
+  const [showChallengeDropdown, setShowChallengeDropdown] = useState(false);
+
+  // Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatFriend, setChatFriend] = useState<any>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
   
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -106,6 +123,8 @@ export const ProfilePage: React.FC = () => {
     if (user?.id) {
       fetchUserStats();
       fetchFriends();
+      fetchChallenges();
+      fetchUnreadCounts();
       refreshUser();
     }
   }, [user?.id]);
@@ -148,6 +167,147 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const fetchChallenges = async () => {
+    if (!user?.id) return;
+    try {
+      const response = await apiRequest(`/api/challenges/pending/${user.id}`);
+      const data = await response.json();
+      if (data.success) {
+        setPendingChallengesIn(data.incoming);
+        setPendingChallengesOut(data.outgoing);
+      }
+    } catch (error) {
+      console.error('Failed to fetch challenges:', error);
+    }
+  };
+
+  const fetchUnreadCounts = async () => {
+    if (!user?.id) return;
+    try {
+      const response = await apiRequest(`/api/messages/unread/${user.id}`);
+      const data = await response.json();
+      if (data.success) {
+        setUnreadByFriend(data.unreadByFriend);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread counts:', error);
+    }
+  };
+
+  const handleSendChallenge = async (friendId: string) => {
+    if (!user?.id) return;
+    setIsSendingChallenge(friendId);
+    try {
+      const response = await apiRequest('/api/challenges', {
+        method: 'POST',
+        body: JSON.stringify({
+          challengerId: user.id,
+          challengedId: friendId,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchChallenges();
+      } else {
+        alert(data.error || 'Failed to send challenge');
+      }
+    } catch (error) {
+      console.error('Failed to send challenge:', error);
+    } finally {
+      setIsSendingChallenge(null);
+    }
+  };
+
+  const handleAcceptChallenge = async (challengeId: string) => {
+    if (!user?.id) return;
+    setIsAcceptingChallenge(challengeId);
+    try {
+      const response = await apiRequest(`/api/challenges/accept/${challengeId}`, {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchChallenges();
+      }
+    } catch (error) {
+      console.error('Failed to accept challenge:', error);
+    } finally {
+      setIsAcceptingChallenge(null);
+    }
+  };
+
+  const handleDeclineChallenge = async (challengeId: string) => {
+    if (!user?.id) return;
+    try {
+      const response = await apiRequest(`/api/challenges/decline/${challengeId}`, {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchChallenges();
+      }
+    } catch (error) {
+      console.error('Failed to decline challenge:', error);
+    }
+  };
+
+  const openChat = async (friend: any) => {
+    setChatFriend(friend);
+    setShowChat(true);
+    await fetchMessages(friend.id);
+    // Mark messages as read
+    await apiRequest(`/api/messages/read/${friend.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ userId: user?.id }),
+    });
+    fetchUnreadCounts();
+  };
+
+  const fetchMessages = async (friendId: string) => {
+    if (!user?.id) return;
+    try {
+      const response = await apiRequest(`/api/messages/conversation/${friendId}?userId=${user.id}`);
+      const data = await response.json();
+      if (data.success) {
+        setMessages(data.messages);
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!user?.id || !chatFriend || !newMessage.trim()) return;
+    setIsSendingMessage(true);
+    try {
+      const response = await apiRequest('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          senderId: user.id,
+          receiverId: chatFriend.id,
+          content: newMessage.trim(),
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setNewMessage('');
+        fetchMessages(chatFriend.id);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  // Check if there's a pending challenge with a friend
+  const hasPendingChallenge = (friendId: string) => {
+    return pendingChallengesOut.some(c => c.challenged?.id === friendId) ||
+           pendingChallengesIn.some(c => c.challenger?.id === friendId);
+  };
+
   const handleAcceptFriend = async (friendId: string) => {
     if (!user?.id) return;
     setIsAcceptingFriend(friendId);
@@ -184,7 +344,9 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleShareInvite = async () => {
-    const inviteUrl = window.location.origin + '/register';
+    if (!user?.id) return;
+
+    const inviteUrl = `${window.location.origin}/invite/${user.id}`;
     const inviteText = `Join me on Berkeley Goggles! See how you rank and challenge me to a MOG battle. ${inviteUrl}`;
 
     if (navigator.share) {
@@ -316,23 +478,124 @@ export const ProfilePage: React.FC = () => {
         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/20 rounded-full blur-[100px]" />
       </div>
 
-      <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-10 flex items-center justify-between">
+      <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-20 flex items-center justify-between">
         <h1 className="text-2xl font-black text-white tracking-tighter drop-shadow-md">
           PROFILE
         </h1>
-        <button 
-          onClick={() => setShowFriendsList(true)}
-          className="relative p-2 bg-white/10 rounded-xl border border-white/20 transition-transform hover:scale-110 active:scale-95 group"
-        >
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-          {pendingRequests.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#1e3a8a] animate-bounce shadow-lg">
-              {pendingRequests.length}
-            </span>
-          )}
-        </button>
+        <div className="flex items-center space-x-2">
+          {/* Challenge Button with Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowChallengeDropdown(!showChallengeDropdown)}
+              className="relative p-2 bg-white/10 rounded-xl border border-white/20 transition-transform hover:scale-110 active:scale-95 group"
+            >
+              <img src={swordsIcon} alt="Challenges" className="w-6 h-6" />
+              {pendingChallengesIn.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#1e3a8a] animate-bounce shadow-lg">
+                  {pendingChallengesIn.length}
+                </span>
+              )}
+            </button>
+
+            {/* Challenge Dropdown */}
+            {showChallengeDropdown && (
+              <>
+                {/* Backdrop to close on outside click */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowChallengeDropdown(false)}
+                />
+                {/* Dropdown menu - centered right side of screen */}
+                <div className="fixed top-16 right-4 w-72 z-[100]">
+                  <div className="bg-[#2d3748] rounded-xl border-[3px] border-[#4a5568] shadow-2xl overflow-hidden">
+                    {pendingChallengesIn.length === 0 ? (
+                      /* Empty state */
+                      <div className="p-4 flex items-center justify-center space-x-2">
+                        <span className="text-xl">ℹ️</span>
+                        <span className="text-gray-400 font-bold italic">No challenges.</span>
+                      </div>
+                    ) : (
+                      /* Challenge list */
+                      <div className="max-h-64 overflow-y-auto">
+                        {pendingChallengesIn.map((challenge) => (
+                          <div
+                            key={challenge.id}
+                            className="p-3 border-b border-[#4a5568] last:border-b-0 bg-gradient-to-r from-[#3182ce]/20 to-transparent"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden border-2 border-[#ed8936]">
+                                  {challenge.challenger?.profilePhotoUrl ? (
+                                    <img
+                                      src={challenge.challenger.profilePhotoUrl}
+                                      alt={challenge.challenger.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-lg">👤</div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-white font-black italic text-sm">
+                                    {challenge.challenger?.name}
+                                  </p>
+                                  <p className="text-[#ed8936] text-[10px] font-bold italic uppercase">
+                                    Mog Battle
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {/* Accept Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleAcceptChallenge(challenge.id);
+                                    setShowChallengeDropdown(false);
+                                  }}
+                                  disabled={isAcceptingChallenge === challenge.id}
+                                  className="w-8 h-8 bg-[#48bb78] hover:bg-[#38a169] rounded-lg flex items-center justify-center border-b-2 border-[#2f855a] active:border-b-0 active:translate-y-[1px] transition-all disabled:opacity-50"
+                                >
+                                  <span className="text-white text-sm font-bold">✓</span>
+                                </button>
+                                {/* Decline Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleDeclineChallenge(challenge.id);
+                                  }}
+                                  className="w-8 h-8 bg-[#e53e3e] hover:bg-[#c53030] rounded-lg flex items-center justify-center border-b-2 border-[#9b2c2c] active:border-b-0 active:translate-y-[1px] transition-all"
+                                >
+                                  <span className="text-white text-sm font-bold">✕</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Friends Button */}
+          <button
+            type="button"
+            onClick={() => setShowFriendsList(true)}
+            className="relative p-2 bg-white/10 rounded-xl border border-white/20 transition-transform hover:scale-110 active:scale-95 group"
+          >
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            {pendingRequests.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-[#1e3a8a] animate-bounce shadow-lg">
+                {pendingRequests.length}
+              </span>
+            )}
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 py-6 relative z-10" style={{
@@ -752,12 +1015,12 @@ export const ProfilePage: React.FC = () => {
                 Invite Friend
               </button>
 
-              {/* Pending Requests Section (Always shown at top if any) */}
+              {/* Pending Friend Requests Section */}
               {pendingRequests.length > 0 && (
-                <div className="space-y-3 mb-6">
+                <div className="space-y-3 mb-4">
                   <div className="flex items-center space-x-2 py-2">
                     <div className="flex-1 h-[2px] bg-red-400/30" />
-                    <span className="text-red-600 font-black text-[10px] uppercase tracking-[0.3em] italic">Pending Requests</span>
+                    <span className="text-red-600 font-black text-[10px] uppercase tracking-[0.3em] italic">Friend Requests</span>
                     <div className="flex-1 h-[2px] bg-red-400/30" />
                   </div>
                   {pendingRequests.map((request) => (
@@ -776,16 +1039,63 @@ export const ProfilePage: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => handleAcceptFriend(request.id)}
                           disabled={isAcceptingFriend === request.id}
                           className="bg-[#48bb78] hover:bg-[#38a169] text-white px-4 py-2 rounded-lg text-[10px] font-black italic uppercase tracking-widest border-b-4 border-[#2f855a] active:border-b-0 active:translate-y-[2px] disabled:opacity-50"
                         >
                           {isAcceptingFriend === request.id ? '...' : 'Accept'}
                         </button>
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => handleDeclineFriend(request.id)}
                           className="bg-[#e53e3e] hover:bg-[#c53030] text-white px-4 py-1 rounded-lg text-[10px] font-black italic uppercase tracking-widest border-b-4 border-[#9b2c2c] active:border-b-0 active:translate-y-[2px]"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Pending Challenges Section */}
+              {pendingChallengesIn.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center space-x-2 py-2">
+                    <div className="flex-1 h-[2px] bg-orange-400/30" />
+                    <span className="text-orange-600 font-black text-[10px] uppercase tracking-[0.3em] italic">⚔️ Battle Challenges</span>
+                    <div className="flex-1 h-[2px] bg-orange-400/30" />
+                  </div>
+                  {pendingChallengesIn.map((challenge) => (
+                    <div key={challenge.id} className="bg-white p-4 rounded-2xl border-[3px] border-[#ed8936] shadow-md flex items-center justify-between transition-transform active:scale-[0.98]">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 rounded-xl bg-gray-200 overflow-hidden border-2 border-orange-300">
+                          {challenge.challenger?.profilePhotoUrl ? (
+                            <img src={challenge.challenger.profilePhotoUrl} alt={challenge.challenger.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl">👤</div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[#2d3748] font-black italic uppercase text-sm">{challenge.challenger?.name}</p>
+                          <p className="text-[#ed8936] font-bold text-[10px] uppercase italic">Challenges you to battle!</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptChallenge(challenge.id)}
+                          disabled={isAcceptingChallenge === challenge.id}
+                          className="bg-[#ed8936] hover:bg-[#dd6b20] text-white px-4 py-2 rounded-lg text-[10px] font-black italic uppercase tracking-widest border-b-4 border-[#c05621] active:border-b-0 active:translate-y-[2px] disabled:opacity-50"
+                        >
+                          {isAcceptingChallenge === challenge.id ? '...' : 'Accept'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeclineChallenge(challenge.id)}
+                          className="bg-[#718096] hover:bg-[#4a5568] text-white px-4 py-1 rounded-lg text-[10px] font-black italic uppercase tracking-widest border-b-4 border-[#2d3748] active:border-b-0 active:translate-y-[2px]"
                         >
                           Decline
                         </button>
@@ -806,38 +1116,60 @@ export const ProfilePage: React.FC = () => {
               <div className="space-y-2">
                 {friends.length > 0 ? (
                   friends.map((friend) => (
-                    <div 
-                      key={friend.id} 
-                      className="bg-gradient-to-b from-[#edf2f7] to-[#e2e8f0] p-3 rounded-2xl border-[3px] border-[#a0aec0] flex items-center justify-between shadow-md transition-transform active:scale-[0.98]"
+                    <div
+                      key={friend.id}
+                      className="bg-gradient-to-b from-[#edf2f7] to-[#e2e8f0] p-3 rounded-2xl border-[3px] border-[#a0aec0] shadow-md transition-transform"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <div className="w-14 h-14 rounded-full bg-white overflow-hidden border-2 border-[#718096] shadow-inner">
-                            {friend.profilePhotoUrl ? (
-                              <img src={friend.profilePhotoUrl} alt={friend.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-2xl text-[#a0aec0]">👤</div>
-                            )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <div className="w-12 h-12 rounded-full bg-white overflow-hidden border-2 border-[#718096] shadow-inner">
+                              {friend.profilePhotoUrl ? (
+                                <img src={friend.profilePhotoUrl} alt={friend.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xl text-[#a0aec0]">👤</div>
+                              )}
+                            </div>
+                            <div className="absolute top-0 left-0 bg-[#48bb78] w-3 h-3 rounded-full border-2 border-white shadow-sm"></div>
                           </div>
-                          <div className="absolute top-0 left-0 bg-[#48bb78] w-4 h-4 rounded-full border-2 border-white shadow-sm"></div>
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-1">
-                            <span className="text-[#2d3748] font-black italic uppercase text-lg leading-tight tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,1)]">
+                          <div>
+                            <span className="text-[#2d3748] font-black italic uppercase text-sm leading-tight tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,1)]">
                               {friend.name}
                             </span>
+                            <p className="text-[#718096] font-bold text-[9px] uppercase tracking-wider italic leading-none">
+                              🏆 {Math.round(friend.trophyScore || 0)}
+                            </p>
                           </div>
-                          <p className="text-[#718096] font-bold text-[10px] uppercase tracking-wider italic leading-none">
-                            {friend.age} YRS • MOGGER
-                          </p>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center bg-[#a0aec0]/20 px-3 py-2 rounded-xl border border-[#a0aec0]/30">
-                        <span className="text-xl mr-2 drop-shadow-sm">🏆</span>
-                        <span className="text-[#2d3748] font-black italic text-xl tracking-tighter">
-                          {Math.round(friend.trophyScore || 0)}
-                        </span>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center space-x-2">
+                          {/* Challenge Button */}
+                          <button
+                            type="button"
+                            onClick={() => setChallengeConfirmFriend(friend)}
+                            disabled={hasPendingChallenge(friend.id) || isSendingChallenge === friend.id}
+                            className="bg-[#ed8936] hover:bg-[#dd6b20] text-white p-2 rounded-lg border-b-4 border-[#c05621] active:border-b-0 active:translate-y-[2px] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            title={hasPendingChallenge(friend.id) ? 'Challenge pending' : 'Challenge to battle'}
+                          >
+                            <span className="text-lg">⚔️</span>
+                          </button>
+
+                          {/* Message Button */}
+                          <button
+                            type="button"
+                            onClick={() => openChat(friend)}
+                            className="bg-[#3182ce] hover:bg-[#2c5282] text-white p-2 rounded-lg border-b-4 border-[#2c5282] active:border-b-0 active:translate-y-[2px] transition-all relative"
+                            title="Send message"
+                          >
+                            <span className="text-lg">💬</span>
+                            {unreadByFriend[friend.id] > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                                {unreadByFriend[friend.id]}
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -850,6 +1182,148 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Modal */}
+      {showChat && chatFriend && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowChat(false); setChatFriend(null); } }}
+        >
+          <div className="w-full max-w-md h-[85vh] bg-[#4a5568] rounded-[1.5rem] flex flex-col border-[3px] border-[#2d3748] shadow-[0_0_20px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
+            {/* Chat Header */}
+            <div className="bg-[#2d3748] p-4 flex items-center justify-between shadow-lg">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-white overflow-hidden border-2 border-[#718096]">
+                  {chatFriend.profilePhotoUrl ? (
+                    <img src={chatFriend.profilePhotoUrl} alt={chatFriend.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-lg">👤</div>
+                  )}
+                </div>
+                <h3 className="text-xl font-black text-white italic tracking-wider uppercase drop-shadow-[0_2px_0_rgba(0,0,0,1)]">
+                  {chatFriend.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowChat(false); setChatFriend(null); }}
+                className="bg-[#e53e3e] hover:bg-[#c53030] text-white w-8 h-8 rounded-lg flex items-center justify-center border-b-4 border-[#9b2c2c] active:border-b-0 active:translate-y-[2px] shadow-lg transition-all"
+              >
+                <svg className="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#cbd5e0]">
+              {messages.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="text-4xl mb-4 opacity-30">💬</div>
+                  <p className="text-[#4a5568]/50 font-bold text-sm italic">No messages yet. Say hi!</p>
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[75%] p-3 rounded-2xl shadow-md ${
+                        msg.senderId === user?.id
+                          ? 'bg-[#3182ce] text-white rounded-br-sm'
+                          : 'bg-white text-[#2d3748] rounded-bl-sm'
+                      }`}
+                    >
+                      <p className="text-sm">{msg.content}</p>
+                      <p className={`text-[10px] mt-1 ${msg.senderId === user?.id ? 'text-blue-200' : 'text-gray-400'}`}>
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="bg-[#2d3748] p-3 flex items-center space-x-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Type a message..."
+                className="flex-1 bg-[#4a5568] text-white placeholder-gray-400 px-4 py-3 rounded-xl border-2 border-[#718096] focus:border-[#3182ce] focus:outline-none font-bold"
+              />
+              <button
+                type="button"
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || isSendingMessage}
+                className="bg-[#3182ce] hover:bg-[#2c5282] text-white p-3 rounded-xl border-b-4 border-[#2c5282] active:border-b-0 active:translate-y-[2px] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Challenge Confirmation Modal */}
+      {challengeConfirmFriend && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setChallengeConfirmFriend(null); }}
+        >
+          <div className="bg-[#4a5568] rounded-2xl border-[3px] border-[#2d3748] shadow-[0_0_30px_rgba(0,0,0,0.5)] max-w-sm w-full overflow-hidden">
+            {/* Header */}
+            <div className="bg-[#2d3748] p-4 flex items-center justify-center relative shadow-lg">
+              <h3 className="text-lg font-black text-white italic uppercase tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,1)]">
+                Mog Battle
+              </h3>
+              <button
+                type="button"
+                onClick={() => setChallengeConfirmFriend(null)}
+                className="absolute right-3 bg-[#e53e3e] hover:bg-[#c53030] text-white w-7 h-7 rounded-lg flex items-center justify-center border-b-2 border-[#9b2c2c] active:border-b-0 active:translate-y-[1px] transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="bg-[#cbd5e0] p-6 text-center">
+              <div className="text-5xl mb-4 drop-shadow-lg">⚔️</div>
+              <p className="text-[#2d3748] font-black italic text-lg leading-tight">
+                Challenge <span className="text-[#ed8936]">{challengeConfirmFriend.name}</span> to a Mog Battle?
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="bg-[#4a5568] p-4 flex space-x-4">
+              <button
+                type="button"
+                onClick={() => setChallengeConfirmFriend(null)}
+                className="flex-1 bg-gradient-to-b from-[#fc8181] to-[#e53e3e] hover:from-[#e53e3e] hover:to-[#c53030] text-white py-3 rounded-xl font-black italic uppercase tracking-wide border-b-4 border-[#9b2c2c] active:border-b-0 active:translate-y-[2px] shadow-lg transition-all drop-shadow-[0_2px_0_rgba(0,0,0,0.3)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSendChallenge(challengeConfirmFriend.id);
+                  setChallengeConfirmFriend(null);
+                }}
+                className="flex-1 bg-gradient-to-b from-[#63b3ed] to-[#3182ce] hover:from-[#3182ce] hover:to-[#2c5282] text-white py-3 rounded-xl font-black italic uppercase tracking-wide border-b-4 border-[#2c5282] active:border-b-0 active:translate-y-[2px] shadow-lg transition-all drop-shadow-[0_2px_0_rgba(0,0,0,0.3)]"
+              >
+                Challenge
+              </button>
             </div>
           </div>
         </div>
