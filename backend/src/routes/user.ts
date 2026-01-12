@@ -589,6 +589,14 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
         });
       }
 
+      // Get user's previous gender before updating
+      const previousUserData = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { gender: true }
+      });
+      const previousGender = previousUserData?.gender;
+      const genderChanged = previousGender && previousGender !== detectedGender;
+
       // Prepare update data - gender is guaranteed to exist at this point
       const updateData: any = {
         profilePhotoUrl: r2PhotoUrl,
@@ -600,7 +608,7 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
         where: { id: userId },
         data: updateData,
       });
-      
+
       // Create Photo record in database for algorithm training
       const photo = await prisma.photo.create({
         data: {
@@ -616,7 +624,38 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
         },
       });
 
-      // Create initial PhotoRanking record
+      // Check if we should copy trophies from old photo (same gender)
+      let existingTrophyData = {
+        trophyScore: 0,
+        hiddenBradleyTerryScore: 0,
+        targetTrophyScore: 0,
+      };
+
+      if (!genderChanged) {
+        // Get user's previous photo with rankings
+        const previousPhoto = await prisma.photo.findFirst({
+          where: {
+            userId,
+            status: 'approved',
+            id: { not: photo.id }
+          },
+          orderBy: { uploadedAt: 'desc' },
+          include: { ranking: true }
+        });
+
+        if (previousPhoto?.ranking) {
+          existingTrophyData = {
+            trophyScore: previousPhoto.ranking.trophyScore,
+            hiddenBradleyTerryScore: 0, // Always reset - new photo needs fresh truth layer
+            targetTrophyScore: 0, // Always reset - derived from Bradley-Terry
+          };
+          console.log(`Carrying over trophy score from previous photo: ${existingTrophyData.trophyScore} trophies (Bradley-Terry reset)`);
+        }
+      } else {
+        console.log(`Gender changed from ${previousGender} to ${detectedGender} - resetting trophies`);
+      }
+
+      // Create initial PhotoRanking record with carried-over trophies (if same gender)
       await prisma.photoRanking.create({
         data: {
           photoId: photo.id,
@@ -627,6 +666,9 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
           losses: 0,
           bradleyTerryScore: 0.5,
           confidence: 0.0,
+          trophyScore: existingTrophyData.trophyScore,
+          hiddenBradleyTerryScore: existingTrophyData.hiddenBradleyTerryScore,
+          targetTrophyScore: existingTrophyData.targetTrophyScore,
         },
       });
       
@@ -750,6 +792,14 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
     const relativePhotoUrl = `/uploads/profile-photos/${filename}`;
     const relativeThumbnailUrl = `/uploads/profile-photos/thumbs/${thumbnailFilename}`;
     
+    // Get user's previous gender before updating
+    const legacyPreviousUserData = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { gender: true }
+    });
+    const legacyPreviousGender = legacyPreviousUserData?.gender;
+    const legacyGenderChanged = legacyPreviousGender && legacyPreviousGender !== detectedGender;
+
     // Create Photo record in database for algorithm training
     const photo = await prisma.photo.create({
       data: {
@@ -765,7 +815,38 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
       },
     });
 
-    // Create initial PhotoRanking record for this photo
+    // Check if we should copy trophies from old photo (same gender)
+    let legacyExistingTrophyData = {
+      trophyScore: 0,
+      hiddenBradleyTerryScore: 0,
+      targetTrophyScore: 0,
+    };
+
+    if (!legacyGenderChanged) {
+      // Get user's previous photo with rankings
+      const legacyPreviousPhoto = await prisma.photo.findFirst({
+        where: {
+          userId,
+          status: 'approved',
+          id: { not: photo.id }
+        },
+        orderBy: { uploadedAt: 'desc' },
+        include: { ranking: true }
+      });
+
+      if (legacyPreviousPhoto?.ranking) {
+        legacyExistingTrophyData = {
+          trophyScore: legacyPreviousPhoto.ranking.trophyScore,
+          hiddenBradleyTerryScore: 0, // Always reset - new photo needs fresh truth layer
+          targetTrophyScore: 0, // Always reset - derived from Bradley-Terry
+        };
+        console.log(`Carrying over trophy score from previous photo: ${legacyExistingTrophyData.trophyScore} trophies (Bradley-Terry reset)`);
+      }
+    } else {
+      console.log(`Gender changed from ${legacyPreviousGender} to ${detectedGender} - resetting trophies`);
+    }
+
+    // Create initial PhotoRanking record with carried-over trophies (if same gender)
     await prisma.photoRanking.create({
       data: {
         photoId: photo.id,
@@ -776,6 +857,9 @@ userRoutes.post('/photo', upload.single('photo'), asyncHandler(async (req, res) 
         losses: 0,
         bradleyTerryScore: 0.5, // Start at neutral score
         confidence: 0.0,
+        trophyScore: legacyExistingTrophyData.trophyScore,
+        hiddenBradleyTerryScore: legacyExistingTrophyData.hiddenBradleyTerryScore,
+        targetTrophyScore: legacyExistingTrophyData.targetTrophyScore,
       },
     });
     
