@@ -111,15 +111,24 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
 
 
   return (
-    <div className="min-h-screen bg-black flex flex-col safe-area-inset">
+    <div className="min-h-screen bg-gradient-to-b from-[#1e3a8a] to-[#3b82f6] flex flex-col safe-area-inset relative overflow-hidden">
+      {/* Animated background blur orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-20 w-64 h-64 bg-blue-400/20 rounded-full blur-[80px]" />
+        <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-300/10 rounded-full blur-[120px]" />
+      </div>
+
       {/* Hero Section */}
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 flex items-center justify-center px-6 relative z-10">
         <div className="max-w-md mx-auto text-center">
-          <h3 className="text-4xl font-bold text-white mb-8">Berkeley Goggles</h3>
+          <h1 className="text-5xl font-black italic uppercase tracking-tighter text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] mb-8">
+            Berkeley <span className="text-blue-300">Goggles</span>
+          </h1>
           {/* Bouncing Goggles Animation Box */}
           <div className="mb-8">
             <div
-              className="mx-auto rounded-2xl overflow-hidden relative"
+              className="mx-auto rounded-[2rem] overflow-hidden relative border border-white/20 shadow-2xl"
               style={{ width: BOX_SIZE, height: BOX_SIZE }}
             >
               {/* Choski background */}
@@ -192,32 +201,31 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
           {/* Authentication Options */}
           <div className="space-y-4">
             {/* Google OAuth Option */}
-            
-            <div className="w-full">
+            <div className="w-full flex justify-center">
               {isLoading ? (
-                <div className="w-full py-3 px-4 bg-gray-800 border border-gray-600 rounded-lg text-center">
-                  <span className="text-gray-300">Signing in with Google...</span>
+                <div className="w-full py-3 px-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-center">
+                  <span className="text-white/80 font-medium">Signing in with Google...</span>
                 </div>
               ) : (
-                <div style={{width: '100%'}}>
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-1 border border-white/20">
                   <GoogleLogin
                     onSuccess={handleGoogleSuccess}
                     onError={handleGoogleError}
                     size="large"
                     text="signin"
-                    theme="outline"
+                    theme="filled_blue"
                   />
                 </div>
               )}
             </div>
-            
+
             {error && (
-              <div className="p-4 bg-red-600/20 border border-red-600/50 rounded-lg">
-                <p className="text-red-400 text-sm">{error}</p>
+              <div className="p-4 bg-red-500/20 backdrop-blur-md border border-red-400/30 rounded-xl">
+                <p className="text-red-200 text-sm font-medium">{error}</p>
               </div>
             )}
-            
-            <p className="text-xs text-gray-500 leading-relaxed text-center">
+
+            <p className="text-xs text-white/40 leading-relaxed text-center font-medium">
               Entertainment purposes only. Must be 18+.
             </p>
           </div>
@@ -225,8 +233,8 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
       </div>
 
       {/* Footer */}
-      <footer className="px-6 py-4 text-center">
-        <p className="text-xs text-gray-600">
+      <footer className="px-6 py-4 text-center relative z-10">
+        <p className="text-xs text-white/30 font-medium tracking-wide">
           Berkeley Goggles • Privacy First
         </p>
       </footer>

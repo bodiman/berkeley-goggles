@@ -27,10 +27,10 @@ export const InvitePage: React.FC<InvitePageProps> = ({ inviteToken, onComplete 
         console.log('🎫 InvitePage: API response:', validateData);
 
         if (!validateData.success || !validateData.valid) {
-          // Token is invalid, used, or expired
+          // Token is invalid, used, or expired - clear and proceed silently
           console.log('🎫 InvitePage: Token validation FAILED:', validateData.error);
-          setErrorMessage(validateData.error || 'This invite link is no longer valid');
-          setStatus('error');
+          localStorage.removeItem('inviteToken');
+          onComplete();
           return;
         }
 
