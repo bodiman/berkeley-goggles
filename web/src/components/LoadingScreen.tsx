@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShaderAnimation } from './ui/shader-animation';
+import gogglesImg from '../assets/goggles.svg';
 
 interface LoadingScreenProps {
   onComplete: () => void;
@@ -37,7 +38,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
       <div className="relative z-10 flex flex-col items-center">
         {/* Logo and Name */}
         <div className="mb-12 text-center animate-in fade-in zoom-in duration-1000">
-          <div className="text-8xl mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">🥽</div>
+          <img src={gogglesImg} alt="Goggles" className="w-32 h-32 mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]" />
           <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
             Berkeley <span className="text-blue-400">Goggles</span>
           </h1>

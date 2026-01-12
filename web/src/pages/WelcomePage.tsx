@@ -3,16 +3,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 import choskiImg from '../assets/choski.jpg';
 import oskimaxImg from '../assets/oskimax.png';
+import gogglesImg from '../assets/goggles.svg';
 
 interface WelcomePageProps {}
 
 const BOX_SIZE = 320;
-const GOGGLES_SIZE = 120;
+const GOGGLES_SIZE = 320;
 const MASK_RADIUS = 45;
 const LENS_SPACING = 100; // Distance between lens centers
-const LENS_OFFSET_X = 65; // Shift lenses horizontally
-const LENS_OFFSET_Y = 10; // Shift lenses vertically
+const LENS_OFFSET_X = 0; // Shift lenses horizontally
+const LENS_OFFSET_Y = -50; // Shift lenses vertically
 const BOUNCE_SPEED = 2;
+const VELOCITY_SCALE = 0.65; // Scale factor for bounce velocity (increase for faster, decrease for slower)
 
 export const WelcomePage: React.FC<WelcomePageProps> = () => {
   const { loginWithGoogle } = useAuth();
@@ -25,8 +27,8 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
     y: Math.random() * (BOX_SIZE - GOGGLES_SIZE),
   }));
   const velocityRef = useRef({
-    x: BOUNCE_SPEED * (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.4),
-    y: BOUNCE_SPEED * (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.4),
+    x: BOUNCE_SPEED * VELOCITY_SCALE * (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.4),
+    y: BOUNCE_SPEED * VELOCITY_SCALE * (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 0.4),
   });
   const animationRef = useRef<number>();
 
@@ -188,12 +190,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
                   height: GOGGLES_SIZE,
                 }}
               >
-                <span
-                  className="text-[250px] drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]"
-                  style={{ lineHeight: `${GOGGLES_SIZE}px` }}
-                >
-                  🥽
-                </span>
+                <img
+                  src={gogglesImg}
+                  alt="Goggles"
+                  className="w-full h-full drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+                />
               </div>
             </div>
           </div>
