@@ -80,6 +80,11 @@ model User {
   inviteTokensCreated InviteToken[] @relation("InviteTokensCreated")
   inviteTokensUsed    InviteToken[] @relation("InviteTokensUsed")
 
+  // Match relations (daily matches)
+  matchesInitiated  Match[] @relation("MatchesInitiated")
+  matchesReceived   Match[] @relation("MatchesReceived")
+  matchMessagesSent MatchMessage[] @relation("MatchMessagesSent")
+
   @@map("users")
 }
 
@@ -435,4 +440,47 @@ model InviteToken {
   @@index([token])
   @@index([creatorId])
   @@map("invite_tokens")
+}
+
+model Match {
+  id          String   @id @default(cuid())
+
+  // The female user who initiated the match
+  initiatorId String   @map("initiator_id")
+
+  // The male user who was matched
+  matchedId   String   @map("matched_id")
+
+  // Match status
+  status      String   @default("pending") // "pending", "accepted", "declined", "expired"
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  respondedAt DateTime? @map("responded_at")
+
+  // Relations
+  initiator   User     @relation("MatchesInitiated", fields: [initiatorId], references: [id], onDelete: Cascade)
+  matched     User     @relation("MatchesReceived", fields: [matchedId], references: [id], onDelete: Cascade)
+  messages    MatchMessage[]
+
+  @@index([initiatorId])
+  @@index([matchedId])
+  @@map("matches")
+}
+
+model MatchMessage {
+  id        String   @id @default(cuid())
+  matchId   String   @map("match_id")
+  senderId  String   @map("sender_id")
+  content   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender    User     @relation("MatchMessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([senderId])
+  @@map("match_messages")
 }

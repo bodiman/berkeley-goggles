@@ -258,14 +258,6 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
       referrer = inviteRecord.creator;
     }
 
-    // If no valid invite token, require Berkeley email
-    if (!referrer && !payload.email.endsWith('@berkeley.edu')) {
-      return res.status(403).json({
-        success: false,
-        error: 'Only @berkeley.edu email addresses are allowed, or use an invite link',
-      });
-    }
-
     // Check if user already exists
     let user = await prisma.user.findUnique({
       where: { email: payload.email },
@@ -273,6 +265,14 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
 
     let isNewUser = false;
     if (!user) {
+      // Only require Berkeley email for NEW users without an invite
+      if (!referrer && !payload.email.endsWith('@berkeley.edu')) {
+        return res.status(403).json({
+          success: false,
+          error: 'Registration requires a @berkeley.edu email address, or use an invite link',
+        });
+      }
+
       isNewUser = true;
       // Create new user from Google profile
       user = await prisma.user.create({

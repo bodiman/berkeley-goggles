@@ -66,6 +66,9 @@ interface BattleLogEntry {
   timestamp: string;
   isWinner: boolean;
   trophyDelta: number;
+  hasMultiplier?: boolean;
+  consecutiveWins?: number;
+  isUpset?: boolean;
   rater: {
     id: string;
     name: string;
@@ -77,6 +80,8 @@ interface BattleLogEntry {
     name: string;
     gender: string;
     photoUrl: string | null;
+    trophyScore?: number | null;
+    percentile?: number | null;
   } | null;
 }
 
