@@ -3,40 +3,62 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
 
 interface InvitePageProps {
-  inviterId: string;
+  inviteToken: string; // Now a one-time-use token, not a user ID
   onComplete: () => void;
 }
 
-export const InvitePage: React.FC<InvitePageProps> = ({ inviterId, onComplete }) => {
+export const InvitePage: React.FC<InvitePageProps> = ({ inviteToken, onComplete }) => {
   const { user } = useAuth();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'validating' | 'success' | 'error'>('loading');
   const [inviterName, setInviterName] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const handleInvite = async () => {
-      if (!user) {
-        // User not logged in - store referrer and redirect to auth
-        localStorage.setItem('referrerId', inviterId);
-        console.log('Stored referrer ID for registration:', inviterId);
-        onComplete();
-        return;
-      }
+      console.log('🎫 InvitePage: Received invite token:', inviteToken);
+      console.log('🎫 InvitePage: Current user:', user ? user.id : 'NOT LOGGED IN');
 
-      // User is logged in - call API to add friend
+      // First, validate the invite token
+      setStatus('validating');
       try {
-        const response = await apiRequest('/api/friends/accept-invite', {
+        console.log('🎫 InvitePage: Validating token with API...');
+        const validateResponse = await apiRequest(`/api/invite/${inviteToken}`);
+        const validateData = await validateResponse.json();
+        console.log('🎫 InvitePage: API response:', validateData);
+
+        if (!validateData.success || !validateData.valid) {
+          // Token is invalid, used, or expired - clear and proceed silently
+          console.log('🎫 InvitePage: Token validation FAILED:', validateData.error);
+          localStorage.removeItem('inviteToken');
+          onComplete();
+          return;
+        }
+
+        // Token is valid
+        console.log('🎫 InvitePage: Token is VALID, creator:', validateData.creator?.name);
+        setInviterName(validateData.creator?.name || 'your friend');
+
+        if (!user) {
+          // User not logged in - store invite token and redirect to auth
+          console.log('🎫 InvitePage: User not logged in, storing token in localStorage...');
+          localStorage.setItem('inviteToken', inviteToken);
+          console.log('🎫 InvitePage: Token stored! Verifying:', localStorage.getItem('inviteToken'));
+          onComplete();
+          return;
+        }
+
+        // User is logged in - call API to add friend using token
+        const response = await apiRequest('/api/friends/accept-invite-token', {
           method: 'POST',
           body: JSON.stringify({
             userId: user.id,
-            inviterId: inviterId,
+            inviteToken: inviteToken,
           }),
         });
 
         const data = await response.json();
 
         if (data.success) {
-          setInviterName(data.inviter?.name || 'your friend');
           setStatus('success');
           // Clear the URL and redirect after a delay
           setTimeout(() => {
@@ -48,17 +70,17 @@ export const InvitePage: React.FC<InvitePageProps> = ({ inviterId, onComplete })
           setStatus('error');
         }
       } catch (error) {
-        console.error('Failed to accept invite:', error);
+        console.error('Failed to process invite:', error);
         setErrorMessage('Failed to connect. Please try again.');
         setStatus('error');
       }
     };
 
     handleInvite();
-  }, [user, inviterId, onComplete]);
+  }, [user, inviteToken, onComplete]);
 
   // If user is not logged in, this will redirect quickly
-  if (!user) {
+  if (!user && status === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-700 flex items-center justify-center">
         <div className="text-white text-center">
@@ -72,11 +94,11 @@ export const InvitePage: React.FC<InvitePageProps> = ({ inviterId, onComplete })
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-900 to-blue-700 flex items-center justify-center p-6">
       <div className="max-w-sm w-full bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 text-center">
-        {status === 'loading' && (
+        {(status === 'loading' || status === 'validating') && (
           <>
             <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
             <h2 className="text-xl font-black text-white uppercase tracking-wide mb-2">
-              Adding Friend
+              {status === 'validating' ? 'Validating Invite' : 'Adding Friend'}
             </h2>
             <p className="text-white/60 text-sm">Please wait...</p>
           </>
@@ -111,6 +133,7 @@ export const InvitePage: React.FC<InvitePageProps> = ({ inviterId, onComplete })
             </h2>
             <p className="text-white/80 text-sm mb-6">{errorMessage}</p>
             <button
+              type="button"
               onClick={() => {
                 window.history.replaceState({}, '', '/');
                 onComplete();

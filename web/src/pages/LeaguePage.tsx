@@ -236,9 +236,9 @@ export const LeaguePage: React.FC = () => {
                 </div>
               ) : userLeague ? (
                 <div className="bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-2xl rounded-[2rem] p-6 border border-white/30 shadow-2xl text-center transform transition-transform hover:scale-102">
-                  <div 
+                  <div
                     className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 border-2 border-white/40 shadow-xl"
-                    style={{ 
+                    style={{
                       backgroundColor: userLeague.currentLeague.color,
                       boxShadow: `0 0 30px ${userLeague.currentLeague.color}66`
                     }}
@@ -374,7 +374,7 @@ export const LeaguePage: React.FC = () => {
                           : 'bg-white/5 border border-white/5'
                       }`}
                     >
-                      <div 
+                      <div
                         className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg border-2 border-white/20"
                         style={{ backgroundColor: league.color }}
                       >

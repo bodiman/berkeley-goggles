@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
 import { z } from 'zod';
+import { io } from '../index';
 
 export const challengesRoutes = Router();
 
@@ -63,6 +64,9 @@ challengesRoutes.post('/', asyncHandler(async (req, res) => {
     }
   });
 
+  // Emit real-time challenge notification to challenged user
+  io.to(`user:${challengedId}`).emit('challenge:new', challenge);
+
   res.json({ success: true, challenge });
 }));
 
@@ -102,6 +106,9 @@ challengesRoutes.post('/accept/:id', asyncHandler(async (req, res) => {
       }
     }
   });
+
+  // Emit real-time notification to challenger that challenge was accepted
+  io.to(`user:${updatedChallenge.challengerId}`).emit('challenge:accepted', updatedChallenge);
 
   res.json({ success: true, challenge: updatedChallenge });
 }));
@@ -167,7 +174,38 @@ challengesRoutes.get('/pending/:userId', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json({ success: true, incoming, outgoing });
+  // Get active challenges where user is a participant
+  const active = await prisma.challenge.findMany({
+    where: {
+      status: 'active',
+      OR: [
+        { challengerId: userId },
+        { challengedId: userId }
+      ]
+    },
+    include: {
+      challenger: {
+        select: { id: true, name: true, profilePhotoUrl: true }
+      },
+      challenged: {
+        select: { id: true, name: true, profilePhotoUrl: true }
+      },
+      votes: {
+        include: {
+          voter: {
+            select: { id: true, name: true, profilePhotoUrl: true }
+          },
+          chosenUser: {
+            select: { id: true, name: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }
+    },
+    orderBy: { acceptedAt: 'desc' }
+  });
+
+  res.json({ success: true, incoming, outgoing, active });
 }));
 
 // GET /api/challenges/active - Get a random active challenge for comparison queue
@@ -276,10 +314,13 @@ challengesRoutes.post('/vote', asyncHandler(async (req, res) => {
 
   // Check if challenge is complete
   const totalVotes = updatedChallenge.challengerVotes + updatedChallenge.challengedVotes;
+  let winnerId: string | null = null;
+  let isComplete = false;
 
   if (totalVotes >= updatedChallenge.votesRequired) {
+    isComplete = true;
     // Determine winner
-    const winnerId = updatedChallenge.challengerVotes > updatedChallenge.challengedVotes
+    winnerId = updatedChallenge.challengerVotes > updatedChallenge.challengedVotes
       ? updatedChallenge.challengerId
       : updatedChallenge.challengedVotes > updatedChallenge.challengerVotes
         ? updatedChallenge.challengedId
@@ -296,6 +337,19 @@ challengesRoutes.post('/vote', asyncHandler(async (req, res) => {
 
     console.log(`Challenge ${challengeId} completed! Winner: ${winnerId || 'TIE'} (${updatedChallenge.challengerVotes}-${updatedChallenge.challengedVotes})`);
   }
+
+  // Emit real-time vote update to both participants
+  const voteUpdate = {
+    challengeId,
+    challengerVotes: updatedChallenge.challengerVotes,
+    challengedVotes: updatedChallenge.challengedVotes,
+    totalVotes,
+    voterId,
+    chosenUserId,
+    isComplete,
+    winnerId,
+  };
+  io.to(`user:${updatedChallenge.challengerId}`).to(`user:${updatedChallenge.challengedId}`).emit('challenge:vote', voteUpdate);
 
   res.json({ success: true, vote, totalVotes });
 }));

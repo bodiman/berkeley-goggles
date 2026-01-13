@@ -155,13 +155,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithGoogle = async (idToken: string): Promise<boolean> => {
     try {
-      // Check for referrer ID from invite link
-      const referrerId = localStorage.getItem('referrerId');
+      // Check for invite token from invite link
+      const inviteToken = localStorage.getItem('inviteToken');
+      console.log('🎫 AuthContext: loginWithGoogle - inviteToken from localStorage:', inviteToken);
 
       const response = await apiRequest(API_ENDPOINTS.auth.google, {
         method: 'POST',
-        body: JSON.stringify({ idToken, referrerId: referrerId || undefined }),
+        body: JSON.stringify({ idToken, inviteToken: inviteToken || undefined }),
       });
+      console.log('🎫 AuthContext: loginWithGoogle - API response status:', response.status);
 
       if (!response.ok) {
         return false;
@@ -180,9 +182,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(user);
         localStorage.setItem('elo-check-user', JSON.stringify(user));
 
-        // Clear referrer ID after successful registration/login
-        if (referrerId) {
-          localStorage.removeItem('referrerId');
+        // Clear invite token after successful registration/login
+        if (inviteToken) {
+          localStorage.removeItem('inviteToken');
           if (data.referrer) {
             console.log(`Now friends with ${data.referrer.name} via invite link`);
           }
@@ -207,15 +209,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (registrationData: UserRegistrationData): Promise<boolean> => {
     try {
-      // Check for referrer ID from invite link
-      const referrerId = localStorage.getItem('referrerId');
+      // Check for invite token from invite link
+      const inviteToken = localStorage.getItem('inviteToken');
+      console.log('🎫 AuthContext: register - inviteToken from localStorage:', inviteToken);
 
       // Use the API helper for proper configuration
       const response = await apiRequest(API_ENDPOINTS.auth.register, {
         method: 'POST',
         body: JSON.stringify({
           ...registrationData,
-          referrerId: referrerId || undefined,
+          inviteToken: inviteToken || undefined,
         }),
       });
 
@@ -236,9 +239,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(user);
         localStorage.setItem('elo-check-user', JSON.stringify(user));
 
-        // Clear referrer ID after successful registration
-        if (referrerId) {
-          localStorage.removeItem('referrerId');
+        // Clear invite token after successful registration
+        if (inviteToken) {
+          localStorage.removeItem('inviteToken');
           if (data.referrer) {
             console.log(`Now friends with ${data.referrer.name} via invite link`);
           }

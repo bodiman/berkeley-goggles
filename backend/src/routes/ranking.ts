@@ -707,7 +707,7 @@ rankingRoutes.get('/battle-log', asyncHandler(async (req, res) => {
           };
         }
       }
-      
+
       return {
         id: comp.id,
         timestamp: comp.timestamp,

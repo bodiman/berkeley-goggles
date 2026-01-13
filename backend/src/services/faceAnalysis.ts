@@ -28,6 +28,7 @@ class FaceAnalysisService {
     try {
       // Detect face with gender
       console.log('Detecting face and gender...');
+      console.log('Image tensor shape:', tensor.shape);
       const detection = await faceapi
         .detectSingleFace(tensor as unknown as faceapi.TNetInput)
         .withAgeAndGender();

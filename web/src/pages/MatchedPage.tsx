@@ -78,8 +78,63 @@ export const MatchedPage: React.FC = () => {
       age: 118, // Oski was created in 1906, so he's quite old!
     };
     setYourTurnMatches([oskiMatch]);
-    setIsLoading(false);
   }, []);
+
+  // Fetch matches from database on load
+  useEffect(() => {
+    const fetchMatches = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await apiRequest(`/api/match-messages/conversations/${user.id}`);
+        const data = await response.json();
+
+        if (data.success && data.conversations) {
+          // Convert to Match format
+          const matches: Match[] = data.conversations.map((conv: any) => ({
+            id: conv.match.id,
+            name: conv.partner.name,
+            profilePhotoUrl: conv.partner.profilePhotoUrl,
+            age: conv.partner.age,
+            lastMessage: conv.lastMessage?.content,
+            lastMessageTime: conv.lastMessage ? formatRelativeTime(new Date(conv.lastMessage.createdAt)) : undefined,
+            isYourTurn: conv.unreadCount > 0,
+          }));
+
+          // Separate into your turn vs their turn
+          const yourTurn = matches.filter(m => m.isYourTurn);
+          const theirTurn = matches.filter(m => !m.isYourTurn);
+
+          // Add to lists (keep Oski in yourTurnMatches)
+          setYourTurnMatches(prev => [...prev.filter(m => m.id === 'oski-bear'), ...yourTurn]);
+          setTheirTurnMatches(theirTurn);
+        }
+      } catch (error) {
+        console.error('Failed to fetch matches:', error);
+      }
+
+      setIsLoading(false);
+    };
+
+    fetchMatches();
+  }, [user?.id]);
+
+  // Helper to format relative time
+  const formatRelativeTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
 
   // Load chat messages when a match is selected
   useEffect(() => {
@@ -103,9 +158,27 @@ export const MatchedPage: React.FC = () => {
     }
   }, [selectedMatch, user?.id]);
 
-  const loadChatMessages = async (_matchId: string) => {
-    // TODO: Load actual chat messages from API
-    setChatMessages([]);
+  const loadChatMessages = async (matchId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const response = await apiRequest(`/api/match-messages/${matchId}?userId=${user.id}`);
+      const data = await response.json();
+
+      if (data.success && data.messages) {
+        const messages: ChatMessage[] = data.messages.map((msg: any) => ({
+          id: msg.id,
+          senderId: msg.senderId,
+          receiverId: matchId,
+          message: msg.content,
+          timestamp: new Date(msg.createdAt),
+        }));
+        setChatMessages(messages);
+      }
+    } catch (error) {
+      console.error('Failed to load chat messages:', error);
+      setChatMessages([]);
+    }
   };
 
   const sendMessage = async () => {
@@ -137,7 +210,24 @@ export const MatchedPage: React.FC = () => {
         setChatMessages(prev => [...prev, oskiMessage]);
       }, 1500);
     } else {
-      // TODO: Send message to API
+      // Send message to API for real matches
+      try {
+        const response = await apiRequest('/api/match-messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            matchId: selectedMatch.id,
+            senderId: user?.id,
+            content: message.message,
+          }),
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+          console.error('Failed to send message:', data.error);
+        }
+      } catch (error) {
+        console.error('Failed to send message:', error);
+      }
     }
   };
 
@@ -145,7 +235,7 @@ export const MatchedPage: React.FC = () => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
-    
+
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
@@ -434,6 +524,7 @@ export const MatchedPage: React.FC = () => {
           }}>Matches</h1>
           {user?.gender === 'female' && (
             <button
+              type="button"
               onClick={fetchPotentialMatches}
               disabled={isLoadingMatches || hasUsedDailyMatch}
               className={`${
@@ -471,6 +562,7 @@ export const MatchedPage: React.FC = () => {
                 <p className="text-sm text-gray-500 mt-1">One match per day</p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowDailyMatch(false);
                   setPotentialMatches([]);
@@ -520,6 +612,7 @@ export const MatchedPage: React.FC = () => {
                     >
                       {!isRevealed ? (
                         <button
+                          type="button"
                           onClick={() => revealMatch(match.id)}
                           disabled={isDisabled || isRevealing}
                           className={`w-full flex items-center justify-center p-8 min-h-[120px] transition-all duration-300 ${
@@ -533,6 +626,7 @@ export const MatchedPage: React.FC = () => {
                         </button>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => selectMatch(match.id)}
                           disabled={isDisabled}
                           className={`w-full flex items-center space-x-4 p-4 disabled:cursor-not-allowed transition-all duration-300 ${

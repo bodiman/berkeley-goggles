@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
 import { z } from 'zod';
+import { io } from '../index';
 
 export const messagesRoutes = Router();
 
@@ -44,6 +45,16 @@ messagesRoutes.post('/', asyncHandler(async (req, res) => {
         select: { id: true, name: true, profilePhotoUrl: true }
       }
     }
+  });
+
+  // Emit real-time message to receiver
+  io.to(`user:${receiverId}`).emit('message:new', {
+    id: message.id,
+    senderId,
+    receiverId,
+    content,
+    createdAt: message.createdAt,
+    sender: message.sender,
   });
 
   res.json({ success: true, message });

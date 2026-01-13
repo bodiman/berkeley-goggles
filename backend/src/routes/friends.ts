@@ -261,3 +261,87 @@ friendsRoutes.post('/accept-invite', asyncHandler(async (req, res) => {
   res.json({ success: true, friendship, inviter });
 }));
 
+// Schema for accepting invite via token
+const acceptInviteTokenSchema = z.object({
+  userId: z.string(),
+  inviteToken: z.string(),
+});
+
+// POST /api/friends/accept-invite-token
+// For logged-in users accepting a one-time invite token
+friendsRoutes.post('/accept-invite-token', asyncHandler(async (req, res) => {
+  const { userId, inviteToken } = acceptInviteTokenSchema.parse(req.body);
+
+  // Find and validate the invite token
+  const invite = await prisma.inviteToken.findUnique({
+    where: { token: inviteToken },
+    include: {
+      creator: {
+        select: { id: true, name: true, profilePhotoUrl: true }
+      }
+    }
+  });
+
+  if (!invite) {
+    return res.status(404).json({ success: false, error: 'Invalid invite link' });
+  }
+
+  if (invite.usedById) {
+    return res.status(400).json({ success: false, error: 'This invite link has already been used' });
+  }
+
+  if (invite.expiresAt && invite.expiresAt < new Date()) {
+    return res.status(400).json({ success: false, error: 'This invite link has expired' });
+  }
+
+  if (userId === invite.creatorId) {
+    return res.status(400).json({ success: false, error: 'Cannot use your own invite link' });
+  }
+
+  // Check if friendship already exists
+  const existing = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { userId, friendId: invite.creatorId },
+        { userId: invite.creatorId, friendId: userId }
+      ]
+    }
+  });
+
+  if (existing && existing.status === 'accepted') {
+    // Already friends, but still mark the token as used
+    await prisma.inviteToken.update({
+      where: { id: invite.id },
+      data: { usedById: userId, usedAt: new Date() }
+    });
+    return res.json({ success: true, message: 'Already friends', inviter: invite.creator });
+  }
+
+  // Mark token as used
+  await prisma.inviteToken.update({
+    where: { id: invite.id },
+    data: { usedById: userId, usedAt: new Date() }
+  });
+
+  if (existing) {
+    // If pending, accept it
+    await prisma.friendship.update({
+      where: { id: existing.id },
+      data: { status: 'accepted' }
+    });
+    return res.json({ success: true, message: 'Friend request accepted', inviter: invite.creator });
+  }
+
+  // Create new accepted friendship
+  await prisma.friendship.create({
+    data: {
+      userId: invite.creatorId,  // Inviter is the initiator
+      friendId: userId,          // Current user is the receiver
+      status: 'accepted',
+    },
+  });
+
+  console.log(`Created friendship via invite token: ${invite.creator.name} -> user ${userId}`);
+  res.json({ success: true, inviter: invite.creator });
+}));
+

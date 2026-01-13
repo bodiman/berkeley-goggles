@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShaderAnimation } from './ui/shader-animation';
+import gogglesImg from '../assets/goggles.svg';
 
 interface LoadingScreenProps {
   onComplete: () => void;
@@ -33,11 +34,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
       <div className="absolute inset-0">
         <ShaderAnimation />
       </div>
-      
+
       <div className="relative z-10 flex flex-col items-center">
         {/* Logo and Name */}
         <div className="mb-12 text-center animate-in fade-in zoom-in duration-1000">
-          <div className="text-8xl mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">🥽</div>
+          <img src={gogglesImg} alt="Goggles" className="w-32 h-32 mb-4 mx-auto drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]" />
           <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
             Berkeley <span className="text-blue-400">Goggles</span>
           </h1>
@@ -46,12 +47,12 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
         {/* Loading Bar Container */}
         <div className="w-64 h-4 bg-white/10 backdrop-blur-md rounded-full border-2 border-white/20 overflow-hidden shadow-[0_0_15px_rgba(0,0,0,0.5)]">
           {/* Animated Progress Fill */}
-          <div 
+          <div
             className="h-full bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600 bg-[length:200%_100%] animate-shimmer transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
-        
+
         {/* Percentage Text */}
         <div className="mt-3">
           <p className="text-blue-200 font-black italic uppercase tracking-widest text-[10px] animate-pulse">
@@ -72,4 +73,3 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
     </div>
   );
 };
-

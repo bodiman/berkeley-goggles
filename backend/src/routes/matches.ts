@@ -9,7 +9,7 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
   try {
     // TODO: Get user ID from auth middleware
     const userId = req.query.userId as string;
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -20,12 +20,12 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
     // Get current user with their matching preference
     const currentUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { 
+      select: {
         id: true,
         gender: true,
         matchingPercentile: true,
         photos: {
-          where: { 
+          where: {
             status: 'approved'
           },
           orderBy: { uploadedAt: 'desc' },
@@ -73,12 +73,12 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
 
     const currentUserPercentile = userCombinedRanking.currentPercentile;
     const userMatchingRange = currentUser.matchingPercentile; // e.g., 20 for top 20%
-    
+
     // Calculate percentile range based on user's current position
     // If user is at 80th percentile and wants top 20%, they want people from 80th-100th percentile
     const minPercentile = Math.max(0, currentUserPercentile);
     const maxPercentile = 100;
-    
+
     // Determine opposite gender for matching
     const oppositeGender = currentUser.gender === 'male' ? 'female' : 'male';
 
@@ -104,7 +104,7 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
       },
       include: {
         photos: {
-          where: { 
+          where: {
             status: 'approved',
             combinedRanking: {
               totalComparisons: { gte: 5 }
@@ -129,7 +129,7 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
       totalComparisons: number;
       confidence: string;
     }> = [];
-    
+
     for (const potentialMatch of potentialMatches) {
       if (potentialMatch.photos.length === 0 || !potentialMatch.photos[0].combinedRanking) {
         continue;
@@ -137,13 +137,13 @@ matchesRoutes.get('/get-matches', asyncHandler(async (req, res) => {
 
       const matchPhoto = potentialMatch.photos[0];
       if (!matchPhoto?.combinedRanking) continue;
-      
+
       const matchPercentile = matchPhoto.combinedRanking.currentPercentile;
       const matchPreference = potentialMatch.matchingPercentile;
-      
+
       // Check if current user would fall in this person's desired range
       const matchMinPercentile = Math.max(0, 100 - matchPreference);
-      
+
       if (currentUserPercentile >= matchMinPercentile) {
         // This is a mutual match
         const confidence = getMatchConfidence(
@@ -246,11 +246,11 @@ matchesRoutes.get('/potential-matches', asyncHandler(async (req, res) => {
     // Get current user
     const currentUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { 
+      select: {
         id: true,
         gender: true,
         photos: {
-          where: { 
+          where: {
             status: 'approved'
           },
           orderBy: { uploadedAt: 'desc' },
@@ -280,9 +280,9 @@ matchesRoutes.get('/potential-matches', asyncHandler(async (req, res) => {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const todayMatch = await prisma.friendship.findFirst({
+    const todayMatch = await prisma.match.findFirst({
       where: {
-        userId: userId,
+        initiatorId: userId,
         createdAt: {
           gte: todayStart,
           lte: todayEnd,
@@ -342,7 +342,7 @@ matchesRoutes.get('/potential-matches', asyncHandler(async (req, res) => {
         age: true,
         profilePhotoUrl: true,
         photos: {
-          where: { 
+          where: {
             status: 'approved'
           },
           select: {
@@ -458,33 +458,34 @@ matchesRoutes.post('/create-match', asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if friendship already exists
-    const existingFriendship = await prisma.friendship.findFirst({
+    // Check if match already exists between these users
+    const existingMatch = await prisma.match.findFirst({
       where: {
         OR: [
-          { userId: userId, friendId: selectedUserId },
-          { userId: selectedUserId, friendId: userId }
+          { initiatorId: userId, matchedId: selectedUserId },
+          { initiatorId: selectedUserId, matchedId: userId }
         ]
       }
     });
 
-    if (existingFriendship) {
+    if (existingMatch) {
       return res.json({
         success: true,
-        friendship: existingFriendship,
+        match: existingMatch,
         message: 'Match already exists',
       });
     }
 
-    // Create friendship (match) - girl initiates, so userId is the initiator
-    const friendship = await prisma.friendship.create({
+    // Create match - girl initiates, so userId is the initiator
+    // Status is 'accepted' immediately since the girl chose this match
+    const match = await prisma.match.create({
       data: {
-        userId: userId,
-        friendId: selectedUserId,
-        status: 'accepted', // Auto-accept matches
+        initiatorId: userId,
+        matchedId: selectedUserId,
+        status: 'accepted',
       },
       include: {
-        friend: {
+        matched: {
           select: {
             id: true,
             name: true,
@@ -497,7 +498,7 @@ matchesRoutes.post('/create-match', asyncHandler(async (req, res) => {
 
     return res.json({
       success: true,
-      friendship,
+      match,
       message: 'Match created successfully',
     });
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
-import type { UploadProgress } from '../services/photoUpload';
+import { photoUploadService, type UploadProgress } from '../services/photoUpload';
 // TODO: Import from shared package once workspace is properly configured
 interface UserProfileSetup {
   name: string;
@@ -78,60 +78,44 @@ export const ProfileSetupPage: React.FC = () => {
     setDetectionError(null);
     setAiDetectedGender(null);
     setError(null);
-    // Don't auto-advance to terms step - wait for user confirmation
   };
 
-  const handleUsePhoto = async () => {
-    if (!capturedPhoto) return;
+  // Handle live detection completion (auto-detected with 95%+ confidence)
+  const handleLiveDetectionComplete = async (result: {
+    gender: 'male' | 'female';
+    confidence: number;
+    photoBlob: Blob;
+    photoDataUrl: string;
+  }) => {
+    console.log('✅ Live detection complete:', result.gender, `${(result.confidence * 100).toFixed(1)}%`);
 
+    // Set the captured photo from the successful frame
+    const capture: CameraCapture = {
+      blob: result.photoBlob,
+      dataUrl: result.photoDataUrl,
+      timestamp: Date.now(),
+    };
+
+    // Upload the photo to R2
     setIsAiAnalyzing(true);
-    setError(null);
-    setGenderDetectionFailed(false);
-    setDetectionError(null);
-
     try {
-      // Create form data for the detection API
-      const formData = new FormData();
-      if (capturedPhoto.uploadResult?.url) {
-        formData.append('photoUrl', capturedPhoto.uploadResult.url);
-      } else {
-        formData.append('photo', capturedPhoto.blob);
-      }
-
-      const response = await apiRequest('/api/user/detect-gender', {
-        method: 'POST',
-        body: formData,
-        headers: {}, // Let browser set Content-Type for FormData
-      });
-
-      const data = await response.json();
-      if (data.success && data.detectedGender) {
-        setAiDetectedGender(data.detectedGender);
-        setFormData(prev => ({ ...prev, gender: data.detectedGender }));
-        setGenderDetectionFailed(false);
-        setCurrentStep('friends');
-      } else {
-        // Detection failed
-        setGenderDetectionFailed(true);
-        setDetectionError('Photo quality too low');
-        setError('Photo quality too low for verification. Please take a clearer photo with good lighting and your face clearly visible.');
-      }
-    } catch (err: any) {
-      console.error('AI Gender Detection error:', err);
-      setGenderDetectionFailed(true);
-
-      // Check if it's a confidence/quality issue
-      const errorMessage = err.message || '';
-      if (errorMessage.includes('confidence') || errorMessage.includes('gender')) {
-        setDetectionError('Photo quality too low');
-        setError('Photo quality too low for verification. Please take a clearer photo with good lighting and your face clearly visible.');
-      } else {
-        setDetectionError('Verification failed');
-        setError('Photo verification failed. Please try again with a clearer photo.');
-      }
-    } finally {
-      setIsAiAnalyzing(false);
+      const uploadResult = await photoUploadService.uploadWebcamPhoto(
+        result.photoBlob,
+        user?.id,
+        setUploadProgress
+      );
+      capture.uploadResult = uploadResult;
+      console.log('📤 Photo uploaded:', uploadResult.url);
+    } catch (err) {
+      console.error('Upload failed:', err);
+      // Continue anyway - we have the blob
     }
+
+    setCapturedPhoto(capture);
+    setAiDetectedGender(result.gender);
+    setFormData(prev => ({ ...prev, gender: result.gender }));
+    setIsAiAnalyzing(false);
+    setCurrentStep('friends');
   };
 
   // const handleRetryGenderDetection = () => {
@@ -378,8 +362,8 @@ export const ProfileSetupPage: React.FC = () => {
         {currentStep === 'photo' && (
           <div className="max-w-md mx-auto">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-white mb-2">Take Your Photo</h2>
-              <p className="text-gray-400">This helps others recognize you in rankings</p>
+              <h2 className="text-3xl font-bold text-white mb-2">Face Scan</h2>
+              <p className="text-gray-400">Position your face in the circle - we'll automatically detect when ready</p>
             </div>
 
             {error && (
@@ -391,11 +375,13 @@ export const ProfileSetupPage: React.FC = () => {
             <CameraCaptureComponent
               onCapture={handlePhotoCapture}
               onError={handlePhotoCaptureError}
-              onUsePhoto={handleUsePhoto}
               className="mb-6"
               userId={user?.id}
-              autoUpload={true}
+              autoUpload={false}
               onUploadProgress={setUploadProgress}
+              mode="live-detection"
+              onLiveDetectionComplete={handleLiveDetectionComplete}
+              targetConfidence={0.95}
             />
 
             {/* AI Analysis State */}
@@ -451,14 +437,14 @@ export const ProfileSetupPage: React.FC = () => {
               </div>
             )}
 
-            {/* Photo Required Notice */}
+            {/* Live Detection Notice */}
             <div className="mt-8 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
               <div className="flex items-center space-x-3">
                 <span className="text-2xl">🤖</span>
                 <div>
-                  <h3 className="text-white font-bold text-sm">AI Gender Detection</h3>
+                  <h3 className="text-white font-bold text-sm">Live AI Detection</h3>
                   <p className="text-blue-200 text-xs mt-1">
-                    A photo is required for automatic gender detection. This ensures you see the right leaderboards and compete against the right people.
+                    Our AI is scanning in real-time. Once we're confident in the detection, you'll automatically proceed to the next step.
                   </p>
                 </div>
               </div>

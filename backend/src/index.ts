@@ -18,6 +18,8 @@ if (nodeEnv === 'development') {
 
 // Now import everything else after environment is loaded
 import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -35,9 +37,45 @@ import { matchesRoutes } from './routes/matches';
 import { friendsRoutes } from './routes/friends';
 import { challengesRoutes } from './routes/challenges';
 import { messagesRoutes } from './routes/messages';
+import { matchMessagesRoutes } from './routes/matchMessages';
+import { inviteRoutes } from './routes/invite';
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3001;
+
+// Socket.IO allowed origins (same as CORS)
+const socketAllowedOrigins = process.env.NODE_ENV === 'production'
+  ? [
+      process.env.FRONTEND_URL,
+      'https://elocheck.vercel.app',
+      'https://berkeley-goggles-git-main-bodimans-projects.vercel.app',
+      'https://www.berkeleygoggles.net'
+    ].filter(Boolean) as string[]
+  : ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:19006'];
+
+// Initialize Socket.IO
+export const io = new Server(httpServer, {
+  cors: {
+    origin: socketAllowedOrigins,
+    credentials: true,
+  },
+});
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  const userId = socket.handshake.query.userId as string;
+  logger.info(`🔌 Socket connected: ${socket.id}, userId: ${userId || 'anonymous'}`);
+
+  if (userId) {
+    socket.join(`user:${userId}`);
+    logger.info(`👤 User ${userId} joined room user:${userId}`);
+  }
+
+  socket.on('disconnect', () => {
+    logger.info(`🔌 Socket disconnected: ${socket.id}`);
+  });
+});
 
 // Trust proxy when in production (for Railway, Heroku, etc.)
 if (process.env.NODE_ENV === 'production') {
@@ -193,6 +231,8 @@ app.use('/api/matches', matchesRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/challenges', challengesRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/match-messages', matchMessagesRoutes);
+app.use('/api/invite', inviteRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);
@@ -204,12 +244,13 @@ const startServer = async () => {
     // Connect to database
     await connectDatabase();
     
-    // Start server
-    app.listen(PORT, () => {
+    // Start server (use httpServer for Socket.IO support)
+    httpServer.listen(PORT, () => {
       logger.info(`🚀 Berkeley Goggles API server running on port ${PORT}`);
+      logger.info(`🔌 Socket.IO enabled`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
       logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
-      const dbType = process.env.DATABASE_URL?.startsWith('postgresql://') ? 'PostgreSQL' : 
+      const dbType = process.env.DATABASE_URL?.startsWith('postgresql://') ? 'PostgreSQL' :
                      process.env.DATABASE_URL?.startsWith('file:') ? 'SQLite' : 'Unknown';
       logger.info(`💾 Database: ${dbType}`);
     });
