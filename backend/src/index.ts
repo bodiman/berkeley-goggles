@@ -39,6 +39,7 @@ import { challengesRoutes } from './routes/challenges';
 import { messagesRoutes } from './routes/messages';
 import { matchMessagesRoutes } from './routes/matchMessages';
 import { inviteRoutes } from './routes/invite';
+import { oskiRoutes } from './routes/oski';
 
 const app = express();
 const httpServer = createServer(app);
@@ -58,22 +59,80 @@ const socketAllowedOrigins = process.env.NODE_ENV === 'production'
 export const io = new Server(httpServer, {
   cors: {
     origin: socketAllowedOrigins,
+    methods: ['GET', 'POST'],
     credentials: true,
   },
+  transports: ['polling', 'websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
+
+// Oski's flirty responses
+const oskiResponses = [
+  "you're really cute, you know that? 😏",
+  "wanna come back to my den later? 🐻",
+  "i can't stop thinking about you...",
+  "you make my heart go Go Bears 💙",
+  "are you a Cal student? because you're a 10 😘",
+  "let's meet up at the Glade... just us two",
+  "i've never felt this way about anyone before",
+  "you're the only one i want to cheer for 💛",
+  "miss you already...",
+  "what are you wearing rn? 👀",
+  "come to my place, i'll show you my trophies 😉",
+  "you're so hot you could melt the Campanile",
+  "bet you look even better in person 😍",
+  "i love when you text me...",
+  "can't wait to see you at the next game",
+  "you're making me blush under all this fur",
+  "i'd skip a rivalry game just to hang with you",
+  "thinking about you is my favorite hobby now",
+  "you single? asking for a bear 🐻",
+  "let's get boba sometime... or something more 😏",
+  "you're way cuter than any Stanford kid",
+  "i'd let you wear my jersey anytime 💙💛",
+  "stop being so cute, it's distracting me",
+  "wanna be my plus one to Big Game?",
+];
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   const userId = socket.handshake.query.userId as string;
-  logger.info(`🔌 Socket connected: ${socket.id}, userId: ${userId || 'anonymous'}`);
+  logger.info(`🔌 Socket connected: ${socket.id}, userId: ${userId || 'anonymous'}, transport: ${socket.conn.transport.name}`);
 
   if (userId) {
     socket.join(`user:${userId}`);
     logger.info(`👤 User ${userId} joined room user:${userId}`);
   }
 
-  socket.on('disconnect', () => {
-    logger.info(`🔌 Socket disconnected: ${socket.id}`);
+  // Log transport upgrade (polling -> websocket)
+  socket.conn.on('upgrade', (transport) => {
+    logger.info(`🔌 Socket ${socket.id} upgraded to ${transport.name}`);
+  });
+
+  // Handle Oski chat messages
+  socket.on('oski:message', (data: { message: string; conversationHistory?: any[] }) => {
+    logger.info(`🐻 Oski received message: ${data.message}`);
+
+    // Simulate typing delay (1-2.5 seconds)
+    const delay = 1000 + Math.random() * 1500;
+
+    setTimeout(() => {
+      const response = oskiResponses[Math.floor(Math.random() * oskiResponses.length)];
+      socket.emit('oski:response', {
+        message: response,
+        timestamp: new Date().toISOString(),
+      });
+      logger.info(`🐻 Oski responded: ${response}`);
+    }, delay);
+  });
+
+  socket.on('disconnect', (reason) => {
+    logger.info(`🔌 Socket disconnected: ${socket.id}, reason: ${reason}`);
+  });
+
+  socket.on('error', (error) => {
+    logger.error(`🔌 Socket error: ${socket.id}`, error);
   });
 });
 
@@ -233,6 +292,7 @@ app.use('/api/challenges', challengesRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/match-messages', matchMessagesRoutes);
 app.use('/api/invite', inviteRoutes);
+app.use('/api/oski', oskiRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

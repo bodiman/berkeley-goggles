@@ -4,12 +4,26 @@ import { API_CONFIG } from '../config/api';
 let socket: Socket | null = null;
 
 export const connectSocket = (userId: string): Socket => {
+  // Return existing connected socket
   if (socket?.connected) return socket;
+
+  // Disconnect stale socket if exists
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+
+  console.log('🔌 Connecting to Socket.IO:', API_CONFIG.baseURL);
 
   socket = io(API_CONFIG.baseURL, {
     query: { userId },
     withCredentials: true,
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'], // Start with polling, upgrade to websocket
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
   });
 
   socket.on('connect', () => {
@@ -17,11 +31,31 @@ export const connectSocket = (userId: string): Socket => {
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('🔌 Socket disconnected:', reason);
+    if (reason === 'io client disconnect') {
+      console.log('🔌 Socket manually disconnected');
+    } else {
+      console.log('🔌 Socket disconnected, will reconnect:', reason);
+    }
   });
 
   socket.on('connect_error', (error) => {
-    console.error('🔌 Socket connection error:', error.message);
+    console.error('🔌 Socket connect_error:', error.message);
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log('🔌 Socket reconnected after', attemptNumber, 'attempts');
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log('🔌 Socket reconnect attempt:', attemptNumber);
+  });
+
+  socket.on('reconnect_error', (error) => {
+    console.error('🔌 Socket reconnect_error:', error.message);
+  });
+
+  socket.on('reconnect_failed', () => {
+    console.error('🔌 Socket reconnect failed after all attempts');
   });
 
   return socket;

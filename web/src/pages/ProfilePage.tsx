@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CameraCaptureComponent } from '../components/CameraCaptureComponent';
 import { apiRequest } from '../config/api';
@@ -111,6 +111,7 @@ export const ProfilePage: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [unreadByFriend, setUnreadByFriend] = useState<Record<string, number>>({});
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Profile editing state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -128,6 +129,11 @@ export const ProfilePage: React.FC = () => {
       refreshUser();
     }
   }, [user?.id]);
+
+  // Scroll to latest message when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Socket.IO connection for real-time updates
   useEffect(() => {
@@ -1572,6 +1578,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 ))
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Message Input */}

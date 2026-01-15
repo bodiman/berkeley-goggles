@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
+import { connectSocket, getSocket } from '../services/socket';
+import choskiImg from '../assets/choski.jpg';
 
 interface Match {
   id: string;
@@ -31,17 +33,6 @@ interface ChatMessage {
   isFromOski?: boolean;
 }
 
-// Oski's preprogrammed responses
-const oskiResponses = [
-  "Go Bears! 🐻",
-  "What's your major?",
-  "Have you been to a Cal game?",
-  "Memorial Stadium is the best!",
-  "Are you ready for Big Game?",
-  "Go Bears! We're the best!",
-  "What's your favorite spot on campus?",
-  "Cal pride! 💙💛",
-];
 
 export const MatchedPage: React.FC = () => {
   const { user } = useAuth();
@@ -51,6 +42,7 @@ export const MatchedPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [newMessage, setNewMessage] = useState('');
   const [showYourTurn, setShowYourTurn] = useState(true);
   const [showTheirTurn, setShowTheirTurn] = useState(true);
@@ -71,7 +63,7 @@ export const MatchedPage: React.FC = () => {
     const oskiMatch: Match = {
       id: 'oski-bear',
       name: 'Oski',
-      profilePhotoUrl: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400&h=400&fit=crop&q=80',
+      profilePhotoUrl: choskiImg,
       lastMessage: 'heyy',
       lastMessageTime: 'Just now',
       isYourTurn: true,
@@ -79,6 +71,31 @@ export const MatchedPage: React.FC = () => {
     };
     setYourTurnMatches([oskiMatch]);
   }, []);
+
+  // Socket connection for Oski chat
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const socket = connectSocket(user.id);
+
+    // Listen for Oski responses
+    socket.on('oski:response', (data: { message: string; timestamp: string }) => {
+      console.log('🐻 Oski response received:', data.message);
+      const oskiMessage: ChatMessage = {
+        id: Date.now().toString(),
+        senderId: 'oski-bear',
+        receiverId: user.id,
+        message: data.message,
+        timestamp: new Date(data.timestamp),
+        isFromOski: true,
+      };
+      setChatMessages(prev => [...prev, oskiMessage]);
+    });
+
+    return () => {
+      socket.off('oski:response');
+    };
+  }, [user?.id]);
 
   // Fetch matches from database on load
   useEffect(() => {
@@ -158,6 +175,11 @@ export const MatchedPage: React.FC = () => {
     }
   }, [selectedMatch, user?.id]);
 
+  // Scroll to latest message when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   const loadChatMessages = async (matchId: string) => {
     if (!user?.id) return;
 
@@ -195,20 +217,18 @@ export const MatchedPage: React.FC = () => {
     setChatMessages(prev => [...prev, message]);
     setNewMessage('');
 
-    // If chatting with Oski, get a response after a delay
+    // If chatting with Oski, send via websocket
     if (selectedMatch.id === 'oski-bear') {
-      setTimeout(() => {
-        const randomResponse = oskiResponses[Math.floor(Math.random() * oskiResponses.length)];
-        const oskiMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          senderId: 'oski-bear',
-          receiverId: user?.id || '',
-          message: randomResponse,
-          timestamp: new Date(),
-          isFromOski: true,
-        };
-        setChatMessages(prev => [...prev, oskiMessage]);
-      }, 1500);
+      const socket = getSocket();
+      if (socket) {
+        socket.emit('oski:message', {
+          message: newMessage.trim(),
+          conversationHistory: chatMessages.map(m => ({
+            message: m.message,
+            isFromOski: m.isFromOski || m.senderId === 'oski-bear'
+          }))
+        });
+      }
     } else {
       // Send message to API for real matches
       try {
@@ -469,6 +489,7 @@ export const MatchedPage: React.FC = () => {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </main>
 
         {/* Message Input */}

@@ -585,7 +585,8 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           thumbnailUrl: finalThumbnailUrl,
           userId: photo.userId,
           userAge: photo.user.age,
-          gender: photo.user.gender,
+          userGender: photo.user.gender,
+          name: photo.user.name,
           bio: photo.user.bio,
           type: 'user',
         };
@@ -613,8 +614,8 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
           url: finalUrl,
           thumbnailUrl: finalThumbnailUrl,
           userId: 'sample',
-          age: photo.estimatedAge,
-          gender: photo.gender,
+          userAge: photo.estimatedAge,
+          userGender: photo.gender,
           type: 'sample',
         };
       }
@@ -1091,6 +1092,136 @@ comparisonRoutes.get('/daily-progress', asyncHandler(async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get daily progress',
+    });
+  }
+}));
+
+// GET /api/comparisons/friend-votes - Get friend votes for a specific photo pair
+comparisonRoutes.get('/friend-votes', asyncHandler(async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    const leftPhotoId = req.query.leftPhotoId as string;
+    const rightPhotoId = req.query.rightPhotoId as string;
+    const leftType = req.query.leftType as string; // 'user' or 'sample'
+    const rightType = req.query.rightType as string;
+
+    if (!userId || !leftPhotoId || !rightPhotoId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required parameters: userId, leftPhotoId, rightPhotoId',
+      });
+    }
+
+    // Get user's friends (accepted friendships only)
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        OR: [
+          { userId, status: 'accepted' },
+          { friendId: userId, status: 'accepted' }
+        ]
+      },
+      select: {
+        userId: true,
+        friendId: true,
+      }
+    });
+
+    // Extract friend IDs
+    const friendIds = friendships.map(f => f.userId === userId ? f.friendId : f.userId);
+
+    if (friendIds.length === 0) {
+      return res.json({
+        success: true,
+        leftVotes: [],
+        rightVotes: [],
+      });
+    }
+
+    // Build the query to find comparisons where friends voted on this exact pair
+    // The pair can be in either order (left vs right or right vs left)
+    const whereClause: any = {
+      raterId: { in: friendIds },
+      OR: []
+    };
+
+    // Handle different photo type combinations
+    if (leftType === 'user' && rightType === 'user') {
+      // Both are user photos
+      whereClause.OR.push(
+        { winnerPhotoId: leftPhotoId, loserPhotoId: rightPhotoId },
+        { winnerPhotoId: rightPhotoId, loserPhotoId: leftPhotoId }
+      );
+    } else if (leftType === 'sample' && rightType === 'sample') {
+      // Both are sample images
+      whereClause.OR.push(
+        { winnerSampleImageId: leftPhotoId, loserSampleImageId: rightPhotoId },
+        { winnerSampleImageId: rightPhotoId, loserSampleImageId: leftPhotoId }
+      );
+    } else {
+      // Mixed: one user photo, one sample image
+      const userPhotoId = leftType === 'user' ? leftPhotoId : rightPhotoId;
+      const sampleImageId = leftType === 'sample' ? leftPhotoId : rightPhotoId;
+
+      whereClause.OR.push(
+        { winnerPhotoId: userPhotoId, loserSampleImageId: sampleImageId },
+        { winnerSampleImageId: sampleImageId, loserPhotoId: userPhotoId }
+      );
+    }
+
+    // Find friend comparisons for this pair
+    const friendComparisons = await prisma.comparison.findMany({
+      where: whereClause,
+      include: {
+        rater: {
+          select: {
+            id: true,
+            name: true,
+            profilePhotoUrl: true,
+          }
+        }
+      }
+    });
+
+    // Group votes by which photo won (left or right)
+    const leftVotes: Array<{ id: string; name: string; profilePhotoUrl: string | null }> = [];
+    const rightVotes: Array<{ id: string; name: string; profilePhotoUrl: string | null }> = [];
+
+    for (const comparison of friendComparisons) {
+      let votedForLeft = false;
+
+      if (leftType === 'user' && rightType === 'user') {
+        // User vs User
+        votedForLeft = comparison.winnerPhotoId === leftPhotoId;
+      } else if (leftType === 'sample' && rightType === 'sample') {
+        // Sample vs Sample
+        votedForLeft = comparison.winnerSampleImageId === leftPhotoId;
+      } else {
+        // Mixed
+        if (leftType === 'user') {
+          votedForLeft = comparison.winnerPhotoId === leftPhotoId;
+        } else {
+          votedForLeft = comparison.winnerSampleImageId === leftPhotoId;
+        }
+      }
+
+      if (votedForLeft) {
+        leftVotes.push(comparison.rater);
+      } else {
+        rightVotes.push(comparison.rater);
+      }
+    }
+
+    res.json({
+      success: true,
+      leftVotes,
+      rightVotes,
+    });
+
+  } catch (error) {
+    console.error('Get friend votes error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get friend votes',
     });
   }
 }));

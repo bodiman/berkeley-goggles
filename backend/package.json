@@ -50,6 +50,7 @@
     "download:models": "tsx scripts/download-ml-models.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@aws-sdk/client-s3": "^3.947.0",
     "@aws-sdk/s3-request-presigner": "^3.947.0",
     "@prisma/client": "^5.7.1",

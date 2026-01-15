@@ -1,15 +1,23 @@
 import { useState, useCallback, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import TinderCard from './TinderCard';
 import type { DragState, TinderCardRef } from './TinderCard';
+import { FriendVoteOverlay } from './FriendVoteOverlay';
 
 interface Photo {
   id: string;
   url: string;
   userId: string;
+  name?: string;
   age?: number;
   gender?: 'male' | 'female';
   bio?: string;
   type?: 'user' | 'sample';
+}
+
+interface FriendVote {
+  id: string;
+  name: string;
+  profilePhotoUrl: string | null;
 }
 
 interface PhotoComparisonCardProps {
@@ -27,6 +35,8 @@ interface PhotoComparisonCardProps {
     remaining: number;
     preloadedCount: number;
   };
+  topPhotoFriendVotes?: FriendVote[];
+  bottomPhotoFriendVotes?: FriendVote[];
 }
 
 export interface PhotoComparisonCardRef {
@@ -42,6 +52,8 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   shouldShowCard = true,
   onAnimationComplete,
   bufferStats,
+  topPhotoFriendVotes = [],
+  bottomPhotoFriendVotes = [],
 }, ref) => {
   // Card reference for TinderCard
   const cardRef = useRef<TinderCardRef>(null);
@@ -383,18 +395,27 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             <div className="absolute top-3 left-3 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
               A
             </div>
-            
+
+            {/* Friend Vote Overlay - Top Photo */}
+            {topPhotoFriendVotes.length > 0 && (
+              <FriendVoteOverlay
+                votes={topPhotoFriendVotes}
+                maxDisplay={3}
+                className="absolute top-3 left-12"
+              />
+            )}
+
             {/* Sample Photo Indicator */}
             {topPhoto.type === 'sample' && (
-              <div className="absolute top-3 left-12 bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium">
+              <div className={`absolute top-3 ${topPhotoFriendVotes.length > 0 ? 'left-32' : 'left-12'} bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium`}>
                 Sample
               </div>
             )}
             
             {/* Bio Display */}
             {topPhoto.bio && (
-              <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-medium max-w-[calc(100%-6rem)]">
-                {topPhoto.bio}
+              <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg max-w-[calc(100%-1.5rem)]">
+                <p className="text-xs text-white/90">{topPhoto.bio}</p>
               </div>
             )}
             
@@ -445,18 +466,27 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
             <div className="absolute top-3 left-3 bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
               B
             </div>
-            
+
+            {/* Friend Vote Overlay - Bottom Photo */}
+            {bottomPhotoFriendVotes.length > 0 && (
+              <FriendVoteOverlay
+                votes={bottomPhotoFriendVotes}
+                maxDisplay={3}
+                className="absolute top-3 left-12"
+              />
+            )}
+
             {/* Sample Photo Indicator */}
             {bottomPhoto.type === 'sample' && (
-              <div className="absolute top-3 left-12 bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium">
+              <div className={`absolute top-3 ${bottomPhotoFriendVotes.length > 0 ? 'left-32' : 'left-12'} bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium`}>
                 Sample
               </div>
             )}
             
             {/* Bio Display */}
             {bottomPhoto.bio && (
-              <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs font-medium max-w-[calc(100%-6rem)]">
-                {bottomPhoto.bio}
+              <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg max-w-[calc(100%-1.5rem)]">
+                <p className="text-xs text-white/90">{bottomPhoto.bio}</p>
               </div>
             )}
             

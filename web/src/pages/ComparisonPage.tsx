@@ -15,6 +15,12 @@ interface DailyProgress {
   isTargetReached: boolean;
 }
 
+interface FriendVote {
+  id: string;
+  name: string;
+  profilePhotoUrl: string | null;
+}
+
 export const ComparisonPage: React.FC = () => {
   const { user } = useAuth();
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
@@ -27,6 +33,8 @@ export const ComparisonPage: React.FC = () => {
     winnerType: string;
     loserType: string;
   } | null>(null);
+  const [topPhotoFriendVotes, setTopPhotoFriendVotes] = useState<FriendVote[]>([]);
+  const [bottomPhotoFriendVotes, setBottomPhotoFriendVotes] = useState<FriendVote[]>([]);
   
   // Use ref to reliably store recent pair info for animation completion
   const pendingSubmittedPairRef = useRef<{
@@ -96,6 +104,43 @@ export const ComparisonPage: React.FC = () => {
 
     }
   }, [isTransitioning, currentPair, isCurrentPairReady]);
+
+  // Fetch friend votes when current pair changes
+  useEffect(() => {
+    const fetchFriendVotes = async () => {
+      if (!currentPair || !user?.id) {
+        setTopPhotoFriendVotes([]);
+        setBottomPhotoFriendVotes([]);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({
+          userId: user.id,
+          leftPhotoId: currentPair.leftPhoto.id,
+          rightPhotoId: currentPair.rightPhoto.id,
+          leftType: currentPair.leftPhoto.type || 'user',
+          rightType: currentPair.rightPhoto.type || 'user',
+        });
+
+        const response = await apiRequest(`/api/comparisons/friend-votes?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+          // leftPhoto is topPhoto, rightPhoto is bottomPhoto
+          setTopPhotoFriendVotes(data.leftVotes || []);
+          setBottomPhotoFriendVotes(data.rightVotes || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch friend votes:', error);
+        // Don't show error to user, just hide the overlays
+        setTopPhotoFriendVotes([]);
+        setBottomPhotoFriendVotes([]);
+      }
+    };
+
+    fetchFriendVotes();
+  }, [currentPair?.leftPhoto?.id, currentPair?.rightPhoto?.id, user?.id]);
 
   // Prevent body scroll on mobile
   useEffect(() => {
@@ -314,19 +359,21 @@ export const ComparisonPage: React.FC = () => {
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden" style={{
-      background: '#4A90E2', // Solid blueish-yellow background
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: '100dvh',
-    }}>
+      <div className="flex flex-col overflow-hidden h-full absolute inset-0" style={{
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      }}>
       {/* Header */}
       <header className="px-6 py-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-bold text-white">Berkeley Goggles</h1>
-          <div className="text-sm text-white font-semibold">
+          <h1 className="text-2xl font-black italic uppercase tracking-tight" style={{
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 0, 0, 0.3)',
+          }}>
+            <span className="text-white">BERKELEY </span>
+            <span className="text-blue-300">GOGGLES</span>
+          </h1>
+          <div className="text-sm text-white font-semibold" style={{
+            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+          }}>
             {dailyProgress?.comparisonsCompleted || 0}/{dailyProgress?.dailyTarget || 20} today
           </div>
         </div>
@@ -341,13 +388,13 @@ export const ComparisonPage: React.FC = () => {
         
         {/* Streak & Buffer Status */}
         <div className="flex items-center justify-between mt-2 text-sm">
-          <div className="flex items-center">
-            <span className="text-orange-500 mr-2">🔥</span>
-            <span className="text-white font-medium">{dailyProgress?.streak || 0} day streak</span>
+          <div className="flex items-center" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)' }}>
+            <span className="mr-2">🔥</span>
+            <span className="text-white font-semibold">{dailyProgress?.streak || 0} day streak</span>
           </div>
-          
+
           {/* Buffer Status */}
-          <div className="flex items-center text-xs text-white font-medium">
+          <div className="flex items-center text-xs text-white font-semibold" style={{ textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)' }}>
             {isBuffering && <span className="mr-2">⏳ Loading...</span>}
             <span>{bufferStats.remaining} pairs ready</span>
             {!isCurrentPairReady() && (
@@ -374,10 +421,11 @@ export const ComparisonPage: React.FC = () => {
           <PhotoComparisonCard
             topPhoto={{
               id: currentPair.leftPhoto.id,
-              url: currentPair.leftPhoto.url.startsWith('http') 
-                ? currentPair.leftPhoto.url 
+              url: currentPair.leftPhoto.url.startsWith('http')
+                ? currentPair.leftPhoto.url
                 : `http://localhost:3001/api/user/photo/${currentPair.leftPhoto.url.split('/').pop()}`,
               userId: currentPair.leftPhoto.userId,
+              name: currentPair.leftPhoto.name,
               age: currentPair.leftPhoto.userAge,
               gender: currentPair.leftPhoto.userGender as 'male' | 'female',
               bio: currentPair.leftPhoto.bio,
@@ -385,10 +433,11 @@ export const ComparisonPage: React.FC = () => {
             }}
             bottomPhoto={{
               id: currentPair.rightPhoto.id,
-              url: currentPair.rightPhoto.url.startsWith('http') 
-                ? currentPair.rightPhoto.url 
+              url: currentPair.rightPhoto.url.startsWith('http')
+                ? currentPair.rightPhoto.url
                 : `http://localhost:3001/api/user/photo/${currentPair.rightPhoto.url.split('/').pop()}`,
               userId: currentPair.rightPhoto.userId,
+              name: currentPair.rightPhoto.name,
               age: currentPair.rightPhoto.userAge,
               gender: currentPair.rightPhoto.userGender as 'male' | 'female',
               bio: currentPair.rightPhoto.bio,
@@ -399,6 +448,8 @@ export const ComparisonPage: React.FC = () => {
             disabled={isSubmitting}
             shouldShowCard={shouldShowCard}
             bufferStats={bufferStats}
+            topPhotoFriendVotes={topPhotoFriendVotes}
+            bottomPhotoFriendVotes={bottomPhotoFriendVotes}
             onAnimationComplete={() => {
               // Retrieve submitted pair info from ref and pass to handler
               const submittedPairInfo = pendingSubmittedPairRef.current;
@@ -420,15 +471,12 @@ export const ComparisonPage: React.FC = () => {
       {/* Footer Tips */}
       <footer className="px-6 py-4 flex-shrink-0">
         <div className="text-center">
-          {/* <p className="text-xs text-gray-500 mb-2">
-            💡 Pro tip: Be honest or we match you with chuzz
-          </p> */}
-          <div className="flex justify-center space-x-6 text-xs text-gray-600">
+          <div className="flex justify-center space-x-6 text-xs text-gray-400">
             <span>↔️ Swipe left/right to skip</span>
             <span>👆 Double tap to select</span>
           </div>
         </div>
       </footer>
-    </div>
+      </div>
   );
 };
