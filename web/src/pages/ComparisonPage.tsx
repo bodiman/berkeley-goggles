@@ -142,18 +142,6 @@ export const ComparisonPage: React.FC = () => {
     fetchFriendVotes();
   }, [currentPair?.leftPhoto?.id, currentPair?.rightPhoto?.id, user?.id]);
 
-  // Prevent body scroll on mobile
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-    };
-  }, []);
 
   const loadInitialData = async () => {
     try {

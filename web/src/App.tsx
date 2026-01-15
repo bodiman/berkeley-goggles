@@ -9,6 +9,7 @@ import { MatchedPage } from './pages/MatchedPage';
 import { LeaguePage } from './pages/LeaguePage';
 import { InvitePage } from './pages/InvitePage';
 import { BottomNavigation } from './components/BottomNavigation';
+import { SwipeablePages } from './components/SwipeablePages';
 import { LoadingScreen } from './components/LoadingScreen';
 import './index.css';
 
@@ -114,21 +115,16 @@ const AppContent: React.FC = () => {
   }
 
   // Authenticated with complete profile - show main app
+  const pages = [
+    { id: 'league' as const, component: <LeaguePage /> },
+    { id: 'play' as const, component: <ComparisonPage /> },
+    { id: 'matched' as const, component: <MatchedPage /> },
+    { id: 'profile' as const, component: <ProfilePage /> },
+  ];
+
   return (
-    <div className="relative w-full h-screen h-dvh overflow-hidden">
-      {/* Keep all tab components mounted to preserve state */}
-      <div className={`absolute inset-0 ${navigationState.currentTab === 'league' ? 'block' : 'hidden'}`}>
-        <LeaguePage />
-      </div>
-      <div className={`absolute inset-0 ${navigationState.currentTab === 'profile' ? 'block' : 'hidden'}`}>
-        <ProfilePage />
-      </div>
-      <div className={`absolute inset-0 ${navigationState.currentTab === 'play' ? 'block' : 'hidden'}`}>
-        <ComparisonPage />
-      </div>
-      <div className={`absolute inset-0 ${navigationState.currentTab === 'matched' ? 'block' : 'hidden'}`}>
-        <MatchedPage />
-      </div>
+    <div className="relative w-full overflow-hidden" style={{ height: '100dvh' }}>
+      <SwipeablePages pages={pages} />
       <BottomNavigation />
     </div>
   );

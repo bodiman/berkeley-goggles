@@ -20,6 +20,13 @@
     overscroll-behavior: none;
     touch-action: pan-x pan-y;
     user-select: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Smooth scrolling for all scrollable elements */
+  * {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
   }
 
   * {
@@ -104,7 +111,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -117,4 +124,44 @@
     transform: translateZ(0);
     will-change: transform;
   }
+}
+
+/* Friend vote overlay animations */
+@keyframes fade-in-scale {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0) translateY(10px);
+  }
+  50% {
+    transform: scale(1.2) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.3s ease-out forwards;
+}
+
+.animate-pop-in {
+  opacity: 0;
+  animation: pop-in 0.4s ease-out forwards;
+}
+
+/* Safe area utilities */
+.h-safe-area-inset-bottom {
+  height: env(safe-area-inset-bottom, 0px);
 }

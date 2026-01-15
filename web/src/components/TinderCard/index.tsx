@@ -97,7 +97,15 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
 
   const handleMove = (dx: number, dy: number, vx: number, vy: number) => {
     const rot = vx * 0 // reduced rotation factor (was 15)
-    setSpringTarget.start({ xyrot: [dx, dy, rot] })
+
+    // If horizontal swipes are prevented, don't allow horizontal movement
+    const horizontalPrevented = preventSwipe.includes('left') && preventSwipe.includes('right')
+    const verticalPrevented = preventSwipe.includes('up') && preventSwipe.includes('down')
+
+    const finalDx = horizontalPrevented ? 0 : dx
+    const finalDy = verticalPrevented ? 0 : dy
+
+    setSpringTarget.start({ xyrot: [finalDx, finalDy, rot] })
     
     // Track movement for flick detection
     gestureState.current.lastMoveTime = Date.now()
@@ -284,12 +292,23 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
     }
   }))
 
+  // Determine touch-action based on what swipes are prevented
+  const horizontalPrevented = preventSwipe.includes('left') && preventSwipe.includes('right')
+  const verticalPrevented = preventSwipe.includes('up') && preventSwipe.includes('down')
+
+  let touchAction = 'none'
+  if (horizontalPrevented && !verticalPrevented) {
+    touchAction = 'pan-x' // Allow horizontal scrolling/swiping to propagate
+  } else if (verticalPrevented && !horizontalPrevented) {
+    touchAction = 'pan-y' // Allow vertical scrolling to propagate
+  }
+
   return (
     <animated.div
       className={className}
       style={{
         transform: xyrot.to((x, y, rot) => `translate3d(${x}px, ${y}px, 0px) rotate(${rot}deg)`),
-        touchAction: 'none'
+        touchAction
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}

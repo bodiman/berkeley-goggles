@@ -562,10 +562,8 @@ export const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{
+    <div className="absolute inset-0 flex flex-col" style={{
       background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-      height: '100dvh',
-      width: '100vw',
     }}>
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

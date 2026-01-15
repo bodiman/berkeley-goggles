@@ -73,6 +73,9 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   // Swipe tracking state for MOGS overlay
   const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | null>(null);
   const [swipeProgress, setSwipeProgress] = useState(0);
+
+  // Track if user has voted on current pair (to show friend votes after)
+  const [hasVoted, setHasVoted] = useState(false);
   
   // Inactivity hint system
   const [showHints, setShowHints] = useState(false);
@@ -201,10 +204,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       }
 
       const swipeDir = winner.id === topPhoto.id ? 'up' : 'down';
-      
+
       // Show MOGS overlay immediately
       setSwipeDirection(swipeDir);
       setSwipeProgress(1);
+
+      // Mark as voted to reveal friend votes
+      setHasVoted(true);
 
       // Submit the selection
       onSelection(winner.id, loser.id);
@@ -231,6 +237,11 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   useEffect(() => {
     instructionsVisibleRef.current = showInstructions;
   }, [showInstructions]);
+
+  // Reset hasVoted when photos change (new pair loaded)
+  useEffect(() => {
+    setHasVoted(false);
+  }, [topPhoto.id, bottomPhoto.id]);
 
 
   // Start timer when component mounts and shouldShowCard becomes true
@@ -291,11 +302,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
       case 'up':
         // User swiped up - top photo wins
         console.log('📤 Submitting selection: top photo wins');
+        setHasVoted(true);
         onSelection(topPhoto.id, bottomPhoto.id);
         break;
       case 'down':
         // User swiped down - bottom photo wins
         console.log('📤 Submitting selection: bottom photo wins');
+        setHasVoted(true);
         onSelection(bottomPhoto.id, topPhoto.id);
         break;
       case 'left':
@@ -309,10 +322,13 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   // Handle card leaving screen
   const handleCardLeftScreen = useCallback(() => {
     console.log('Card left screen');
-    
+
     // Reset overlay state for next card
     setSwipeDirection(null);
     setSwipeProgress(0);
+
+    // Reset voted state for next pair
+    setHasVoted(false);
 
     // Notify parent that animation completed
     if (onAnimationComplete) {
@@ -396,18 +412,19 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               A
             </div>
 
-            {/* Friend Vote Overlay - Top Photo */}
-            {topPhotoFriendVotes.length > 0 && (
+            {/* Friend Vote Overlay - Top Photo (shown after voting) */}
+            {hasVoted && topPhotoFriendVotes.length > 0 && (
               <FriendVoteOverlay
                 votes={topPhotoFriendVotes}
                 maxDisplay={3}
                 className="absolute top-3 left-12"
+                animate={true}
               />
             )}
 
             {/* Sample Photo Indicator */}
             {topPhoto.type === 'sample' && (
-              <div className={`absolute top-3 ${topPhotoFriendVotes.length > 0 ? 'left-32' : 'left-12'} bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium`}>
+              <div className={`absolute top-3 ${hasVoted && topPhotoFriendVotes.length > 0 ? 'left-32' : 'left-12'} bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium transition-all duration-300`}>
                 Sample
               </div>
             )}
@@ -467,18 +484,19 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               B
             </div>
 
-            {/* Friend Vote Overlay - Bottom Photo */}
-            {bottomPhotoFriendVotes.length > 0 && (
+            {/* Friend Vote Overlay - Bottom Photo (shown after voting) */}
+            {hasVoted && bottomPhotoFriendVotes.length > 0 && (
               <FriendVoteOverlay
                 votes={bottomPhotoFriendVotes}
                 maxDisplay={3}
                 className="absolute top-3 left-12"
+                animate={true}
               />
             )}
 
             {/* Sample Photo Indicator */}
             {bottomPhoto.type === 'sample' && (
-              <div className={`absolute top-3 ${bottomPhotoFriendVotes.length > 0 ? 'left-32' : 'left-12'} bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium`}>
+              <div className={`absolute top-3 ${hasVoted && bottomPhotoFriendVotes.length > 0 ? 'left-32' : 'left-12'} bg-blue-500/90 text-white px-2 py-1 rounded text-xs font-medium transition-all duration-300`}>
                 Sample
               </div>
             )}
