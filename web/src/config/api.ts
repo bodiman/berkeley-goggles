@@ -1,8 +1,14 @@
+import { Capacitor } from '@capacitor/core';
+
 // API Configuration
-const baseURL = import.meta.env.VITE_API_BASE_URL || 
-                (import.meta.env.PROD || import.meta.env.MODE === 'production' || window.location.hostname !== 'localhost'
-                  ? 'https://berkeley-goggles-production.up.railway.app' 
-                  : 'http://localhost:3001');
+// On native platforms (Capacitor), always use production API since localhost won't work
+// Check Capacitor FIRST - env vars are baked in at build time and would override this otherwise
+const baseURL = Capacitor.isNativePlatform()
+  ? 'https://berkeley-goggles-production.up.railway.app'
+  : (import.meta.env.VITE_API_BASE_URL ||
+      (import.meta.env.PROD
+        ? 'https://berkeley-goggles-production.up.railway.app'
+        : 'http://localhost:3001'));
 
 // Debug logging to help troubleshoot API connection issues
 console.log('🔧 API Configuration Debug:', {

@@ -28,8 +28,11 @@ const loginSchema = z.object({
 });
 
 const googleAuthSchema = z.object({
-  idToken: z.string().min(1, 'Google ID token is required'),
+  idToken: z.string().optional(),
+  accessToken: z.string().optional(), // For Capacitor/WebView flows
   inviteToken: z.string().optional(), // One-time use invite token
+}).refine(data => data.idToken || data.accessToken, {
+  message: 'Either idToken or accessToken is required',
 });
 
 // POST /api/auth/register
@@ -207,17 +210,51 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = googleAuthSchema.parse(req.body);
 
   try {
-    // Verify the Google ID token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: validatedData.idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    let email: string;
+    let name: string;
 
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email || !payload.name) {
+    if (validatedData.idToken) {
+      // Verify the Google ID token (standard web flow)
+      const ticket = await googleClient.verifyIdToken({
+        idToken: validatedData.idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email || !payload.name) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid Google token payload',
+        });
+      }
+      email = payload.email;
+      name = payload.name;
+    } else if (validatedData.accessToken) {
+      // Fetch user info with access token (Capacitor/WebView flow)
+      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${validatedData.accessToken}` },
+      });
+
+      if (!userInfoRes.ok) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid Google access token',
+        });
+      }
+
+      const userInfo = await userInfoRes.json();
+      if (!userInfo.email || !userInfo.name) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid Google user info',
+        });
+      }
+      email = userInfo.email;
+      name = userInfo.name;
+    } else {
       return res.status(400).json({
         success: false,
-        error: 'Invalid Google token payload',
+        error: 'Either idToken or accessToken is required',
       });
     }
 
@@ -260,13 +297,13 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
 
     // Check if user already exists
     let user = await prisma.user.findUnique({
-      where: { email: payload.email },
+      where: { email },
     });
 
     let isNewUser = false;
     if (!user) {
       // Only require Berkeley email for NEW users without an invite
-      if (!referrer && !payload.email.endsWith('@berkeley.edu')) {
+      if (!referrer && !email.endsWith('@berkeley.edu')) {
         return res.status(403).json({
           success: false,
           error: 'Registration requires a @berkeley.edu email address, or use an invite link',
@@ -277,8 +314,8 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
       // Create new user from Google profile
       user = await prisma.user.create({
         data: {
-          name: payload.name,
-          email: payload.email,
+          name,
+          email,
           profileComplete: false,
           // No password for OAuth users
           password: '',

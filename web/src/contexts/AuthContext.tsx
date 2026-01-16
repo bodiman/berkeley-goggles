@@ -43,7 +43,7 @@ interface AuthContextType {
   navigationState: AppNavigationState;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: (idToken: string) => Promise<boolean>;
+  loginWithGoogle: (token: string, isAccessToken?: boolean) => Promise<boolean>;
   register: (registrationData: UserRegistrationData) => Promise<boolean>;
   logout: () => void;
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
@@ -153,15 +153,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const loginWithGoogle = async (idToken: string): Promise<boolean> => {
+  const loginWithGoogle = async (token: string, isAccessToken: boolean = false): Promise<boolean> => {
     try {
       // Check for invite token from invite link
       const inviteToken = localStorage.getItem('inviteToken');
       console.log('🎫 AuthContext: loginWithGoogle - inviteToken from localStorage:', inviteToken);
+      console.log('🎫 AuthContext: loginWithGoogle - isAccessToken:', isAccessToken);
 
       const response = await apiRequest(API_ENDPOINTS.auth.google, {
         method: 'POST',
-        body: JSON.stringify({ idToken, inviteToken: inviteToken || undefined }),
+        body: JSON.stringify({
+          idToken: isAccessToken ? undefined : token,
+          accessToken: isAccessToken ? token : undefined,
+          inviteToken: inviteToken || undefined,
+        }),
       });
       console.log('🎫 AuthContext: loginWithGoogle - API response status:', response.status);
 
