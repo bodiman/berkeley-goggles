@@ -39,34 +39,16 @@ function FlipCard({
     target,
 }: FlipCardProps) {
     const [isFlipped, setIsFlipped] = useState(false);
-    const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+    const lastTapTime = useRef<number>(0);
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartPos.current = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-        };
-    };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (!touchStartPos.current) return;
-
-        const touch = e.changedTouches[0];
-        const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
-        const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
-
-        // Only flip if it was a tap (minimal movement)
-        if (deltaX < 10 && deltaY < 10) {
-            e.stopPropagation();
+    const handleDoubleTap = () => {
+        const now = Date.now();
+        if (now - lastTapTime.current < 300) {
             setIsFlipped(!isFlipped);
+            lastTapTime.current = 0;
+        } else {
+            lastTapTime.current = now;
         }
-
-        touchStartPos.current = null;
-    };
-
-    const handleClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setIsFlipped(!isFlipped);
     };
 
     return (
@@ -91,9 +73,8 @@ function FlipCard({
                 perspective: "1000px",
             }}
             className="cursor-pointer"
-            onClick={handleClick}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+            onClick={handleDoubleTap}
+            onTouchEnd={handleDoubleTap}
         >
             <motion.div
                 className="relative h-full w-full"
@@ -118,7 +99,7 @@ function FlipCard({
                     </div>
                     {/* Tap hint */}
                     <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[6px] px-1 py-0.5 rounded">
-                        tap
+                        2x tap
                     </div>
                 </div>
 
