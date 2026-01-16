@@ -1226,6 +1226,100 @@ comparisonRoutes.get('/friend-votes', asyncHandler(async (req, res) => {
   }
 }));
 
+// GET /api/comparisons/top-picks - Get user's most voted-for people (hottest picks)
+comparisonRoutes.get('/top-picks', asyncHandler(async (req, res) => {
+  try {
+    const userId = req.query.userId as string;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID required',
+      });
+    }
+
+    // Get all comparisons where this user voted, grouped by winner
+    const comparisons = await prisma.comparison.findMany({
+      where: {
+        raterId: userId,
+        winnerPhotoId: { not: null }, // Only user photo winners (not samples)
+      },
+      select: {
+        winnerPhotoId: true,
+        winnerPhoto: {
+          select: {
+            id: true,
+            url: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profilePhotoUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Count votes per winner photo/user and aggregate
+    const voteCountMap = new Map<string, {
+      photoId: string;
+      userId: string;
+      name: string;
+      url: string;
+      count: number;
+    }>();
+
+    for (const comp of comparisons) {
+      if (!comp.winnerPhoto || !comp.winnerPhoto.user) continue;
+
+      const photo = comp.winnerPhoto;
+      const user = photo.user;
+      const key = user.id; // Group by user, not photo
+
+      if (voteCountMap.has(key)) {
+        voteCountMap.get(key)!.count++;
+      } else {
+        voteCountMap.set(key, {
+          photoId: photo.id,
+          userId: user.id,
+          name: user.name,
+          url: user.profilePhotoUrl || photo.url,
+          count: 1,
+        });
+      }
+    }
+
+    // Sort by vote count and take top N
+    const topPicks = Array.from(voteCountMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map((pick, index) => ({
+        id: pick.photoId,
+        userId: pick.userId,
+        name: pick.name,
+        url: pick.url,
+        rank: index + 1,
+        voteCount: pick.count,
+      }));
+
+    res.json({
+      success: true,
+      topPicks,
+      totalVotes: comparisons.length,
+    });
+
+  } catch (error) {
+    console.error('Get top picks error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get top picks',
+    });
+  }
+}));
+
 // POST /api/comparisons/skip-pair
 comparisonRoutes.post('/skip-pair', asyncHandler(async (req, res) => {
   try {

@@ -17,16 +17,8 @@
     min-height: 100dvh;
     background-color: #0a1628;
     color: #fff;
-    overscroll-behavior: none;
-    touch-action: pan-x pan-y;
+    overscroll-behavior-x: none;
     user-select: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Smooth scrolling for all scrollable elements */
-  * {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
   }
 
   * {
@@ -159,6 +151,22 @@
 .animate-pop-in {
   opacity: 0;
   animation: pop-in 0.4s ease-out forwards;
+}
+
+/* Pulsating glow animation for hottest picks button */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 /* Safe area utilities */

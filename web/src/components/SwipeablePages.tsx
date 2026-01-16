@@ -28,20 +28,7 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
   const threshold = window.innerWidth * 0.15;
 
   const bind = useDrag(
-    ({ movement: [mx, my], velocity: [vx, vy], direction: [dx, dy], active, first, last }) => {
-      // Log every gesture event
-      console.log('🖐️ Gesture:', {
-        active,
-        first,
-        last,
-        movement: { x: mx.toFixed(1), y: my.toFixed(1) },
-        velocity: { x: vx.toFixed(3), y: vy.toFixed(3) },
-        direction: { x: dx, y: dy },
-        currentTab,
-        currentIndex,
-      });
-
-
+    ({ movement: [mx], velocity: [vx], direction: [dx], active }) => {
       if (active) {
         // Apply resistance at boundaries
         const canSwipeRight = currentIndex > 0;
@@ -62,29 +49,16 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
         const distanceMet = Math.abs(mx) > threshold;
         const shouldSwipe = velocityMet || distanceMet;
 
-        console.log('🏁 Gesture ended:', {
-          velocityMet: `${velocityMet} (|${vx.toFixed(3)}| > 0.3)`,
-          distanceMet: `${distanceMet} (|${mx.toFixed(1)}| > ${threshold.toFixed(1)})`,
-          shouldSwipe,
-          direction: dx > 0 ? 'RIGHT (prev tab)' : 'LEFT (next tab)',
-        });
-
         setIsTransitioning(true);
 
         if (shouldSwipe) {
           // dx > 0 means swiping right (go to previous tab)
           // dx < 0 means swiping left (go to next tab)
           if (dx > 0 && currentIndex > 0) {
-            console.log('✅ Navigating to:', TAB_ORDER[currentIndex - 1]);
             updateNavigationTab(TAB_ORDER[currentIndex - 1]);
           } else if (dx < 0 && currentIndex < TAB_ORDER.length - 1) {
-            console.log('✅ Navigating to:', TAB_ORDER[currentIndex + 1]);
             updateNavigationTab(TAB_ORDER[currentIndex + 1]);
-          } else {
-            console.log('⚠️ Cannot navigate: at boundary');
           }
-        } else {
-          console.log('❌ Swipe not registered: thresholds not met');
         }
 
         setSwipeOffset(0);
@@ -116,6 +90,7 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
     <div
       {...bind()}
       className="absolute inset-0 overflow-hidden touch-pan-y"
+      style={{ touchAction: 'pan-y pinch-zoom' }}
     >
       {/* Each page positioned absolutely, translated based on its position relative to current */}
       {TAB_ORDER.map((tabId, index) => {
@@ -133,7 +108,18 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
               visibility: isVisible ? 'visible' : 'hidden',
             }}
           >
-            {pageConfig?.component}
+            {/* Scrollable content wrapper */}
+            <div
+              className="w-full h-full overflow-x-hidden"
+              style={{
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y',
+                paddingBottom: '80px',
+              }}
+            >
+              {pageConfig?.component}
+            </div>
           </div>
         );
       })}

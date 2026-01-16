@@ -529,7 +529,7 @@ export const MatchedPage: React.FC = () => {
 
   // Matches list view
   return (
-    <div className="absolute inset-0 flex flex-col" style={{
+    <div className="min-h-full flex flex-col" style={{
       background: '#4A90E2',
     }}>
       {/* Header */}

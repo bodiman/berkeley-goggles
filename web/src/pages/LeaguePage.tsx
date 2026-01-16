@@ -171,7 +171,7 @@ export const LeaguePage: React.FC = () => {
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{
+    <div className="min-h-full flex flex-col" style={{
       background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
     }}>
       {/* Animated Background Elements */}

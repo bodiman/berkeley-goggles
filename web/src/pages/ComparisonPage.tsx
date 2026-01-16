@@ -3,6 +3,7 @@ import { PhotoComparisonCard } from '../components/PhotoComparisonCard';
 import { useAuth } from '../contexts/AuthContext';
 import { apiRequest } from '../config/api';
 import { useImageBuffer } from '../hooks/useImageBuffer';
+import { HottestRecapPage } from './HottestRecapPage';
 
 // PhotoPair interface now imported from useImageBuffer hook
 
@@ -35,6 +36,7 @@ export const ComparisonPage: React.FC = () => {
   } | null>(null);
   const [topPhotoFriendVotes, setTopPhotoFriendVotes] = useState<FriendVote[]>([]);
   const [bottomPhotoFriendVotes, setBottomPhotoFriendVotes] = useState<FriendVote[]>([]);
+  const [showHottestRecap, setShowHottestRecap] = useState(false);
   
   // Use ref to reliably store recent pair info for animation completion
   const pendingSubmittedPairRef = useRef<{
@@ -359,10 +361,23 @@ export const ComparisonPage: React.FC = () => {
             <span className="text-white">BERKELEY </span>
             <span className="text-blue-300">GOGGLES</span>
           </h1>
-          <div className="text-sm text-white font-semibold" style={{
-            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
-          }}>
-            {dailyProgress?.comparisonsCompleted || 0}/{dailyProgress?.dailyTarget || 20} today
+          <div className="flex items-center gap-3">
+            {/* Hottest Picks Button - Pulsating */}
+            <button
+              onClick={() => setShowHottestRecap(true)}
+              className="relative group"
+              title="View your hottest picks"
+            >
+              <span className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 animate-pulse-glow blur-sm"></span>
+              <span className="relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 shadow-lg border border-white/20 transition-transform group-hover:scale-110 group-active:scale-95">
+                <span className="text-lg">🔥</span>
+              </span>
+            </button>
+            <div className="text-sm text-white font-semibold" style={{
+              textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
+            }}>
+              {dailyProgress?.comparisonsCompleted || 0}/{dailyProgress?.dailyTarget || 20} today
+            </div>
           </div>
         </div>
         
@@ -465,6 +480,11 @@ export const ComparisonPage: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Hottest Recap Overlay */}
+      {showHottestRecap && (
+        <HottestRecapPage onClose={() => setShowHottestRecap(false)} />
+      )}
       </div>
   );
 };
