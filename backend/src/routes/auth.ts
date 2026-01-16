@@ -242,7 +242,7 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
         });
       }
 
-      const userInfo = await userInfoRes.json();
+      const userInfo = await userInfoRes.json() as { email?: string; name?: string };
       if (!userInfo.email || !userInfo.name) {
         return res.status(400).json({
           success: false,
