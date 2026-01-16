@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "npm run clean && npm run copy-shared && prisma generate && tsc && npm run copy-models && npm run post-build && npm run verify-build",
     "copy-shared": "cp -r ../shared ./",
-    "copy-models": "cp -r ml-models dist/",
+    "copy-models": "[ -d ml-models ] && cp -r ml-models dist/ || echo 'No ml-models directory, skipping'",
     "post-build": "echo \"module.exports = require('./src/index.js');\" > dist/index.js",
     "start": "node dist/index.js",
     "start:prod": "npm run build && node dist/index.js",

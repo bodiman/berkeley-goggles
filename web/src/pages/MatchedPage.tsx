@@ -725,7 +725,7 @@ export const MatchedPage: React.FC = () => {
                     alt={match.name}
                     className="w-20 h-20 rounded-full object-cover border-2 border-white/50 shadow-lg"
                   />
-                  <div className="flex-1 text-left">
+                  <div className="flex-1 text-left min-w-0">
                     <h3 className="font-bold text-lg text-white drop-shadow-lg mb-1" style={{
                       textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
                     }}>{match.name}</h3>
@@ -734,7 +734,7 @@ export const MatchedPage: React.FC = () => {
                     }}>{match.lastMessage}</p>
                   </div>
                   {match.lastMessageTime && (
-                    <span className="text-sm text-white/80 drop-shadow" style={{
+                    <span className="text-sm text-white/80 drop-shadow flex-shrink-0" style={{
                       textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
                     }}>{match.lastMessageTime}</span>
                   )}
@@ -782,7 +782,7 @@ export const MatchedPage: React.FC = () => {
                       alt={match.name}
                       className="w-20 h-20 rounded-full object-cover border-2 border-white/50 shadow-lg"
                     />
-                    <div className="flex-1 text-left">
+                    <div className="flex-1 text-left min-w-0">
                       <h3 className="font-bold text-lg text-white drop-shadow-lg mb-1" style={{
                         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
                       }}>{match.name}</h3>
@@ -791,7 +791,7 @@ export const MatchedPage: React.FC = () => {
                       }}>{match.lastMessage}</p>
                     </div>
                     {match.lastMessageTime && (
-                      <span className="text-sm text-white/80 drop-shadow" style={{
+                      <span className="text-sm text-white/80 drop-shadow flex-shrink-0" style={{
                         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
                       }}>{match.lastMessageTime}</span>
                     )}
@@ -840,7 +840,7 @@ export const MatchedPage: React.FC = () => {
                       alt={match.name}
                       className="w-20 h-20 rounded-full object-cover border-2 border-white/50 shadow-lg"
                     />
-                    <div className="flex-1 text-left">
+                    <div className="flex-1 text-left min-w-0">
                       <h3 className="font-bold text-lg text-white drop-shadow-lg mb-1" style={{
                         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
                       }}>{match.name}</h3>
@@ -849,7 +849,7 @@ export const MatchedPage: React.FC = () => {
                       }}>{match.lastMessage}</p>
                     </div>
                     {match.lastMessageTime && (
-                      <span className="text-sm text-white/80 drop-shadow" style={{
+                      <span className="text-sm text-white/80 drop-shadow flex-shrink-0" style={{
                         textShadow: '1px 1px 2px rgba(0, 0, 0, 0.5)',
                       }}>{match.lastMessageTime}</span>
                     )}
