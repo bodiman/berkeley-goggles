@@ -25,7 +25,7 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
   const rawIndex = TAB_ORDER.indexOf(currentTab);
   const currentIndex = rawIndex >= 0 ? rawIndex : 1;
 
-  const threshold = window.innerWidth * 0.15;
+  const threshold = window.innerWidth * 0.08; // Lowered from 0.15 for more sensitive swiping
 
   const bind = useDrag(
     ({ movement: [mx, my], velocity: [vx, vy], direction: [dx, dy], active, first, last }) => {
@@ -58,7 +58,7 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
         setSwipeOffset(offset);
       } else {
         // Gesture ended - determine if we should navigate
-        const velocityMet = Math.abs(vx) > 0.3;
+        const velocityMet = Math.abs(vx) > 0.15; // Lowered from 0.3 for more sensitive swiping
         const distanceMet = Math.abs(mx) > threshold;
         const shouldSwipe = velocityMet || distanceMet;
 
@@ -66,18 +66,19 @@ export const SwipeablePages: React.FC<SwipeablePagesProps> = ({ pages }) => {
           velocityMet: `${velocityMet} (|${vx.toFixed(3)}| > 0.3)`,
           distanceMet: `${distanceMet} (|${mx.toFixed(1)}| > ${threshold.toFixed(1)})`,
           shouldSwipe,
-          direction: dx > 0 ? 'RIGHT (prev tab)' : 'LEFT (next tab)',
+          direction: mx > 0 ? 'RIGHT (prev tab)' : 'LEFT (next tab)',
         });
 
         setIsTransitioning(true);
 
         if (shouldSwipe) {
-          // dx > 0 means swiping right (go to previous tab)
-          // dx < 0 means swiping left (go to next tab)
-          if (dx > 0 && currentIndex > 0) {
+          // Use mx (total movement) not dx (last frame direction) to determine swipe direction
+          // mx > 0 means swiped right (go to previous tab)
+          // mx < 0 means swiped left (go to next tab)
+          if (mx > 0 && currentIndex > 0) {
             console.log('✅ Navigating to:', TAB_ORDER[currentIndex - 1]);
             updateNavigationTab(TAB_ORDER[currentIndex - 1]);
-          } else if (dx < 0 && currentIndex < TAB_ORDER.length - 1) {
+          } else if (mx < 0 && currentIndex < TAB_ORDER.length - 1) {
             console.log('✅ Navigating to:', TAB_ORDER[currentIndex + 1]);
             updateNavigationTab(TAB_ORDER[currentIndex + 1]);
           } else {
