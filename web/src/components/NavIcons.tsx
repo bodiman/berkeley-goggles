@@ -220,7 +220,7 @@ export const LeagueShieldIcon: React.FC<IconProps> = ({ className = '', size = 3
   </svg>
 );
 
-// Profile Icon - Colorful
+// Profile Icon - Knight Helmet Style
 export const ProfileIcon: React.FC<IconProps> = ({ className = '', size = 32 }) => (
   <svg
     width={size}
@@ -230,46 +230,85 @@ export const ProfileIcon: React.FC<IconProps> = ({ className = '', size = 32 }) 
     xmlns="http://www.w3.org/2000/svg"
     className={className}
   >
-    {/* Background circle */}
-    <circle cx="32" cy="32" r="28" fill="url(#profileBg)" stroke="#1a3a5c" strokeWidth="2"/>
-    {/* Head */}
-    <circle cx="32" cy="24" r="10" fill="url(#skinTone)" stroke="#c9a87c" strokeWidth="1"/>
-    {/* Body */}
+    {/* Helmet Main */}
     <path
-      d="M16 54 Q16 40 32 38 Q48 40 48 54"
-      fill="url(#shirtColor)"
-      stroke="#1a5f2a"
-      strokeWidth="1"
+      d="M12 36 L12 28 Q12 8 32 8 Q52 8 52 28 L52 36 Q52 44 46 48 L42 48 L42 52 L22 52 L22 48 L18 48 Q12 44 12 36 Z"
+      fill="url(#helmetSilver)"
+      stroke="#5a6988"
+      strokeWidth="2"
     />
-    {/* Crown */}
+    {/* Helmet top ridge */}
     <path
-      d="M22 16 L24 10 L28 14 L32 8 L36 14 L40 10 L42 16 Z"
-      fill="url(#crownGold)"
-      stroke="#8B6914"
+      d="M28 8 Q32 4 36 8"
+      fill="none"
+      stroke="url(#helmetGold)"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    {/* Helmet crest/plume */}
+    <path
+      d="M32 6 Q38 2 40 8 Q42 14 38 18 L32 12 L26 18 Q22 14 24 8 Q26 2 32 6"
+      fill="url(#plumeRed)"
+      stroke="#8B0000"
       strokeWidth="0.5"
     />
-    {/* Crown gems */}
-    <circle cx="32" cy="12" r="2" fill="#e74c3c"/>
-    <circle cx="26" cy="14" r="1.5" fill="#3498db"/>
-    <circle cx="38" cy="14" r="1.5" fill="#2ecc71"/>
+    {/* Face guard / Visor */}
+    <path
+      d="M18 30 L46 30 L46 40 Q46 44 42 46 L22 46 Q18 44 18 40 Z"
+      fill="url(#visorDark)"
+      stroke="#3d4557"
+      strokeWidth="1"
+    />
+    {/* Visor slits */}
+    <rect x="22" y="34" width="20" height="2" rx="1" fill="#1a1a2e"/>
+    <rect x="22" y="38" width="20" height="2" rx="1" fill="#1a1a2e"/>
+    {/* Gold trim around visor */}
+    <path
+      d="M16 28 L48 28"
+      stroke="url(#helmetGold)"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    {/* Side rivets */}
+    <circle cx="16" cy="32" r="2" fill="url(#helmetGold)" stroke="#8B6914" strokeWidth="0.5"/>
+    <circle cx="48" cy="32" r="2" fill="url(#helmetGold)" stroke="#8B6914" strokeWidth="0.5"/>
+    {/* Chin guard */}
+    <path
+      d="M22 52 L22 56 Q22 60 32 60 Q42 60 42 56 L42 52"
+      fill="url(#helmetSilver)"
+      stroke="#5a6988"
+      strokeWidth="1"
+    />
+    {/* Shine effect */}
+    <path
+      d="M20 16 Q24 14 26 20"
+      fill="none"
+      stroke="rgba(255,255,255,0.4)"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
 
     <defs>
-      <linearGradient id="profileBg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#667eea"/>
-        <stop offset="100%" stopColor="#764ba2"/>
+      <linearGradient id="helmetSilver" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#c0c8d4"/>
+        <stop offset="30%" stopColor="#e8eef5"/>
+        <stop offset="50%" stopColor="#f8fafc"/>
+        <stop offset="70%" stopColor="#e8eef5"/>
+        <stop offset="100%" stopColor="#a8b4c4"/>
       </linearGradient>
-      <linearGradient id="skinTone" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#f5d0a9"/>
-        <stop offset="100%" stopColor="#e5b896"/>
+      <linearGradient id="helmetGold" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#FFD700"/>
+        <stop offset="50%" stopColor="#FFA500"/>
+        <stop offset="100%" stopColor="#CD853F"/>
       </linearGradient>
-      <linearGradient id="shirtColor" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#27ae60"/>
-        <stop offset="100%" stopColor="#1e8449"/>
+      <linearGradient id="visorDark" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#4a5568"/>
+        <stop offset="100%" stopColor="#2d3748"/>
       </linearGradient>
-      <linearGradient id="crownGold" x1="0%" y1="100%" x2="0%" y2="0%">
-        <stop offset="0%" stopColor="#CD853F"/>
-        <stop offset="50%" stopColor="#FFD700"/>
-        <stop offset="100%" stopColor="#FFF8DC"/>
+      <linearGradient id="plumeRed" x1="0%" y1="100%" x2="0%" y2="0%">
+        <stop offset="0%" stopColor="#c0392b"/>
+        <stop offset="50%" stopColor="#e74c3c"/>
+        <stop offset="100%" stopColor="#ff6b6b"/>
       </linearGradient>
     </defs>
   </svg>
