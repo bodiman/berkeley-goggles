@@ -1,3 +1,10 @@
+// Polyfill for deprecated util.isNullOrUndefined (removed in Node.js 17+)
+// Required for @tensorflow/tfjs-node compatibility
+import * as util from 'util';
+if (!(util as any).isNullOrUndefined) {
+  (util as any).isNullOrUndefined = (value: unknown) => value === null || value === undefined;
+}
+
 // Load environment variables FIRST before any other imports
 import dotenv from 'dotenv';
 
