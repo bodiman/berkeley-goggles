@@ -11,7 +11,7 @@
     "copy-models": "[ -d ml-models ] && cp -r ml-models dist/ || echo 'No ml-models directory, skipping'",
     "post-build": "echo \"module.exports = require('./src/index.js');\" > dist/index.js",
     "start": "NODE_OPTIONS='--require ./dist/polyfills.cjs' node dist/index.js",
-    "start:prod": "npm run build && node dist/index.js",
+    "start:prod": "npm run build && NODE_OPTIONS='--require ./dist/polyfills.cjs' node dist/index.js",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
