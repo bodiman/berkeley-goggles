@@ -39,8 +39,32 @@ function FlipCard({
     target,
 }: FlipCardProps) {
     const [isFlipped, setIsFlipped] = useState(false);
+    const touchStartPos = useRef<{ x: number; y: number } | null>(null);
 
-    const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchStartPos.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+        };
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (!touchStartPos.current) return;
+
+        const touch = e.changedTouches[0];
+        const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
+        const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
+
+        // Only flip if it was a tap (minimal movement)
+        if (deltaX < 10 && deltaY < 10) {
+            e.stopPropagation();
+            setIsFlipped(!isFlipped);
+        }
+
+        touchStartPos.current = null;
+    };
+
+    const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsFlipped(!isFlipped);
     };
@@ -68,7 +92,8 @@ function FlipCard({
             }}
             className="cursor-pointer"
             onClick={handleClick}
-            onTouchEnd={handleClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
         >
             <motion.div
                 className="relative h-full w-full"
