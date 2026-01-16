@@ -220,7 +220,7 @@ export const LeagueShieldIcon: React.FC<IconProps> = ({ className = '', size = 3
   </svg>
 );
 
-// Profile Icon - Knight Helmet Style
+// Profile Icon - Bear with Helmet (Oski style)
 export const ProfileIcon: React.FC<IconProps> = ({ className = '', size = 32 }) => (
   <svg
     width={size}
@@ -230,85 +230,81 @@ export const ProfileIcon: React.FC<IconProps> = ({ className = '', size = 32 }) 
     xmlns="http://www.w3.org/2000/svg"
     className={className}
   >
-    {/* Helmet Main */}
+    {/* Bear Ears */}
+    <circle cx="14" cy="16" r="8" fill="url(#bearFur)" stroke="#8B6914" strokeWidth="1.5"/>
+    <circle cx="14" cy="16" r="4" fill="url(#earInner)"/>
+    <circle cx="50" cy="16" r="8" fill="url(#bearFur)" stroke="#8B6914" strokeWidth="1.5"/>
+    <circle cx="50" cy="16" r="4" fill="url(#earInner)"/>
+
+    {/* Bear Face */}
+    <ellipse cx="32" cy="38" rx="22" ry="20" fill="url(#bearFur)" stroke="#8B6914" strokeWidth="1.5"/>
+
+    {/* Helmet on head */}
     <path
-      d="M12 36 L12 28 Q12 8 32 8 Q52 8 52 28 L52 36 Q52 44 46 48 L42 48 L42 52 L22 52 L22 48 L18 48 Q12 44 12 36 Z"
-      fill="url(#helmetSilver)"
+      d="M14 28 Q14 12 32 10 Q50 12 50 28 L50 24 Q50 14 32 12 Q14 14 14 24 Z"
+      fill="url(#helmetSilver4)"
       stroke="#5a6988"
-      strokeWidth="2"
+      strokeWidth="1.5"
     />
-    {/* Helmet top ridge */}
+    {/* Helmet gold band */}
     <path
-      d="M28 8 Q32 4 36 8"
+      d="M14 26 Q14 20 32 18 Q50 20 50 26"
       fill="none"
-      stroke="url(#helmetGold)"
+      stroke="url(#helmetGold4)"
       strokeWidth="3"
       strokeLinecap="round"
     />
-    {/* Helmet crest/plume */}
+    {/* Helmet top spike */}
     <path
-      d="M32 6 Q38 2 40 8 Q42 14 38 18 L32 12 L26 18 Q22 14 24 8 Q26 2 32 6"
-      fill="url(#plumeRed)"
-      stroke="#8B0000"
-      strokeWidth="0.5"
-    />
-    {/* Face guard / Visor */}
-    <path
-      d="M18 30 L46 30 L46 40 Q46 44 42 46 L22 46 Q18 44 18 40 Z"
-      fill="url(#visorDark)"
-      stroke="#3d4557"
-      strokeWidth="1"
-    />
-    {/* Visor slits */}
-    <rect x="22" y="34" width="20" height="2" rx="1" fill="#1a1a2e"/>
-    <rect x="22" y="38" width="20" height="2" rx="1" fill="#1a1a2e"/>
-    {/* Gold trim around visor */}
-    <path
-      d="M16 28 L48 28"
-      stroke="url(#helmetGold)"
+      d="M32 12 L32 4"
+      stroke="url(#helmetGold4)"
       strokeWidth="3"
       strokeLinecap="round"
     />
-    {/* Side rivets */}
-    <circle cx="16" cy="32" r="2" fill="url(#helmetGold)" stroke="#8B6914" strokeWidth="0.5"/>
-    <circle cx="48" cy="32" r="2" fill="url(#helmetGold)" stroke="#8B6914" strokeWidth="0.5"/>
-    {/* Chin guard */}
+    <circle cx="32" cy="4" r="3" fill="url(#helmetGold4)" stroke="#8B6914" strokeWidth="0.5"/>
+
+    {/* Bear Eyes */}
+    <ellipse cx="24" cy="36" rx="4" ry="5" fill="#1a1a2e"/>
+    <ellipse cx="40" cy="36" rx="4" ry="5" fill="#1a1a2e"/>
+    <circle cx="25" cy="35" r="1.5" fill="white"/>
+    <circle cx="41" cy="35" r="1.5" fill="white"/>
+
+    {/* Bear Snout */}
+    <ellipse cx="32" cy="46" rx="10" ry="7" fill="url(#snoutColor)"/>
+    <ellipse cx="32" cy="44" rx="5" ry="3" fill="#1a1a2e"/>
+
+    {/* Bear Mouth */}
     <path
-      d="M22 52 L22 56 Q22 60 32 60 Q42 60 42 56 L42 52"
-      fill="url(#helmetSilver)"
-      stroke="#5a6988"
-      strokeWidth="1"
-    />
-    {/* Shine effect */}
-    <path
-      d="M20 16 Q24 14 26 20"
+      d="M28 50 Q32 54 36 50"
       fill="none"
-      stroke="rgba(255,255,255,0.4)"
-      strokeWidth="2"
+      stroke="#5c3d2e"
+      strokeWidth="1.5"
       strokeLinecap="round"
     />
 
     <defs>
-      <linearGradient id="helmetSilver" x1="0%" y1="0%" x2="100%" y2="100%">
+      <linearGradient id="bearFur" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#D4A574"/>
+        <stop offset="50%" stopColor="#C4956A"/>
+        <stop offset="100%" stopColor="#A67C52"/>
+      </linearGradient>
+      <linearGradient id="earInner" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#E8C4A0"/>
+        <stop offset="100%" stopColor="#D4A574"/>
+      </linearGradient>
+      <linearGradient id="snoutColor" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#E8C4A0"/>
+        <stop offset="100%" stopColor="#D4A574"/>
+      </linearGradient>
+      <linearGradient id="helmetSilver4" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stopColor="#c0c8d4"/>
-        <stop offset="30%" stopColor="#e8eef5"/>
-        <stop offset="50%" stopColor="#f8fafc"/>
-        <stop offset="70%" stopColor="#e8eef5"/>
+        <stop offset="50%" stopColor="#e8eef5"/>
         <stop offset="100%" stopColor="#a8b4c4"/>
       </linearGradient>
-      <linearGradient id="helmetGold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <linearGradient id="helmetGold4" x1="0%" y1="0%" x2="0%" y2="100%">
         <stop offset="0%" stopColor="#FFD700"/>
         <stop offset="50%" stopColor="#FFA500"/>
         <stop offset="100%" stopColor="#CD853F"/>
-      </linearGradient>
-      <linearGradient id="visorDark" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#4a5568"/>
-        <stop offset="100%" stopColor="#2d3748"/>
-      </linearGradient>
-      <linearGradient id="plumeRed" x1="0%" y1="100%" x2="0%" y2="0%">
-        <stop offset="0%" stopColor="#c0392b"/>
-        <stop offset="50%" stopColor="#e74c3c"/>
-        <stop offset="100%" stopColor="#ff6b6b"/>
       </linearGradient>
     </defs>
   </svg>
