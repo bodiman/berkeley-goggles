@@ -1251,6 +1251,11 @@ comparisonRoutes.get('/top-picks', asyncHandler(async (req, res) => {
           select: {
             id: true,
             url: true,
+            ranking: {
+              select: {
+                trophyScore: true,
+              },
+            },
             user: {
               select: {
                 id: true,
@@ -1270,6 +1275,7 @@ comparisonRoutes.get('/top-picks', asyncHandler(async (req, res) => {
       name: string;
       url: string;
       count: number;
+      trophies: number;
     }>();
 
     for (const comp of comparisons) {
@@ -1288,6 +1294,7 @@ comparisonRoutes.get('/top-picks', asyncHandler(async (req, res) => {
           name: user.name,
           url: user.profilePhotoUrl || photo.url,
           count: 1,
+          trophies: Math.round(photo.ranking?.trophyScore || 0),
         });
       }
     }
@@ -1303,6 +1310,7 @@ comparisonRoutes.get('/top-picks', asyncHandler(async (req, res) => {
         url: pick.url,
         rank: index + 1,
         voteCount: pick.count,
+        trophies: pick.trophies,
       }));
 
     res.json({

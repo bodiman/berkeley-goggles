@@ -10,6 +10,7 @@ interface TopPick {
   url: string;
   rank: number;
   voteCount: number;
+  trophies: number;
 }
 
 interface HottestRecapPageProps {
@@ -83,6 +84,7 @@ export const HottestRecapPage: React.FC<HottestRecapPageProps> = ({ onClose }) =
       : `${window.location.origin}/api/user/photo/${pick.url.split('/').pop()}`,
     name: pick.name,
     rank: pick.rank,
+    trophies: pick.trophies,
   }));
 
   return (

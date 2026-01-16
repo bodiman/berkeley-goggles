@@ -11,12 +11,14 @@ interface RankingImage {
     url: string;
     name: string;
     rank: number;
+    trophies?: number;
 }
 
 interface FlipCardProps {
     src: string;
     name: string;
     rank: number;
+    trophies?: number;
     index: number;
     total: number;
     phase: AnimationPhase;
@@ -31,10 +33,18 @@ function FlipCard({
     src,
     name,
     rank,
+    trophies,
     index,
     phase,
     target,
 }: FlipCardProps) {
+    const [isFlipped, setIsFlipped] = useState(false);
+
+    const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
+        e.stopPropagation();
+        setIsFlipped(!isFlipped);
+    };
+
     return (
         <motion.div
             animate={{
@@ -56,13 +66,15 @@ function FlipCard({
                 transformStyle: "preserve-3d",
                 perspective: "1000px",
             }}
-            className="cursor-pointer group"
+            className="cursor-pointer"
+            onClick={handleClick}
+            onTouchEnd={handleClick}
         >
             <motion.div
                 className="relative h-full w-full"
                 style={{ transformStyle: "preserve-3d" }}
+                animate={{ rotateY: isFlipped ? 180 : 0 }}
                 transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
-                whileHover={{ rotateY: 180 }}
             >
                 {/* Front Face */}
                 <div
@@ -74,21 +86,38 @@ function FlipCard({
                         alt={name}
                         className="h-full w-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/10 transition-colors group-hover:bg-transparent" />
+                    <div className="absolute inset-0 bg-black/10" />
                     {/* Rank badge */}
                     <div className="absolute top-1 left-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-lg">
                         #{rank}
+                    </div>
+                    {/* Tap hint */}
+                    <div className="absolute bottom-1 right-1 bg-black/50 text-white text-[6px] px-1 py-0.5 rounded">
+                        tap
                     </div>
                 </div>
 
                 {/* Back Face */}
                 <div
-                    className="absolute inset-0 h-full w-full overflow-hidden rounded-xl shadow-lg bg-gray-900 flex flex-col items-center justify-center p-2 border border-gray-700"
+                    className="absolute inset-0 h-full w-full overflow-hidden rounded-xl shadow-lg bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center p-2 border border-yellow-500/30"
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                 >
-                    <div className="text-center">
-                        <p className="text-[8px] font-bold text-yellow-400 uppercase tracking-widest mb-1">#{rank}</p>
-                        <p className="text-[10px] font-medium text-white truncate max-w-full">{name}</p>
+                    <div className="text-center space-y-1">
+                        {/* Rank */}
+                        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-lg inline-block">
+                            #{rank}
+                        </div>
+                        {/* Name */}
+                        <p className="text-[9px] font-bold text-white truncate max-w-full leading-tight">
+                            {name.split(' ')[0]}
+                        </p>
+                        {/* Trophies */}
+                        {trophies !== undefined && (
+                            <div className="flex items-center justify-center gap-0.5 bg-black/30 rounded-full px-1.5 py-0.5">
+                                <span className="text-[10px]">🏆</span>
+                                <span className="text-[8px] font-bold text-yellow-400">{trophies}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </motion.div>
@@ -371,6 +400,7 @@ export default function ScrollMorphHero({
                                 src={img.url}
                                 name={img.name}
                                 rank={img.rank}
+                                trophies={img.trophies}
                                 index={i}
                                 total={TOTAL_IMAGES}
                                 phase={introPhase}
