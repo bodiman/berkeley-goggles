@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomePage } from './pages/WelcomePage';
 import { ProfileSetupPage } from './pages/ProfileSetupPage';
@@ -135,18 +133,8 @@ const AppContent: React.FC = () => {
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-  // Initialize Google Auth plugin for native platforms
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      console.log('🔵 Initializing native Google Auth...');
-      GoogleAuth.initialize({
-        clientId: googleClientId,
-        scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
-      });
-      console.log('🔵 Native Google Auth initialized');
-    }
-  }, [googleClientId]);
+  // Firebase Authentication doesn't require explicit initialization
+  // Configuration is handled via GoogleService-Info.plist (iOS) and google-services.json (Android)
 
   // Debug: Log the client ID to console
   console.log('🔍 Google Client ID Debug:', {

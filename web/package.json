@@ -16,15 +16,16 @@
     "cap:sync": "npx cap sync"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^8.0.1",
     "@capacitor/android": "^8.0.1",
     "@capacitor/cli": "^8.0.1",
     "@capacitor/core": "^8.0.1",
     "@capacitor/ios": "^8.0.1",
-    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@react-oauth/google": "^0.12.2",
     "@react-spring/web": "^9.7.5",
     "@use-gesture/react": "^10.3.1",
     "clsx": "^2.1.1",
+    "firebase": "^12.8.0",
     "framer-motion": "^12.24.12",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

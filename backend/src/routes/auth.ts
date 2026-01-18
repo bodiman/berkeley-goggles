@@ -217,7 +217,10 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
       // Verify the Google ID token (standard web flow)
       const ticket = await googleClient.verifyIdToken({
         idToken: validatedData.idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: [
+          process.env.GOOGLE_CLIENT_ID!,
+          process.env.GOOGLE_IOS_CLIENT_ID!,
+        ].filter(Boolean),
       });
 
       const payload = ticket.getPayload();

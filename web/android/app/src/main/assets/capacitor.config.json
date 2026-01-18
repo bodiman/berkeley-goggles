@@ -1,0 +1,26 @@
+{
+	"appId": "com.berkeleygoggles.app",
+	"appName": "Berkeley Goggles",
+	"webDir": "dist",
+	"ios": {
+		"contentInset": "automatic",
+		"scheme": "Berkeley Goggles"
+	},
+	"android": {
+		"allowMixedContent": true
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 2000,
+			"backgroundColor": "#000000"
+		},
+		"SocialLogin": {
+			"providers": {
+				"google": true,
+				"facebook": false,
+				"apple": true,
+				"twitter": false
+			}
+		}
+	}
+}

@@ -160,6 +160,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🎫 AuthContext: loginWithGoogle - inviteToken from localStorage:', inviteToken);
       console.log('🎫 AuthContext: loginWithGoogle - isAccessToken:', isAccessToken);
 
+
+      console.log("ABCDEFG")
       const response = await apiRequest(API_ENDPOINTS.auth.google, {
         method: 'POST',
         body: JSON.stringify({
@@ -173,7 +175,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!response.ok) {
         return false;
       }
-
+      
       const data = await response.json();
 
       if (data.success && data.user) {

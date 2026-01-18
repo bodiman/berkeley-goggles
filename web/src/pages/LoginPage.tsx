@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 
 interface LoginPageProps {
   onNavigateToWelcome: () => void;
@@ -102,13 +102,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Native mobile flow using Capacitor plugin
-        console.log('🔵 Using native Google Auth...');
-        const result = await GoogleAuth.signIn();
-        console.log('🔵 Native Google Auth result:', result);
+        // Native mobile flow using Firebase Authentication
+        console.log('🔵 Using native Firebase Google Auth...');
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        console.log('🔵 Firebase Google Auth result:', result);
 
-        // The plugin returns idToken in authentication object
-        const idToken = result.authentication?.idToken;
+        const idToken = result.credential?.idToken;
         if (!idToken) {
           throw new Error('No ID token received from Google');
         }

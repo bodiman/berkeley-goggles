@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import choskiImg from '../assets/choski.jpg';
 import oskimaxImg from '../assets/oskimax.png';
 import gogglesImg from '../assets/goggles.svg';
@@ -112,13 +112,12 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
 
     try {
       if (Capacitor.isNativePlatform()) {
-        // Native mobile flow using Capacitor plugin
-        console.log('🔵 Using native Google Auth...');
-        const result = await GoogleAuth.signIn();
-        console.log('🔵 Native Google Auth result:', result);
+        // Native mobile flow using Firebase Authentication
+        console.log('🔵 Using native Firebase Google Auth...');
+        const result = await FirebaseAuthentication.signInWithGoogle();
+        console.log('🔵 Firebase Google Auth result:', result);
 
-        // The plugin returns idToken in authentication object
-        const idToken = result.authentication?.idToken;
+        const idToken = result.credential?.idToken;
         if (!idToken) {
           throw new Error('No ID token received from Google');
         }
@@ -253,7 +252,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
             )}
 
             <p className="text-xs text-white/40 leading-relaxed text-center font-medium">
-              Entertainment purposes only. Must be 18+.
+              Dev Build v0.1.0-alpha
             </p>
           </div>
         </div>
