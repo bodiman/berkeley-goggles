@@ -3,7 +3,7 @@
 	"appName": "Berkeley Goggles",
 	"webDir": "dist",
 	"ios": {
-		"contentInset": "automatic",
+		"contentInset": "never",
 		"scheme": "Berkeley Goggles"
 	},
 	"android": {
@@ -14,13 +14,16 @@
 			"launchShowDuration": 2000,
 			"backgroundColor": "#000000"
 		},
-		"SocialLogin": {
-			"providers": {
-				"google": true,
-				"facebook": false,
-				"apple": true,
-				"twitter": false
-			}
+		"StatusBar": {
+			"overlaysWebView": true,
+			"backgroundColor": "#00000000",
+			"style": "DARK"
+		},
+		"FirebaseAuthentication": {
+			"skipNativeAuth": false,
+			"providers": [
+				"google.com"
+			]
 		}
 	}
 }

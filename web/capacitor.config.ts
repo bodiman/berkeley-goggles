@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Berkeley Goggles',
   webDir: 'dist',
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'never',
     scheme: 'Berkeley Goggles',
   },
   android: {
@@ -15,6 +15,11 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#000000',
+    },
+    StatusBar: {
+      overlaysWebView: true,
+      backgroundColor: '#00000000',
+      style: 'DARK',
     },
     FirebaseAuthentication: {
       skipNativeAuth: false,

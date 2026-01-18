@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useGoogleLogin } from '@react-oauth/google';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../config/firebase';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import choskiImg from '../assets/choski.jpg';
@@ -82,59 +83,41 @@ export const WelcomePage: React.FC<WelcomePageProps> = () => {
   const leftLensX = centerX - LENS_SPACING / 2;
   const rightLensX = centerX + LENS_SPACING / 2;
 
-  // Web OAuth flow (for browser)
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const success = await loginWithGoogle(tokenResponse.access_token, true);
-        if (!success) {
-          throw new Error('Google login failed');
-        }
-      } catch (err) {
-        console.error('Google login failed:', err);
-        setError('Google login failed. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onError: () => {
-      setError('Google login failed. Please try again.');
-    },
-  });
-
-  // Handle Google login - native on mobile, web otherwise
+  // Handle Google login using Firebase Auth (platform-aware)
   const handleGoogleLogin = async () => {
-    console.log('🔵 Google button clicked, isNative:', Capacitor.isNativePlatform());
+    console.log('🔵 Google button clicked - using Firebase Auth');
     setIsLoading(true);
     setError(null);
 
     try {
+      let firebaseIdToken: string;
+
       if (Capacitor.isNativePlatform()) {
-        // Native mobile flow using Firebase Authentication
-        console.log('🔵 Using native Firebase Google Auth...');
+        // Native platforms: use Capacitor Firebase Authentication plugin
+        console.log('🔵 Using native Firebase Auth');
         const result = await FirebaseAuthentication.signInWithGoogle();
-        console.log('🔵 Firebase Google Auth result:', result);
+        console.log('🔵 Native Firebase Auth result:', result.user?.email);
 
-        const idToken = result.credential?.idToken;
-        if (!idToken) {
-          throw new Error('No ID token received from Google');
-        }
-
-        const success = await loginWithGoogle(idToken, false); // false = it's an ID token
-        if (!success) {
-          throw new Error('Login failed');
-        }
+        // Get the ID token from the native result
+        const tokenResult = await FirebaseAuthentication.getIdToken();
+        firebaseIdToken = tokenResult.token;
       } else {
-        // Web flow - use the popup-based OAuth
-        console.log('🔵 Using web Google OAuth...');
-        setIsLoading(false); // Let the hook handle loading state
-        googleLogin();
+        // Web platform: use Firebase Web SDK with popup
+        console.log('🔵 Using web Firebase Auth');
+        const result = await signInWithPopup(auth, googleProvider);
+        console.log('🔵 Web Firebase Auth result:', result.user.email);
+        firebaseIdToken = await result.user.getIdToken();
+      }
+
+      // Send to backend for verification and user creation/login
+      const success = await loginWithGoogle(firebaseIdToken);
+      if (!success) {
+        throw new Error('Login failed');
       }
     } catch (err) {
       console.error('Google login failed:', err);
       setError('Google login failed. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };

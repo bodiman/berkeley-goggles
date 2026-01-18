@@ -22,7 +22,7 @@ export const BottomNavigation: React.FC = () => {
   const { currentTab } = navigationState;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 safe-area-inset z-50">
+    <nav className="fixed bottom-0 left-0 right-0 z-50">
       {/* Nav bar background */}
       <div className="bg-gradient-to-t from-[#1a2744] to-[#243b5c] border-t-2 border-[#3d5a80] shadow-2xl">
         {/* Decorative top line */}

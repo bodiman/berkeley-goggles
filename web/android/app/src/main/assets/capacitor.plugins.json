@@ -1,6 +1,10 @@
 [
 	{
-		"pkg": "@capgo/capacitor-social-login",
-		"classpath": "ee.forgr.capacitor.social.login.SocialLoginPlugin"
+		"pkg": "@capacitor-firebase/authentication",
+		"classpath": "io.capawesome.capacitorjs.plugins.firebase.authentication.FirebaseAuthenticationPlugin"
+	},
+	{
+		"pkg": "@capacitor/status-bar",
+		"classpath": "com.capacitorjs.plugins.statusbar.StatusBarPlugin"
 	}
 ]

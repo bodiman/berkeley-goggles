@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { OAuth2Client } from 'google-auth-library';
+import admin from 'firebase-admin';
 import { asyncHandler } from '../middleware/errorHandler';
 import { prisma } from '../services/database';
 
@@ -11,8 +11,21 @@ export const authRoutes = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 const JWT_EXPIRES_IN = '7d';
 
-// Google OAuth client
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+    : undefined;
+
+  if (serviceAccount) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  } else {
+    // Initialize with application default credentials (for local development)
+    admin.initializeApp();
+  }
+}
 
 // Validation schemas
 const registerSchema = z.object({
@@ -28,11 +41,8 @@ const loginSchema = z.object({
 });
 
 const googleAuthSchema = z.object({
-  idToken: z.string().optional(),
-  accessToken: z.string().optional(), // For Capacitor/WebView flows
+  firebaseIdToken: z.string().min(1, 'Firebase ID token is required'),
   inviteToken: z.string().optional(), // One-time use invite token
-}).refine(data => data.idToken || data.accessToken, {
-  message: 'Either idToken or accessToken is required',
 });
 
 // POST /api/auth/register
@@ -210,54 +220,16 @@ authRoutes.post('/google', asyncHandler(async (req: Request, res: Response) => {
   const validatedData = googleAuthSchema.parse(req.body);
 
   try {
-    let email: string;
-    let name: string;
+    // Verify Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(validatedData.firebaseIdToken);
 
-    if (validatedData.idToken) {
-      // Verify the Google ID token (standard web flow)
-      const ticket = await googleClient.verifyIdToken({
-        idToken: validatedData.idToken,
-        audience: [
-          process.env.GOOGLE_CLIENT_ID!,
-          process.env.GOOGLE_IOS_CLIENT_ID!,
-        ].filter(Boolean),
-      });
+    const email = decodedToken.email;
+    const name = decodedToken.name || decodedToken.email?.split('@')[0] || 'User';
 
-      const payload = ticket.getPayload();
-      if (!payload || !payload.email || !payload.name) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid Google token payload',
-        });
-      }
-      email = payload.email;
-      name = payload.name;
-    } else if (validatedData.accessToken) {
-      // Fetch user info with access token (Capacitor/WebView flow)
-      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${validatedData.accessToken}` },
-      });
-
-      if (!userInfoRes.ok) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid Google access token',
-        });
-      }
-
-      const userInfo = await userInfoRes.json() as { email?: string; name?: string };
-      if (!userInfo.email || !userInfo.name) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid Google user info',
-        });
-      }
-      email = userInfo.email;
-      name = userInfo.name;
-    } else {
+    if (!email) {
       return res.status(400).json({
         success: false,
-        error: 'Either idToken or accessToken is required',
+        error: 'No email found in Firebase token',
       });
     }
 

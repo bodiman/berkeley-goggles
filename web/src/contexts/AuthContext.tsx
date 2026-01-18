@@ -43,7 +43,7 @@ interface AuthContextType {
   navigationState: AppNavigationState;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  loginWithGoogle: (token: string, isAccessToken?: boolean) => Promise<boolean>;
+  loginWithGoogle: (firebaseIdToken: string) => Promise<boolean>;
   register: (registrationData: UserRegistrationData) => Promise<boolean>;
   logout: () => void;
   setupProfile: (profileData: UserProfileSetup) => Promise<boolean>;
@@ -153,20 +153,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const loginWithGoogle = async (token: string, isAccessToken: boolean = false): Promise<boolean> => {
+  const loginWithGoogle = async (firebaseIdToken: string): Promise<boolean> => {
     try {
       // Check for invite token from invite link
       const inviteToken = localStorage.getItem('inviteToken');
       console.log('🎫 AuthContext: loginWithGoogle - inviteToken from localStorage:', inviteToken);
-      console.log('🎫 AuthContext: loginWithGoogle - isAccessToken:', isAccessToken);
 
-
-      console.log("ABCDEFG")
       const response = await apiRequest(API_ENDPOINTS.auth.google, {
         method: 'POST',
         body: JSON.stringify({
-          idToken: isAccessToken ? undefined : token,
-          accessToken: isAccessToken ? token : undefined,
+          firebaseIdToken,
           inviteToken: inviteToken || undefined,
         }),
       });
@@ -175,7 +171,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!response.ok) {
         return false;
       }
-      
+
       const data = await response.json();
 
       if (data.success && data.user) {

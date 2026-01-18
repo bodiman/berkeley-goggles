@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+// Initialize Firebase
+import './config/firebase';
 import { WelcomePage } from './pages/WelcomePage';
 import { ProfileSetupPage } from './pages/ProfileSetupPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -131,32 +134,18 @@ const AppContent: React.FC = () => {
 };
 
 function App() {
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  // Firebase Authentication doesn't require explicit initialization
-  // Configuration is handled via GoogleService-Info.plist (iOS) and google-services.json (Android)
-
-  // Debug: Log the client ID to console
-  console.log('🔍 Google Client ID Debug:', {
-    clientId: googleClientId || 'NOT SET',
-    clientIdLength: googleClientId?.length || 0,
-    envVar: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-    allEnvVars: Object.keys(import.meta.env).filter(key => key.includes('GOOGLE') || key.includes('CLIENT'))
-  });
-  
-  if (!googleClientId) {
-    console.warn('⚠️ VITE_GOOGLE_CLIENT_ID not found in environment variables');
-    console.warn('💡 Make sure you have web/.env.local file with VITE_GOOGLE_CLIENT_ID set');
-  } else {
-    console.log('✅ Google Client ID loaded:', googleClientId.substring(0, 20) + '...');
-  }
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: true });
+      StatusBar.setStyle({ style: Style.Dark });
+      StatusBar.setBackgroundColor({ color: '#00000000' });
+    }
+  }, []);
 
   return (
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </GoogleOAuthProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

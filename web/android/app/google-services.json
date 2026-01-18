@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "677783431877",
+    "project_id": "berkeleygoggles-60168",
+    "storage_bucket": "berkeleygoggles-60168.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:677783431877:android:4bbefa8eb1ae65022f1eac",
+        "android_client_info": {
+          "package_name": "com.berkeleygoggles.application"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "677783431877-40jpgtnk9mbpt4at4nfdu3kj8k7uqh7s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCeN-rTEpL9IxLYpqLBht4gWpcUBDM37bQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "677783431877-40jpgtnk9mbpt4at4nfdu3kj8k7uqh7s.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "677783431877-i6suu65pdb5hu1pim7vag96itnoh828b.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.berkeleygoggles.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
