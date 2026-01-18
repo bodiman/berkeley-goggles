@@ -7,12 +7,20 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:677783431877:android:4bbefa8eb1ae65022f1eac",
+        "mobilesdk_app_id": "1:677783431877:android:84ed04f03166e5dc2f1eac",
         "android_client_info": {
-          "package_name": "com.berkeleygoggles.application"
+          "package_name": "com.berkeleygoggles.app"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "677783431877-e47l5rs6o3hdr2eipa1tlts4238csvt7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.berkeleygoggles.app",
+            "certificate_hash": "cad19200dbdbfa02757e3d837223073167c1eff4"
+          }
+        },
         {
           "client_id": "677783431877-40jpgtnk9mbpt4at4nfdu3kj8k7uqh7s.apps.googleusercontent.com",
           "client_type": 3
