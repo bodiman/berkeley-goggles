@@ -308,7 +308,9 @@ const TinderCard = forwardRef<TinderCardRef, TinderCardProps>(({
       className={className}
       style={{
         transform: xyrot.to((x, y, rot) => `translate3d(${x}px, ${y}px, 0px) rotate(${rot}deg)`),
-        touchAction
+        touchAction,
+        willChange: 'transform',
+        backfaceVisibility: 'hidden',
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
