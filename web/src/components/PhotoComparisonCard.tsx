@@ -37,6 +37,7 @@ interface PhotoComparisonCardProps {
   };
   topPhotoFriendVotes?: FriendVote[];
   bottomPhotoFriendVotes?: FriendVote[];
+  hideOverlayText?: boolean;
 }
 
 export interface PhotoComparisonCardRef {
@@ -54,6 +55,7 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
   bufferStats,
   topPhotoFriendVotes = [],
   bottomPhotoFriendVotes = [],
+  hideOverlayText = false,
 }, ref) => {
   // Card reference for TinderCard
   const cardRef = useRef<TinderCardRef>(null);
@@ -429,12 +431,12 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* Bio Display */}
-            {topPhoto.bio && (
+            {/* Bio Display - temporarily disabled */}
+            {/* {topPhoto.bio && (
               <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg max-w-[calc(100%-1.5rem)]">
                 <p className="text-xs text-white/90">{topPhoto.bio}</p>
               </div>
-            )}
+            )} */}
             
             {/* Inactivity Hint Overlay for Top Photo */}
             {showHints && (
@@ -448,18 +450,37 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* MOGS Overlay for Top Photo */}
+            {/* MOGS Overlay for Top Photo (when top wins) */}
             {swipeDirection === 'up' && (
-              <div 
+              <div
                 className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none z-20"
-                style={{ 
+                style={{
                   backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
                   opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
                 }}
               >
-                <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
-                  MOGS
-                </div>
+                {!hideOverlayText && (
+                  <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
+                    MOGS
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CHOPPED Overlay for Top Photo (when bottom wins) */}
+            {swipeDirection === 'down' && (
+              <div
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none z-20"
+                style={{
+                  backgroundColor: `rgba(239, 68, 68, ${swipeProgress * 0.7})`, // red-500 with dynamic opacity
+                  opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
+                }}
+              >
+                {!hideOverlayText && (
+                  <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
+                    CHOPPED
+                  </div>
+                )}
               </div>
             )}
             
@@ -501,12 +522,12 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* Bio Display */}
-            {bottomPhoto.bio && (
+            {/* Bio Display - temporarily disabled */}
+            {/* {bottomPhoto.bio && (
               <div className="absolute bottom-3 left-3 right-3 bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg max-w-[calc(100%-1.5rem)]">
                 <p className="text-xs text-white/90">{bottomPhoto.bio}</p>
               </div>
-            )}
+            )} */}
             
             {/* Inactivity Hint Overlay for Bottom Photo */}
             {showHints && (
@@ -520,18 +541,37 @@ export const PhotoComparisonCard = forwardRef<PhotoComparisonCardRef, PhotoCompa
               </div>
             )}
             
-            {/* MOGS Overlay for Bottom Photo */}
+            {/* MOGS Overlay for Bottom Photo (when bottom wins) */}
             {swipeDirection === 'down' && (
-              <div 
+              <div
                 className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none z-20"
-                style={{ 
+                style={{
                   backgroundColor: `rgba(34, 197, 94, ${swipeProgress * 0.7})`, // green-500 with dynamic opacity
                   opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
                 }}
               >
-                <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
-                  MOGS
-                </div>
+                {!hideOverlayText && (
+                  <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
+                    MOGS
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CHOPPED Overlay for Bottom Photo (when top wins) */}
+            {swipeDirection === 'up' && (
+              <div
+                className="absolute inset-0 flex items-center justify-center transition-opacity duration-100 ease-out pointer-events-none z-20"
+                style={{
+                  backgroundColor: `rgba(239, 68, 68, ${swipeProgress * 0.7})`, // red-500 with dynamic opacity
+                  opacity: Math.max(0.3, swipeProgress) // Minimum 30% opacity when visible
+                }}
+              >
+                {!hideOverlayText && (
+                  <div className="text-white text-6xl font-black italic tracking-widest drop-shadow-2xl animate-pulse">
+                    CHOPPED
+                  </div>
+                )}
               </div>
             )}
             

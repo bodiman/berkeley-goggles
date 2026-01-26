@@ -12,6 +12,9 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     const userId = req.query.userId as string;
     const bufferSize = parseInt(req.query.buffer as string) || 1;
     
+    // Get source param for Love@Berkeley filtering
+    const source = req.query.source as string;
+
     // Get recently submitted pair info to exclude from next load
     const recentWinnerId = req.query.recentWinnerId as string;
     const recentLoserId = req.query.recentLoserId as string;
@@ -78,8 +81,10 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       });
     }
 
-    // Determine opposite gender for filtering
-    const oppositeGender = rater.gender === 'male' ? 'female' : 'male';
+    // Determine target gender for filtering
+    // For Love@Berkeley (source=love), always show males (users are female rating males)
+    // For regular Berkeley Goggles, show opposite gender
+    const targetGender = source === 'love' ? 'male' : (rater.gender === 'male' ? 'female' : 'male');
 
     // Priority system for photo selection:
     // 1. Prioritize user photos over sample images
@@ -94,7 +99,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         status: 'approved',
         userId: { not: userId },
         user: {
-          gender: oppositeGender,
+          gender: targetGender,
           profilePhotoUrl: { not: null },
           isActive: true,
           // profileComplete: true, // REMOVED - approved photos should be available regardless of profile completion
@@ -110,7 +115,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         status: 'approved',
         userId: { not: userId }, // Don't show user their own photos
         user: {
-          gender: oppositeGender, // Only opposite gender
+          gender: targetGender, // Only opposite gender
           profilePhotoUrl: { not: null }, // Must have an active profile photo
           isActive: true,
           // profileComplete: true, // REMOVED - approved photos should be available regardless of profile completion
@@ -153,7 +158,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     const totalSampleImages = await prisma.sampleImage.count({
       where: {
         isActive: true,
-        gender: oppositeGender,
+        gender: targetGender,
       },
     });
 
@@ -166,7 +171,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
     const randomizedSamples = await prisma.sampleImage.findMany({
       where: {
         isActive: true,
-        gender: oppositeGender,
+        gender: targetGender,
       },
       skip: randomOffset,
       take: sampleImagePoolSize,
@@ -290,7 +295,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         ? await prisma.sampleImage.findMany({
             where: {
               isActive: true,
-              gender: oppositeGender,
+              gender: targetGender,
               id: { notIn: sampleImageIds }
             },
             take: Math.max(50, sampleImagePoolSize - filteredSampleImages.length),
@@ -301,7 +306,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
         : await prisma.sampleImage.findMany({
             where: {
               isActive: true,
-              gender: oppositeGender,
+              gender: targetGender,
             },
             skip: Math.floor(Math.random() * Math.max(1, totalSampleImages)),
             take: Math.max(50, sampleImagePoolSize - filteredSampleImages.length),
@@ -534,7 +539,7 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
       let message = '';
       
       if (typedUserPhotos.length === 0 && typedSampleImages.length === 0) {
-        message = `No ${oppositeGender} photos available for comparison. Please check sample image configuration.`;
+        message = `No ${targetGender} photos available for comparison. Please check sample image configuration.`;
       } else {
         message = `You've compared all available photo combinations! (${typedUserPhotos.length} user photos, ${typedSampleImages.length} sample images)`;
       }
@@ -720,14 +725,15 @@ comparisonRoutes.get('/next-pair', asyncHandler(async (req, res) => {
 // POST /api/comparisons/submit
 comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
   try {
-    const { 
-      sessionId, 
-      winnerId, 
-      loserId, 
-      winnerType, 
-      loserType, 
+    const {
+      sessionId,
+      winnerId,
+      loserId,
+      winnerType,
+      loserType,
       comparisonType,
-      userId 
+      userId,
+      source: requestSource
     } = req.body;
     
     if (!sessionId || !winnerId || !loserId || !winnerType || !loserType || !userId) {
@@ -772,12 +778,15 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
       }
     }
 
+    // Determine source (love, goggles, or legacy mobile)
+    const source = requestSource || 'goggles';
+
     // Prepare comparison data based on photo types
     const comparisonData: any = {
       raterId: userId,
       sessionId,
       comparisonType: finalComparisonType,
-      source: 'mobile',
+      source,
       timestamp: new Date(),
     };
 
@@ -927,6 +936,27 @@ comparisonRoutes.post('/submit', asyncHandler(async (req, res) => {
     });
 
     const comparison = result;
+
+    // Track Love@Berkeley comparisons
+    if (source === 'love') {
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          loveComparisonsCompleted: { increment: 1 },
+          // Set onboarding complete when reaching 25 comparisons
+          loveOnboardingComplete: true,
+        },
+        select: { loveComparisonsCompleted: true },
+      });
+
+      // Only set onboarding complete if we've actually reached 25
+      if (updatedUser.loveComparisonsCompleted < 25) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { loveOnboardingComplete: false },
+        });
+      }
+    }
 
     // Send response immediately - comparison is now saved and available for duplicate detection
     res.json({
@@ -1305,7 +1335,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
       });
     }
 
-    const oppositeGender = rater.gender === 'male' ? 'female' : 'male';
+    const targetGender = rater.gender === 'male' ? 'female' : 'male';
 
     // Get user photo counts
     const userPhotoStats = {
@@ -1316,14 +1346,14 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
       approvedOppositeGender: await prisma.photo.count({
         where: {
           status: 'approved',
-          user: { gender: oppositeGender },
+          user: { gender: targetGender },
         }
       }),
       excludingCurrentUser: await prisma.photo.count({
         where: {
           status: 'approved',
           userId: { not: userId },
-          user: { gender: oppositeGender },
+          user: { gender: targetGender },
         }
       }),
       withActiveProfiles: await prisma.photo.count({
@@ -1331,7 +1361,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
           status: 'approved',
           userId: { not: userId },
           user: { 
-            gender: oppositeGender,
+            gender: targetGender,
             isActive: true 
           },
         }
@@ -1341,7 +1371,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
           status: 'approved',
           userId: { not: userId },
           user: { 
-            gender: oppositeGender,
+            gender: targetGender,
             profileComplete: true 
           },
         }
@@ -1351,7 +1381,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
           status: 'approved',
           userId: { not: userId },
           user: { 
-            gender: oppositeGender,
+            gender: targetGender,
             isActive: true,
             profileComplete: true 
           },
@@ -1362,7 +1392,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
           status: 'approved',
           userId: { not: userId },
           user: { 
-            gender: oppositeGender,
+            gender: targetGender,
             profilePhotoUrl: { not: null }
           },
         }
@@ -1372,7 +1402,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
           status: 'approved',
           userId: { not: userId },
           user: { 
-            gender: oppositeGender,
+            gender: targetGender,
             profilePhotoUrl: { not: null },
             isActive: true,
             // Note: profileComplete no longer required after fix
@@ -1390,20 +1420,20 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
       activeOppositeGender: await prisma.sampleImage.count({
         where: {
           isActive: true,
-          gender: oppositeGender,
+          gender: targetGender,
         }
       }),
       withR2Urls: await prisma.sampleImage.count({
         where: {
           isActive: true,
-          gender: oppositeGender,
+          gender: targetGender,
           url: { startsWith: 'https://' }
         }
       }),
       withLocalUrls: await prisma.sampleImage.count({
         where: {
           isActive: true,
-          gender: oppositeGender,
+          gender: targetGender,
           url: { startsWith: '/sample-images/' }
         }
       })
@@ -1413,7 +1443,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
     const sampleImageExamples = await prisma.sampleImage.findMany({
       where: {
         isActive: true,
-        gender: oppositeGender,
+        gender: targetGender,
       },
       select: {
         id: true,
@@ -1455,7 +1485,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
       where: {
         status: 'approved',
         userId: { not: userId },
-        user: { gender: oppositeGender },
+        user: { gender: targetGender },
       },
       take: 10,
       select: { id: true, userId: true }
@@ -1464,7 +1494,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
     const actualSampleImages = await prisma.sampleImage.findMany({
       where: {
         isActive: true,
-        gender: oppositeGender,
+        gender: targetGender,
       },
       take: 10,
       select: { id: true, url: true }
@@ -1500,7 +1530,7 @@ comparisonRoutes.get('/debug', asyncHandler(async (req, res) => {
       success: true,
       debug: {
         user: rater,
-        oppositeGender,
+        targetGender,
         userPhotoStats,
         sampleImageStats,
         comparisonStats,

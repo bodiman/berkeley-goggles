@@ -351,7 +351,7 @@ export const ComparisonPage: React.FC = () => {
         background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
       }}>
       {/* Header */}
-      <header className="px-6 py-2 flex-shrink-0">
+      <header className="pt-safe px-6 py-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-black italic uppercase tracking-tight" style={{
             textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 0, 0, 0.3)',

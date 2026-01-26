@@ -14,7 +14,27 @@ import { InvitePage } from './pages/InvitePage';
 import { BottomNavigation } from './components/BottomNavigation';
 import { SwipeablePages } from './components/SwipeablePages';
 import { LoadingScreen } from './components/LoadingScreen';
+import { LoveAppContent } from './components/LoveAppContent';
 import './index.css';
+
+// Determine which app to show based on domain and path
+const shouldShowLoveApp = (): boolean => {
+  const hostname = window.location.hostname;
+  const pathname = window.location.pathname;
+
+  // Production: loveatberkeley.net always shows Love app
+  if (hostname.includes('loveatberkeley')) {
+    return true;
+  }
+
+  // Production: berkeleygoggles.net never shows Love app
+  if (hostname.includes('berkeleygoggles')) {
+    return false;
+  }
+
+  // Localhost/dev: use path-based routing (/love)
+  return pathname.startsWith('/love');
+};
 
 // Helper to check if we're on an invite path and extract token
 const getInviteInfo = (): { isInvitePath: boolean; token: string | null } => {
@@ -141,6 +161,11 @@ function App() {
       StatusBar.setBackgroundColor({ color: '#00000000' });
     }
   }, []);
+
+  // Check if this should show Love@Berkeley app
+  if (shouldShowLoveApp()) {
+    return <LoveAppContent />;
+  }
 
   return (
     <AuthProvider>

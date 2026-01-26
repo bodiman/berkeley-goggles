@@ -181,7 +181,7 @@ export const LeaguePage: React.FC = () => {
       </div>
 
       {/* Header */}
-      <header className="bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-10">
+      <header className="pt-safe bg-white/5 backdrop-blur-md border-b border-white/10 px-6 py-3 flex-shrink-0 z-10">
         <h1 className="text-2xl font-black text-white tracking-tighter drop-shadow-md">
           LEAGUE
         </h1>

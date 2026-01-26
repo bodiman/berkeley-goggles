@@ -533,7 +533,7 @@ export const MatchedPage: React.FC = () => {
       background: '#4A90E2',
     }}>
       {/* Header */}
-      <header className="bg-white/10 backdrop-blur-sm border-b border-white/20 px-6 py-4 flex-shrink-0">
+      <header className="pt-safe bg-white/10 backdrop-blur-sm border-b border-white/20 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-white drop-shadow-lg" style={{
             textShadow: '2px 2px 4px rgba(0, 0, 0, 0.5)',

@@ -40,6 +40,7 @@ import { messagesRoutes } from './routes/messages';
 import { matchMessagesRoutes } from './routes/matchMessages';
 import { inviteRoutes } from './routes/invite';
 import { oskiRoutes } from './routes/oski';
+import { loveRoutes } from './routes/love';
 
 const app = express();
 const httpServer = createServer(app);
@@ -52,6 +53,8 @@ const socketAllowedOrigins = process.env.NODE_ENV === 'production'
       'https://elocheck.vercel.app',
       'https://berkeley-goggles-git-main-bodimans-projects.vercel.app',
       'https://www.berkeleygoggles.net',
+      'https://www.loveatberkeley.net',
+      'https://loveatberkeley.net',
       'https://localhost',  // Capacitor Android
       'capacitor://localhost',  // Capacitor iOS
     ].filter(Boolean) as string[]
@@ -167,6 +170,8 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       'https://elocheck.vercel.app',
       'https://berkeley-goggles-git-main-bodimans-projects.vercel.app',
       'https://www.berkeleygoggles.net',
+      'https://www.loveatberkeley.net',
+      'https://loveatberkeley.net',
       'https://localhost',  // Capacitor Android
       'capacitor://localhost',  // Capacitor iOS
     ].filter(Boolean) as string[]
@@ -297,6 +302,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/match-messages', matchMessagesRoutes);
 app.use('/api/invite', inviteRoutes);
 app.use('/api/oski', oskiRoutes);
+app.use('/api/love', loveRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

@@ -53,6 +53,20 @@
     padding-right: env(safe-area-inset-right);
   }
 
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* iOS native app safe area fallback - Capacitor with contentInset:'never' may not populate env() */
+  html.capacitor-ios .pt-safe {
+    padding-top: max(env(safe-area-inset-top, 0px), 59px);
+  }
+
+  /* Android native app safe area fallback */
+  html.capacitor-android .pt-safe {
+    padding-top: max(env(safe-area-inset-top, 0px), 24px);
+  }
+
   .photo-card {
     @apply relative overflow-hidden rounded-2xl bg-gray-900 shadow-2xl;
     @apply select-none touch-none;

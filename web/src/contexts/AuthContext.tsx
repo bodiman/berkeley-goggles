@@ -12,6 +12,10 @@ interface AuthUser {
   profileComplete: boolean;
   createdAt: Date;
   lastActive: Date;
+  // Love@Berkeley fields
+  loveSource?: 'goggles' | 'love';
+  loveOnboardingComplete?: boolean;
+  loveComparisonsCompleted?: number;
 }
 
 interface AppNavigationState {

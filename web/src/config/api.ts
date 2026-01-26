@@ -96,4 +96,8 @@ export const API_ENDPOINTS = {
     pair: '/api/comparisons/pair',
     submit: '/api/comparisons/submit',
   },
+  love: {
+    questionnaire: '/api/love/questionnaire',
+    status: (userId: string) => `/api/love/status/${userId}`,
+  },
 } as const;

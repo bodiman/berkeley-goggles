@@ -85,6 +85,14 @@ model User {
   matchesReceived   Match[] @relation("MatchesReceived")
   matchMessagesSent MatchMessage[] @relation("MatchMessagesSent")
 
+  // Love@Berkeley fields
+  loveSource               String?   @map("love_source")  // "goggles" | "love"
+  loveOnboardingComplete   Boolean   @default(false) @map("love_onboarding_complete")
+  loveComparisonsCompleted Int       @default(0) @map("love_comparisons_completed")
+
+  // Love@Berkeley relation
+  loveQuestionnaireResponse LoveQuestionnaireResponse?
+
   @@map("users")
 }
 
@@ -483,4 +491,17 @@ model MatchMessage {
   @@index([matchId])
   @@index([senderId])
   @@map("match_messages")
+}
+
+model LoveQuestionnaireResponse {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  answers     Json     @db.JsonB
+  version     Int      @default(1)
+  completedAt DateTime @default(now()) @map("completed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("love_questionnaire_responses")
 }
